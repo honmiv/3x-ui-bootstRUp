@@ -1,0 +1,89 @@
+{
+  "listen": "",
+  "port": {{XHTTP_REALITY_INBOUND_PORT}},
+  "protocol": "vless",
+  "tag": "in-{{XHTTP_REALITY_INBOUND_PORT}}-tcp",
+  "settings": {
+    "clients": [],
+    "decryption": "none",
+    "encryption": "none",
+    "testseed": [
+      900,
+      500,
+      900,
+      256
+    ]
+  },
+  "sniffing": {
+    "enabled": true,
+    "destOverride": [
+      "http",
+      "tls",
+      "quic",
+      "fakedns"
+    ]
+  },
+  "streamSettings": {
+    "network": "xhttp",
+    "xhttpSettings": {
+      "path": "/",
+      "host": "{{DOMAIN}}",
+      "mode": "auto",
+      "xPaddingBytes": "100-1000",
+      "xPaddingObfsMode": false,
+      "xPaddingKey": "",
+      "xPaddingHeader": "",
+      "xPaddingPlacement": "",
+      "xPaddingMethod": "",
+      "sessionPlacement": "",
+      "sessionKey": "",
+      "seqPlacement": "",
+      "seqKey": "",
+      "uplinkDataPlacement": "",
+      "uplinkDataKey": "",
+      "scMaxEachPostBytes": "1000000",
+      "noSSEHeader": false,
+      "scMaxBufferedPosts": 30,
+      "scStreamUpServerSecs": "20-80",
+      "serverMaxHeaderBytes": 0,
+      "uplinkHTTPMethod": "",
+      "headers": {},
+      "scMinPostsIntervalMs": "30",
+      "uplinkChunkSize": 0,
+      "noGRPCHeader": false,
+      "enableXmux": false
+    },
+    "security": "reality",
+    "realitySettings": {
+      "show": false,
+      "xver": 0,
+      "target": "caddy:{{CADDY_GLOBAL_INTERNAL_PORT}}",
+      "serverNames": [
+        "{{DOMAIN}}"
+      ],
+      "privateKey": "{{XHTTP_REALITY_PRIVATE_KEY}}",
+      "minClientVer": "",
+      "maxClientVer": "",
+      "maxTimediff": 0,
+      "shortIds": {{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}},
+      "mldsa65Seed": "",
+      "settings": {
+        "publicKey": "{{XHTTP_REALITY_PUBLIC_KEY}}",
+        "fingerprint": "chrome",
+        "serverName": "",
+        "spiderX": "/",
+        "mldsa65Verify": ""
+      }
+    },
+    "externalProxy": [
+      {
+        "forceTls": "same",
+        "dest": "{{DOMAIN}}",
+        "port": 443,
+        "remark": "",
+        "sni": "",
+        "alpn": []
+      }
+    ]
+  }
+}

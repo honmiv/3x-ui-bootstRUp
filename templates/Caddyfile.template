@@ -1,0 +1,61 @@
+{                                                                                                                                           
+
+    acme_ca https://acme.zerossl.com/v2/DV90
+    email   3xui@{{DOMAIN}}
+
+    log {                                                                                                                                   
+        level {$LOG_LEVEL:INFO}                                                                                                             
+        format json                                                                                                                         
+        output stdout                                                                                                                       
+    }                                                                                                                                       
+                                                                                                                                            
+    https_port {{CADDY_GLOBAL_INTERNAL_PORT}}
+    auto_https disable_redirects                                                                                                            
+                                                                                                                                            
+    servers :{{CADDY_GLOBAL_INTERNAL_PORT}} {
+        protocols h1 h2                                                                                                                     
+        listener_wrappers {                                                                                                                 
+            proxy_protocol {                                                                                                                
+                allow 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8                                                                               
+            }                                                                                                                               
+            tls                                                                                                                             
+        }                                                                                                                                   
+    }                                                                                                                                       
+}                                                                                                                                           
+                                                                                                                                            
+(access_logs) {                                                                                                                             
+    log {                                                                                                                                   
+        level {$LOG_LEVEL:FATAL}                                                                                                            
+        format json                                                                                                                         
+        output stdout                                                                                                                       
+    }                                                                                                                                       
+}                                                                                                                                           
+                                                                                                                                            
+http://{{DOMAIN}}:80 {                                                                                                            
+    import access_logs                                                                                                                      
+
+    @not_acme {
+        not path /.well-known/acme-challenge/*
+    }
+
+    redir @not_acme https://{{DOMAIN}}{uri} permanent
+}                                                                                                                                           
+
+{{DOMAIN}}:{{CADDY_GLOBAL_INTERNAL_PORT}} {
+    import access_logs
+
+    @sub_path path /{{XUI_SUB_PATH}}/*
+    reverse_proxy @sub_path 3xui:{{XUI_SUB_PORT}}
+
+    @web_base_path path /{{XUI_WEB_BASE_PATH}} /{{XUI_WEB_BASE_PATH}}/*
+    reverse_proxy @web_base_path 3xui:{{XUI_WEB_PORT}}
+                                                                                                                                            
+    root * /srv                                                                                                                             
+    encode gzip zstd                                                                                                                        
+    file_server                                                                                                                             
+    header {                                                                                                                                
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"                                                            
+        X-Content-Type-Options nosniff                                                                                                      
+        X-Frame-Options SAMEORIGIN                                                                                                          
+    }                                                                                                                                       
+}

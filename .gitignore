@@ -1,0 +1,4 @@
+.gitignore
+working
+.caddy_data
+.idea

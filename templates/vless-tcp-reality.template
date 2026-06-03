@@ -1,0 +1,57 @@
+{
+  "listen": "",
+  "port": 443,
+  "protocol": "vless",
+  "tag": "in-443-tcp",
+  "settings": {
+    "clients": [],
+    "decryption": "none",
+    "encryption": "none",
+    "testseed": [
+      900,
+      500,
+      900,
+      256
+    ]
+  },
+  "sniffing": {
+    "enabled": true,
+    "destOverride": [
+      "http",
+      "tls",
+      "quic",
+      "fakedns"
+    ]
+  },
+  "streamSettings": {
+    "network": "tcp",
+    "tcpSettings": {
+      "acceptProxyProtocol": false,
+      "header": {
+        "type": "none"
+      }
+    },
+    "security": "reality",
+    "realitySettings": {
+      "show": false,
+      "xver": 0,
+      "target": "127.0.0.1:{{XHTTP_REALITY_INBOUND_PORT}}",
+      "serverNames": [
+        "{{DOMAIN}}"
+      ],
+      "privateKey": "{{TCP_REALITY_PRIVATE_KEY}}",
+      "minClientVer": "",
+      "maxClientVer": "",
+      "maxTimediff": 0,
+      "shortIds": {{TCP_REALITY_SHORT_IDS_JSON_ARRAY}},
+      "mldsa65Seed": "",
+      "settings": {
+        "publicKey": "{{TCP_REALITY_PUBLIC_KEY}}",
+        "fingerprint": "chrome",
+        "serverName": "",
+        "spiderX": "/",
+        "mldsa65Verify": ""
+      }
+    }
+  }
+}

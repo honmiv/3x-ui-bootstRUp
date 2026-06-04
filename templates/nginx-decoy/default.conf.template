@@ -1,0 +1,50 @@
+server_tokens off;
+
+map $host $known_decoy_host {
+    default 0;
+    {{DOMAIN}} 1;
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    error_page 400 /errors/400.html;
+    error_page 403 /errors/403.html;
+    error_page 404 /errors/404.html;
+    error_page 405 /errors/405.html;
+    error_page 500 502 503 504 /errors/50x.html;
+
+    if ($request_method = CONNECT) {
+        return 444;
+    }
+
+    if ($request_uri ~* "^https?://") {
+        return 400;
+    }
+
+    if ($known_decoy_host = 0) {
+        return 404 "not found: $host $request_uri\n";
+    }
+
+    location = /robots.txt {
+        try_files /robots.txt =404;
+        access_log off;
+    }
+
+    location = /favicon.ico {
+        return 204;
+        access_log off;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location /errors/ {
+        internal;
+    }
+}

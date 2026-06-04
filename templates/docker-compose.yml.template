@@ -1,6 +1,6 @@
 services:
   3xui:
-    image: 'ghcr.io/mhsanaei/3x-ui:3.2.5'
+    image: 'ghcr.io/mhsanaei/3x-ui:3.2.7'
     container_name: 3xui
     restart: unless-stopped
     volumes:
@@ -17,12 +17,23 @@ services:
     image: caddy:latest
     container_name: caddy
     restart: always
+    depends_on:
+      - nginx-decoy
     volumes:
       - ./.caddy_data/data:/data
-      - ./working/caddy-web-templates:/srv
       - ./working/Caddyfile:/etc/caddy/Caddyfile
     ports:
       - "80:80"
+    networks:
+      - 3xui-caddy-net
+
+  nginx-decoy:
+    image: nginx:1.27-alpine
+    container_name: nginx-decoy
+    restart: unless-stopped
+    volumes:
+      - ./working/nginx-decoy/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./working/nginx-decoy/html:/usr/share/nginx/html:ro
     networks:
       - 3xui-caddy-net
 

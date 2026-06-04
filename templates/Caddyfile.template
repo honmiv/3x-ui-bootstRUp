@@ -29,30 +29,43 @@
         format json                                                                                                                         
         output stdout                                                                                                                       
     }                                                                                                                                       
-}                                                                                                                                           
-                                                                                                                                            
-http://{{DOMAIN}}:80 {                                                                                                            
-    import access_logs                                                                                                                      
+}
 
-    @not_acme {
-        not path /.well-known/acme-challenge/*
+(strip_response_headers) {
+    header {
+        -Via
     }
+}
 
-    redir @not_acme https://{{DOMAIN}}{uri} permanent
+                                                                                                                                            
+http://:80 {                                                                                                                               
+    import access_logs
+    import strip_response_headers
+
+    @connect method CONNECT
+
+    route {
+        abort @connect
+        reverse_proxy nginx-decoy:80 {
+            header_up Host {http.request.host}
+        }
+    }
 }                                                                                                                                           
 
 {{DOMAIN}}:{{CADDY_GLOBAL_INTERNAL_PORT}} {
     import access_logs
+    import strip_response_headers
 
     @sub_path path /{{XUI_SUB_PATH}}/*
-    reverse_proxy @sub_path 3xui:{{XUI_SUB_PORT}}
-
     @web_base_path path /{{XUI_WEB_BASE_PATH}} /{{XUI_WEB_BASE_PATH}}/*
-    reverse_proxy @web_base_path 3xui:{{XUI_WEB_PORT}}
                                                                                                                                             
-    root * /srv                                                                                                                             
-    encode gzip zstd                                                                                                                        
-    file_server                                                                                                                             
+    route {
+        reverse_proxy @sub_path 3xui:{{XUI_SUB_PORT}}
+        reverse_proxy @web_base_path 3xui:{{XUI_WEB_PORT}}
+        reverse_proxy nginx-decoy:80 {
+            header_up Host {http.request.host}
+        }
+    }                                                                                                                                       
     header {                                                                                                                                
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"                                                            
         X-Content-Type-Options nosniff                                                                                                      

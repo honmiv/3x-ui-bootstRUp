@@ -359,9 +359,7 @@ load_messages() {
         MSG_DOMAIN_EMPTY="Домен не может быть пустым."
         MSG_DOMAIN_INVALID="Некорректный домен: %s. Используйте ASCII-домен без протокола: латинские буквы, цифры, дефисы и точки."
         MSG_SEC_SECRET_TITLE="Секретная фраза"
-        MSG_SEC_SECRET_DESC="Секретная фраза используется для генерации скрытых путей панели и подписок.\nEnter оставит случайную строку. Своя фраза нужна, если вы хотите получить те же endpoints\nдля панели и подписок на другом инстансе 3x-ui, например на другом сервере.\nИтоговые URL будут показаны в конце."
-        MSG_SEC_SECRET_PROMPT="Задать свою секретную фразу? [y/n, Enter = n]: "
-        MSG_YES_NO_INVALID="Введите y, n или нажмите Enter."
+        MSG_SEC_SECRET_DESC="Секретная фраза используется для генерации скрытых путей панели и подписок.\nEnter оставит случайную строку. Своя фраза нужна, если вы хотите получить те же endpoints\nдля панели и подписок на другом инстансе 3x-ui, например на другом сервере.\nИтоговые URL будут показаны в конце.\nВведите собственную фразу или примите случайно сгенерированную."
         MSG_SUGGEST_SECRET="Секретная фраза [Enter = %s]: "
         MSG_PORTS_GENERATING="Подбираю свободные внутренние порты."
         MSG_PORTS_SELECTED="Порты выбраны: панель %s, подписки %s, Caddy %s, XHTTP %s."
@@ -388,7 +386,7 @@ load_messages() {
         MSG_CLIENT_READY="VPN-клиент добавлен."
         MSG_RESULTS_TITLE="Готово"
         MSG_SETUP_DONE="Установка завершена."
-        MSG_CRED_PANEL="Панель:"
+        MSG_CRED_PANEL="3x-UI панель доступна на:"
         MSG_QR_SUB="QR-код подписки"
         MSG_QR_TCP="QR-код VLESS TCP Reality"
         MSG_QR_XHTTP="QR-код VLESS XHTTP Reality"
@@ -432,9 +430,7 @@ load_messages() {
         MSG_DOMAIN_EMPTY="Domain cannot be empty."
         MSG_DOMAIN_INVALID="Invalid domain: %s. Use an ASCII domain without protocol: letters, digits, hyphens, and dots."
         MSG_SEC_SECRET_TITLE="Secret phrase"
-        MSG_SEC_SECRET_DESC="The secret phrase is used to generate hidden panel and subscription paths.\nPress Enter to keep the generated random value. Enter your own phrase if you want the same\npanel and subscription endpoints on another 3x-ui instance, for example on another server.\nFinal URLs will be shown at the end."
-        MSG_SEC_SECRET_PROMPT="Set a custom secret phrase? [y/n, Enter = n]: "
-        MSG_YES_NO_INVALID="Enter y, n, or press Enter."
+        MSG_SEC_SECRET_DESC="The secret phrase is used to generate hidden panel and subscription paths.\nPress Enter to keep the generated random value. Enter your own phrase if you want the same\npanel and subscription endpoints on another 3x-ui instance, for example on another server.\nFinal URLs will be shown at the end.\nEnter a custom phrase or accept the randomly generated one."
         MSG_SUGGEST_SECRET="Secret phrase [Enter = %s]: "
         MSG_PORTS_GENERATING="Selecting free internal ports."
         MSG_PORTS_SELECTED="Selected ports: panel %s, subscription %s, Caddy %s, XHTTP %s."
@@ -461,7 +457,7 @@ load_messages() {
         MSG_CLIENT_READY="VPN client added."
         MSG_RESULTS_TITLE="Done"
         MSG_SETUP_DONE="Installation completed."
-        MSG_CRED_PANEL="Panel:"
+        MSG_CRED_PANEL="3x-UI panel is available at:"
         MSG_QR_SUB="Subscription QR code"
         MSG_QR_TCP="VLESS TCP Reality QR code"
         MSG_QR_XHTTP="VLESS XHTTP Reality QR code"
@@ -486,14 +482,7 @@ prompt_secret_phrase() {
     DEFAULT_SECRET_PHRASE=$(tr -dc '0-9' < /dev/urandom | head -c 16)
     section "$MSG_SEC_SECRET_TITLE"
     echo -e "${YELLOW}${MSG_SEC_SECRET_DESC}${NC}"
-    prompt_choice "$MSG_SEC_SECRET_PROMPT" "$MSG_YES_NO_INVALID" '^$|^[Yy]$|^[Nn]$' CUSTOM_SECRET_CHOICE
-
-    SECRET_PHRASE=""
-    if [[ "$CUSTOM_SECRET_CHOICE" =~ ^[Yy]$ ]]; then
-        prompt_secret_with_default "$(printf "$MSG_SUGGEST_SECRET" "$DEFAULT_SECRET_PHRASE")" "$DEFAULT_SECRET_PHRASE" SECRET_PHRASE
-    else
-        SECRET_PHRASE="$DEFAULT_SECRET_PHRASE"
-    fi
+    prompt_secret_with_default "$(printf "$MSG_SUGGEST_SECRET" "$DEFAULT_SECRET_PHRASE")" "$DEFAULT_SECRET_PHRASE" SECRET_PHRASE
 }
 
 prompt_panel_credentials() {
@@ -544,8 +533,10 @@ process_templates() {
     generate_config "./templates/vless-tcp-reality.template"    "./working/vless-tcp-reality"
     generate_config "./templates/vless-xhttp-reality.template"  "./working/vless-xhttp-reality"
 
-    if [[ -d "./templates/caddy-web-templates" ]]; then
-        cp -r "./templates/caddy-web-templates" "./working/caddy-web-templates"
+    if [[ -d "./templates/nginx-decoy" ]]; then
+        rm -rf "./working/nginx-decoy"
+        cp -r "./templates/nginx-decoy" "./working/nginx-decoy"
+        generate_config "./templates/nginx-decoy/default.conf.template" "./working/nginx-decoy/default.conf"
     fi
 }
 
@@ -787,6 +778,28 @@ build_sub_and_connect_urls() {
     success "$MSG_SUB_FETCH_SUCCESS"
 }
 
+install_ssh_login_notice() {
+    cat > /etc/profile.d/3x-ui.sh <<EOF
+#!/usr/bin/env bash
+
+case "\$-" in
+    *i*) ;;
+    *) return 0 2>/dev/null || exit 0 ;;
+esac
+
+[[ -n "\${SSH_CONNECTION:-}" || -n "\${SSH_TTY:-}" ]] || return 0 2>/dev/null || exit 0
+
+cat <<'MSG'
+
+${MSG_CRED_PANEL}
+  https://${DOMAIN}/${XUI_WEB_BASE_PATH}/
+
+MSG
+EOF
+
+    chmod 644 /etc/profile.d/3x-ui.sh
+}
+
 print_results() {
     section "$MSG_RESULTS_TITLE"
     success "$MSG_SETUP_DONE"
@@ -843,6 +856,7 @@ main() {
     wait_for_ssl
 
     build_sub_and_connect_urls
+    install_ssh_login_notice
     print_results
 }
 

@@ -2,7 +2,7 @@
   "listen": "",
   "port": {{XHTTP_REALITY_INBOUND_PORT}},
   "protocol": "vless",
-  "tag": "in-{{XHTTP_REALITY_INBOUND_PORT}}-tcp",
+  "tag": "in-{{XHTTP_REALITY_INBOUND_PORT}}-xhttp",
   "settings": {
     "clients": [],
     "decryption": "none",

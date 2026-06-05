@@ -1,6 +1,6 @@
 services:
   3xui:
-    image: 'ghcr.io/mhsanaei/3x-ui:3.2.7'
+    image: 'ghcr.io/mhsanaei/3x-ui:3.2.5'
     container_name: 3xui
     restart: unless-stopped
     volumes:

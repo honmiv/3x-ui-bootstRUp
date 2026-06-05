@@ -47,7 +47,7 @@
       "mldsa65Seed": "",
       "settings": {
         "publicKey": "{{TCP_REALITY_PUBLIC_KEY}}",
-        "fingerprint": "chrome",
+        "fingerprint": "firefox",
         "serverName": "",
         "spiderX": "/",
         "mldsa65Verify": ""

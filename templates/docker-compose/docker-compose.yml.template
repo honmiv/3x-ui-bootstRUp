@@ -4,7 +4,7 @@ services:
     container_name: 3xui
     restart: unless-stopped
     volumes:
-      - ./working/db/:/etc/x-ui/
+      - ./working/3x-ui/db/:/etc/x-ui/
     environment:
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"
@@ -13,7 +13,7 @@ services:
 
   caddy:
     build:
-      context: ./templates
+      context: ./templates/docker-compose
       dockerfile: Dockerfile-caddy-l4
     container_name: caddy
     restart: always
@@ -22,7 +22,7 @@ services:
       - nginx-decoy
     volumes:
       - ./.caddy_data/data:/data
-      - ./working/Caddyfile:/etc/caddy/Caddyfile
+      - ./working/caddy/Caddyfile:/etc/caddy/Caddyfile
     ports:
       - "80:80"
       - "443:443"

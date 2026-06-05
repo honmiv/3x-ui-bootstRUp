@@ -167,13 +167,8 @@ get_unique_random_port() {
     echo "$port"
 }
 
-generate_config() {
-    local template_path="$1"
-    local target_path="$2"
-
-    [[ -f "$template_path" ]] || die "${MSG_CONFIG_ERR} $template_path"
-    cp "$template_path" "$target_path"
-
+apply_template_values() {
+    local target_path="$1"
     sed -i \
        -e "s|{{DOMAIN}}|${DOMAIN}|g" \
        -e "s|{{XUI_WEB_BASE_PATH}}|${XUI_WEB_BASE_PATH}|g" \
@@ -181,6 +176,7 @@ generate_config() {
        -e "s|{{XUI_WEB_PORT}}|${XUI_WEB_PORT}|g" \
        -e "s|{{XUI_SUB_PORT}}|${XUI_SUB_PORT}|g" \
        -e "s|{{CADDY_GLOBAL_INTERNAL_PORT}}|${CADDY_GLOBAL_INTERNAL_PORT}|g" \
+       -e "s|{{TCP_REALITY_INBOUND_PORT}}|${TCP_REALITY_INBOUND_PORT}|g" \
        -e "s|{{XHTTP_REALITY_INBOUND_PORT}}|${XHTTP_REALITY_INBOUND_PORT}|g" \
        -e "s|{{TCP_REALITY_PRIVATE_KEY}}|${TCP_REALITY_PRIVATE_KEY}|g" \
        -e "s|{{TCP_REALITY_PUBLIC_KEY}}|${TCP_REALITY_PUBLIC_KEY}|g" \
@@ -189,8 +185,31 @@ generate_config() {
        -e "s|{{XHTTP_REALITY_PUBLIC_KEY}}|${XHTTP_REALITY_PUBLIC_KEY}|g" \
        -e "s|{{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}}|${XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}|g" \
        "$target_path"
+}
 
-    success "$(printf "$MSG_CONFIG_SUCCESS" "$target_path")"
+generate_config() {
+    local template_dir="$1"
+    local target_dir="$2"
+    local source_path relative_path target_relative target_path
+
+    [[ -d "$template_dir" ]] || die "${MSG_CONFIG_ERR} $template_dir"
+    rm -rf "$target_dir"
+    mkdir -p "$target_dir"
+
+    while IFS= read -r -d '' source_path; do
+        relative_path="${source_path#"$template_dir"/}"
+        target_relative="${relative_path%.template}"
+        target_path="${target_dir}/${target_relative}"
+
+        mkdir -p "$(dirname "$target_path")"
+        cp "$source_path" "$target_path"
+
+        if [[ "$source_path" == *.template ]]; then
+            apply_template_values "$target_path"
+        fi
+    done < <(find "$template_dir" -type f -print0)
+
+    success "$(printf "$MSG_CONFIG_SUCCESS" "$target_dir")"
 }
 
 show_spinner() {
@@ -362,7 +381,7 @@ load_messages() {
         MSG_SEC_SECRET_DESC="Секретная фраза используется для генерации скрытых путей панели и подписок.\nEnter оставит случайную строку. Своя фраза нужна, если вы хотите получить те же endpoints\nдля панели и подписок на другом инстансе 3x-ui, например на другом сервере.\nИтоговые URL будут показаны в конце.\nВведите собственную фразу или примите случайно сгенерированную."
         MSG_SUGGEST_SECRET="Секретная фраза [Enter = %s]: "
         MSG_PORTS_GENERATING="Подбираю свободные внутренние порты."
-        MSG_PORTS_SELECTED="Порты выбраны: панель %s, подписки %s, Caddy %s, XHTTP %s."
+        MSG_PORTS_SELECTED="Порты выбраны: панель %s, подписки %s, Caddy %s, TCP Reality %s, XHTTP Reality %s."
         MSG_KEYS_GENERATING="Генерирую Reality-ключи."
         MSG_KEYS_READY="Reality-ключи сгенерированы."
         MSG_PROCESSING="Генерация конфигурации"
@@ -433,7 +452,7 @@ load_messages() {
         MSG_SEC_SECRET_DESC="The secret phrase is used to generate hidden panel and subscription paths.\nPress Enter to keep the generated random value. Enter your own phrase if you want the same\npanel and subscription endpoints on another 3x-ui instance, for example on another server.\nFinal URLs will be shown at the end.\nEnter a custom phrase or accept the randomly generated one."
         MSG_SUGGEST_SECRET="Secret phrase [Enter = %s]: "
         MSG_PORTS_GENERATING="Selecting free internal ports."
-        MSG_PORTS_SELECTED="Selected ports: panel %s, subscription %s, Caddy %s, XHTTP %s."
+        MSG_PORTS_SELECTED="Selected ports: panel %s, subscription %s, Caddy %s, TCP Reality %s, XHTTP Reality %s."
         MSG_KEYS_GENERATING="Generating Reality keys."
         MSG_KEYS_READY="Reality keys generated."
         MSG_PROCESSING="Generating configuration"
@@ -501,8 +520,9 @@ generate_ports() {
     XUI_WEB_PORT=$(get_unique_random_port)
     XUI_SUB_PORT=$(get_unique_random_port)
     CADDY_GLOBAL_INTERNAL_PORT=$(get_unique_random_port)
+    TCP_REALITY_INBOUND_PORT=$(get_unique_random_port)
     XHTTP_REALITY_INBOUND_PORT=$(get_unique_random_port)
-    success "$(printf "$MSG_PORTS_SELECTED" "$XUI_WEB_PORT" "$XUI_SUB_PORT" "$CADDY_GLOBAL_INTERNAL_PORT" "$XHTTP_REALITY_INBOUND_PORT")"
+    success "$(printf "$MSG_PORTS_SELECTED" "$XUI_WEB_PORT" "$XUI_SUB_PORT" "$CADDY_GLOBAL_INTERNAL_PORT" "$TCP_REALITY_INBOUND_PORT" "$XHTTP_REALITY_INBOUND_PORT")"
 }
 
 generate_paths() {
@@ -528,16 +548,7 @@ generate_reality_keys() {
 
 process_templates() {
     section "$MSG_PROCESSING"
-    generate_config "./templates/docker-compose.yml.template"   "$DOCKER_COMPOSE_FILE"
-    generate_config "./templates/Caddyfile.template"            "./working/Caddyfile"
-    generate_config "./templates/vless-tcp-reality.template"    "./working/vless-tcp-reality"
-    generate_config "./templates/vless-xhttp-reality.template"  "./working/vless-xhttp-reality"
-
-    if [[ -d "./templates/nginx-decoy" ]]; then
-        rm -rf "./working/nginx-decoy"
-        cp -r "./templates/nginx-decoy" "./working/nginx-decoy"
-        generate_config "./templates/nginx-decoy/default.conf.template" "./working/nginx-decoy/default.conf"
-    fi
+    generate_config "./templates" "./working"
 }
 
 wait_for_3xui_ready() {
@@ -850,7 +861,7 @@ main() {
     update_panel_settings_api
 
     start_3xui
-    wait_for_3xui_tcp "443"
+    wait_for_3xui_tcp "$TCP_REALITY_INBOUND_PORT"
     start_caddy
 
     wait_for_ssl

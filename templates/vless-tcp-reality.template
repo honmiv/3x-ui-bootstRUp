@@ -1,8 +1,8 @@
 {
   "listen": "",
-  "port": 443,
+  "port": {{TCP_REALITY_INBOUND_PORT}},
   "protocol": "vless",
-  "tag": "in-443-tcp",
+  "tag": "in-{{TCP_REALITY_INBOUND_PORT}}-tcp",
   "settings": {
     "clients": [],
     "decryption": "none",
@@ -52,6 +52,16 @@
         "spiderX": "/",
         "mldsa65Verify": ""
       }
-    }
+    },
+    "externalProxy": [
+      {
+        "forceTls": "same",
+        "dest": "{{DOMAIN}}",
+        "port": 443,
+        "remark": "",
+        "sni": "",
+        "alpn": []
+      }
+    ]
   }
 }

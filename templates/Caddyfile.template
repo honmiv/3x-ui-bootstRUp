@@ -11,6 +11,14 @@
                                                                                                                                             
     https_port {{CADDY_GLOBAL_INTERNAL_PORT}}
     auto_https disable_redirects                                                                                                            
+
+    layer4 {
+        :443 {
+            route {
+                proxy 3xui:{{TCP_REALITY_INBOUND_PORT}}
+            }
+        }
+    }
                                                                                                                                             
     servers :{{CADDY_GLOBAL_INTERNAL_PORT}} {
         protocols h1 h2                                                                                                                     
@@ -37,7 +45,6 @@
     }
 }
 
-                                                                                                                                            
 http://:80 {                                                                                                                               
     import access_logs
     import strip_response_headers
@@ -50,7 +57,7 @@ http://:80 {
             header_up Host {http.request.host}
         }
     }
-}                                                                                                                                           
+}  
 
 {{DOMAIN}}:{{CADDY_GLOBAL_INTERNAL_PORT}} {
     import access_logs
@@ -58,17 +65,17 @@ http://:80 {
 
     @sub_path path /{{XUI_SUB_PATH}}/*
     @web_base_path path /{{XUI_WEB_BASE_PATH}} /{{XUI_WEB_BASE_PATH}}/*
-                                                                                                                                            
+
     route {
         reverse_proxy @sub_path 3xui:{{XUI_SUB_PORT}}
         reverse_proxy @web_base_path 3xui:{{XUI_WEB_PORT}}
         reverse_proxy nginx-decoy:80 {
             header_up Host {http.request.host}
         }
-    }                                                                                                                                       
-    header {                                                                                                                                
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"                                                            
-        X-Content-Type-Options nosniff                                                                                                      
-        X-Frame-Options SAMEORIGIN                                                                                                          
-    }                                                                                                                                       
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+    }
 }

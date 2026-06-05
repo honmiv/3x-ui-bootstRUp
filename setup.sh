@@ -8,7 +8,7 @@ readonly YELLOW='\033[0;33m'
 readonly RED='\033[0;31m'
 
 readonly REQUIRED_CMDS=("curl" "jq" "openssl" "ss" "qrencode" "pgrep" "base64" "md5sum" "awk" "grep" "sed")
-readonly DOCKER_COMPOSE_FILE="./working/docker-compose.yml"
+readonly DOCKER_COMPOSE_FILE="./working/docker-compose/docker-compose.yml"
 readonly PANEL_CONTAINER="3xui"
 readonly PANEL_API_PORT="2053"
 
@@ -297,6 +297,9 @@ install_docker() {
         systemctl is-enabled --quiet docker || systemctl enable docker
     fi
 
+    echo -e "${YELLOW}${MSG_DOCKER_MIRRORS}${NC}"
+    mkdir -p /etc/docker && echo '{"registry-mirrors": ["https://dh-mirror.gitverse.ru"]}' | sudo tee /etc/docker/daemon.json > /dev/null
+
     success "$MSG_DOCKER_READY"
 }
 
@@ -339,6 +342,7 @@ select_language() {
 
 load_messages() {
     if [[ "$LANG" == "RU" ]]; then
+        MSG_DOCKER_MIRRORS="Настройка российского зеркала реестра Docker (резерв) из-за известных проблем с доступом к Docker Hub в России. Если у вас есть другое предпочтительное зеркало, вы можете изменить его в /root/3x-ui-bootstRUp/docker/daemon.json и повторно запустить установку"
         MSG_STEP_PREFLIGHT="Проверка окружения"
         MSG_DEPS_INSTALLING="Устанавливаю системные зависимости через %s: %s"
         MSG_DEPS_READY="Системные зависимости доступны."
@@ -395,7 +399,7 @@ load_messages() {
         MSG_FINAL_LAUNCH="Запуск Caddy"
         MSG_WAIT_SSL="Ожидание HTTPS-сертификата"
         MSG_SSL_TIMEOUT="Сертификат не стал доступен за %d секунд."
-        MSG_SSL_LOGS_HINT="Проверьте логи Caddy с помощью: docker compose -f ./working/docker-compose.yml --project-directory . logs caddy"
+        MSG_SSL_LOGS_HINT="Проверьте логи Caddy с помощью: docker compose -f $DOCKER_COMPOSE_FILE --project-directory . logs caddy"
         MSG_SSL_VALIDATING="[%s] HTTPS на 443: %ds / %ds"
         MSG_SSL_SUCCESS="HTTPS-сертификат активен за %d сек."
         MSG_PANEL_USER_CONFIGURING="Настраиваю пользователя панели."
@@ -410,6 +414,7 @@ load_messages() {
         MSG_QR_TCP="QR-код VLESS TCP Reality"
         MSG_QR_XHTTP="QR-код VLESS XHTTP Reality"
     else
+        MSG_DOCKER_MIRRORS="Configuring Russian Docker registry mirror (fallback) due to known issues with Docker Hub access in Russia. If you have a different preferred mirror, you can change it in /root/3x-ui-bootstRUp/docker/daemon.json and re-run installation"
         MSG_STEP_PREFLIGHT="Environment check"
         MSG_DEPS_INSTALLING="Installing system dependencies with %s: %s"
         MSG_DEPS_READY="System dependencies are available."
@@ -466,7 +471,7 @@ load_messages() {
         MSG_FINAL_LAUNCH="Starting Caddy"
         MSG_WAIT_SSL="Waiting for HTTPS certificate"
         MSG_SSL_TIMEOUT="Certificate was not available within %d seconds."
-        MSG_SSL_LOGS_HINT="Check Caddy logs using: docker compose -f ./working/docker-compose.yml --project-directory . logs caddy"
+        MSG_SSL_LOGS_HINT="Check Caddy logs using: docker compose -f $DOCKER_COMPOSE_FILE --project-directory . logs caddy"
         MSG_SSL_VALIDATING="[%s] HTTPS on 443: %ds / %ds"
         MSG_SSL_SUCCESS="HTTPS certificate is active in %d sec."
         MSG_PANEL_USER_CONFIGURING="Configuring panel user."
@@ -706,7 +711,6 @@ fetch_panel_page() {
 
 configure_panel_user() {
     info "$MSG_PANEL_USER_CONFIGURING"
-    rm -f ./working/cookie.txt ./working/index.html ./working/panel.html
 
     local enc_old_user enc_old_pass enc_new_user enc_new_pass
     enc_old_user=$(url_encode "admin")
@@ -740,7 +744,7 @@ add_inbound() {
     info "$(printf "$MSG_INBOUND_ADDING" "$config_name")"
     payload=$(jq -r --arg filename "$config_name" '
       { up: 0, down: 0, total: 0, remark: $filename, enable: true, expiryTime: 0, trafficReset: "never", lastTrafficResetTime: 0 } + . | to_entries | map("\(.key)=\(if (.value | type) == "object" then (.value | tojson | @uri) else (.value | tostring | @uri) end)") | join("&")
-    ' "./working/$config_name")
+    ' "./working/3x-ui/$config_name")
 
     panel_api_request "panel/api/inbounds/add" "./working/add-inbound-response.json" \
         -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \

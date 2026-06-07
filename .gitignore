@@ -2,3 +2,4 @@
 working
 .caddy_data
 .idea
+*.code-workspace

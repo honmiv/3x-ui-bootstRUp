@@ -8,7 +8,7 @@
 <h2>Установка</h2>
 
 ```shell
-curl -fsSL [https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/install.sh](https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/install.sh) | bash
+curl -fsSL https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/install.sh | bash
 ```
 
 <h2>Требования</h2></summary>

@@ -7,8 +7,51 @@
 
 <h2>Установка</h2>
 
+<h4>Полу-ручная</h4>
+
+```shell
+git pull https://github.com/honmiv/3x-ui-bootstRUp.git
+cd 3x-ui-bootstRUp
+./install.sh
+```
+
+<h4>Автоматическая</h4>
+
 ```shell
 curl -fsSL https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/install.sh | bash
+```
+
+<h2>Обновление скрипта</h2>
+
+<h4>Полу-ручное</h4>
+
+```shell
+git fetch origin
+git reset --hard origin/master
+```
+
+<h4>Автоматическое</h4>
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/update_sources.sh | bash
+```
+
+<h2> Обновлние панели </h2>
+
+Чтобы обновить панель на конкретную версию:
+```shell
+./update 3.3.1
+```
+Чтобы обновить панель на последнюю версию:
+```shell
+./update latest
+```
+
+<h4> Откатить обновление </h4>
+
+Чтобы откатить обновление, если что-то сломалось:
+```shell
+./rollback_update
 ```
 
 <h2>Требования</h2></summary>
@@ -107,24 +150,8 @@ graph TD
 * Добавляет скрипт в `/etc/profile.d/3x-ui.sh`, который выводит адрес и учетные данные панели при каждом SSH-входе на сервер.
 </details>
 
-## Примечания
+<h2> Примечания </h2>
 
 * Перенаправление нецелевого трафика между inbound-ами (от TCP к xhttp и далее на внутренний порт Caddy) реализовано через поле `target`, а не через механизм `fallbacks` последних версий 3x-UI.
 * Добавление/удаление inbound'ов требует аккуратной настройки target в inbound'ах.
 * Удаление vless+tcp+reality inbounda без добавления inbounda с тем же портом потребует правки Caddyfile.
-
-## Обновлние панели
-Чтобы обновить панель на конкретную версию:
-```bash
-./update 3.3.1
-```
-Чтобы обновить панель на последнюю версию:
-```bash
-./update latest
-```
-
-## Откатить обновление
-Чтобы откатить обновление, если что-то сломалось:
-```bash
-./rollback_update
-```

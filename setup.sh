@@ -610,6 +610,14 @@ panel_api_request() {
 update_panel_settings_api() {
     section "$MSG_API_START"
 
+    local image_version
+    image_version=$(docker ps -f name=3xui --format "{{.Image}}" | awk -F: '{print $2}' | tr -d '[:space:]')
+
+    local api_path="panel/setting"
+    if [[ -n "$image_version" ]] && [[ "$(printf '%s\n%s' "3.3.1" "$image_version" | sort -V | head -n1)" == "3.3.1" ]]; then
+        api_path="panel/api/setting"
+    fi
+
     local current_settings
     info "$MSG_API_FETCHING"
     current_settings=$(panel_exec bash -c "
@@ -618,7 +626,7 @@ update_panel_settings_api() {
             -c /tmp/cookie.txt \
             -H 'accept: application/json, text/plain, */*' \
             -H 'x-csrf-token: ${CSRF_TOKEN}' \
-            'http://127.0.0.1:${PANEL_API_PORT}/panel/setting/all'
+            'http://127.0.0.1:${PANEL_API_PORT}/${api_path}/all'
     ")
 
     if [[ -z "$current_settings" || $(echo "$current_settings" | jq -r '.success') != "true" ]]; then
@@ -645,7 +653,7 @@ update_panel_settings_api() {
 
     info "$MSG_API_SENDING"
 
-    panel_api_request "panel/setting/update" "./working/update_result.json" \
+    panel_api_request "${api_path}/update" "./working/update_result.json" \
         -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
         -H "x-csrf-token: ${CSRF_TOKEN}" \
         --data-raw "$payload"

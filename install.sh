@@ -20,8 +20,6 @@ require_cmd tar
 
 [[ -r /dev/tty ]] || die "Interactive terminal is required."
 
-cd ~
-
 mkdir -p "$INSTALL_DIR"
 
 echo "[..] Downloading ${ARCHIVE_URL}"

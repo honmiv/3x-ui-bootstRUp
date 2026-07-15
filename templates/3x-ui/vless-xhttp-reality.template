@@ -62,7 +62,7 @@
         "{{DOMAIN}}"
       ],
       "privateKey": "{{XHTTP_REALITY_PRIVATE_KEY}}",
-      "minClientVer": "",
+      "minClientVer": "1.8.0",
       "maxClientVer": "",
       "maxTimediff": 0,
       "shortIds": {{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}},

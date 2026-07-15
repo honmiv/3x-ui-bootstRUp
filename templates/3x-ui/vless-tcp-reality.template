@@ -40,7 +40,7 @@
         "{{DOMAIN}}"
       ],
       "privateKey": "{{TCP_REALITY_PRIVATE_KEY}}",
-      "minClientVer": "",
+      "minClientVer": "1.8.0",
       "maxClientVer": "",
       "maxTimediff": 0,
       "shortIds": {{TCP_REALITY_SHORT_IDS_JSON_ARRAY}},

@@ -14,17 +14,7 @@ if [[ ! -f "$compose_file" ]]; then
   exit 1
 fi
 
-backup_dir="./backup"
-rm -rf "$backup_dir"
-mkdir -p "$backup_dir"
-
-if [[ -d "working/3xui" ]]; then
-  cp -r working/3xui "$backup_dir/3xui"
-fi
-
-if [[ -d "working/docker-compose" ]]; then
-  cp -r working/docker-compose "$backup_dir/docker-compose"
-fi
+./backup.sh
 
 tmp_file=$(mktemp)
 trap 'rm -f "$tmp_file"' EXIT

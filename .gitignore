@@ -3,4 +3,4 @@ working
 .caddy_data
 .idea
 *.code-workspace
-.backup
+backup

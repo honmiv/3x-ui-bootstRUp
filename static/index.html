@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3X-UI bootstRUp - Local Web Setup</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon">🚀</div>
+                <div>
+                    <h1>3X-UI bootstRUp</h1>
+                    <p class="subtitle">Мастер автоматического развертывания VPN-инфраструктуры<br>VLESS+REALITY на базе 3x-ui</p>
+                </div>
+            </div>
+            <div class="status-badge" id="statusBadge">
+                <span class="dot"></span> <span id="statusText">Готов к настройке</span>
+                <span id="statusTimer" class="status-timer hidden">⏱️ 00:00</span>
+            </div>
+        </header>
+        <!-- Stepper Navigation -->
+        <div class="stepper">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">Серверы и Режим</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">Настройки панели</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">Развертывание</div>
+            </div>
+        </div>
+        <!-- Main Form Container -->
+        <div class="card">
+            <!-- Step 1: Server Connection & Deployment Mode -->
+            <div class="step-content active" id="step1">
+                <h2>1. Режим развертывания и параметры серверов</h2>
+                <p class="step-desc">Выберите одиночную установку или единое развертывание каскада из 2 серверов.</p>
+                <!-- Section 1: Deployment Topology -->
+                <div class="section-block">
+                    <div class="section-title">1. Режим развертывания</div>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label>Схема установки</label>
+                            <div class="radio-group">
+                                <label class="radio-card">
+                                    <input type="radio" name="is_cascade" value="no" checked id="cascade_no">
+                                    <span>Одиночный сервер</span>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="is_cascade" value="yes" id="cascade_yes">
+                                    <span>Автоматический каскад</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Single Node Form -->
+                <div id="singleNodeSection" class="section-block">
+                    <div class="section-title">2. Подключение к серверу</div>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="vps_host">Доменное имя / DNS сервера</label>
+                            <input type="text" id="vps_host" placeholder="например, vpn.example.com" class="ssh-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="vps_port">SSH Порт</label>
+                            <input type="number" id="vps_port" value="22" class="ssh-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="vps_user">SSH Пользователь</label>
+                            <input type="text" id="vps_user" value="root" class="ssh-input">
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Способ авторизации SSH</label>
+                            <div class="radio-group">
+                                <label class="radio-card">
+                                    <input type="radio" name="auth_type" value="password" checked id="auth_type_pass">
+                                    <span>Пароль</span>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="auth_type" value="key" id="auth_type_key">
+                                    <span>SSH Приватный ключ</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group full-width" id="passGroup">
+                            <label for="vps_password">Пароль SSH</label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="vps_password" placeholder="Введите пароль root" class="ssh-input">
+                                <button type="button" class="btn-toggle-eye" data-target="vps_password" title="Показать/Скрыть пароль">👁️</button>
+                            </div>
+                        </div>
+                        <div class="form-group full-width hidden" id="keyGroup">
+                            <label for="vps_key">SSH Приватный ключ</label>
+                            <textarea id="vps_key" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..." class="ssh-input"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <!-- Cascade Dual Node Form -->
+                <div id="cascadeNodeSection" class="hidden">
+                    <!-- Foreign Node -->
+                    <div class="section-block">
+                        <div class="section-title">2.1. Зарубежный сервер (Freedom Node)</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="freedom_host">Домен / DNS Зарубежного сервера</label>
+                                <input type="text" id="freedom_host" placeholder="freedom.example.com" class="ssh-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="freedom_port">SSH Порт</label>
+                                <input type="number" id="freedom_port" value="22" class="ssh-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="freedom_user">Пользователь</label>
+                                <input type="text" id="freedom_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="freedom_password">Пароль SSH</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="freedom_password" placeholder="Пароль root зарубежного VPS" class="ssh-input">
+                                    <button type="button" class="btn-toggle-eye" data-target="freedom_password" title="Показать/Скрыть пароль">👁️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Local Node -->
+                    <div class="section-block">
+                        <div class="section-title">2.2. Местный сервер (Proxy Node / Входной)</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="proxy_host">Домен / DNS Местного сервера</label>
+                                <input type="text" id="proxy_host" placeholder="proxy.example.com" class="ssh-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="proxy_port">SSH Порт</label>
+                                <input type="number" id="proxy_port" value="22" class="ssh-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="proxy_user">Пользователь</label>
+                                <input type="text" id="proxy_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="proxy_password">Пароль SSH</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="proxy_password" placeholder="Пароль root местного VPS" class="ssh-input">
+                                    <button type="button" class="btn-toggle-eye" data-target="proxy_password" title="Показать/Скрыть пароль">👁️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="actions-row">
+                    <button type="button" class="btn btn-primary" id="btnTestSSH">⚡ Проверить SSH подключение</button>
+                    <button type="button" class="btn btn-success hidden" id="btnNext1">Далее →</button>
+                </div>
+                <div class="test-result" id="testResult"></div>
+            </div>
+            <!-- Step 2: Panel Settings & Clients -->
+            <div class="step-content" id="step2">
+                <h2>2. Настройки панели и VPN-клиентов</h2>
+                <p class="step-desc">Учетные данные панели и список подключаемых пользователей (опционально).</p>
+
+                <!-- Shared Panel Version -->
+                <div class="section-block">
+                    <div class="form-group full-width">
+                        <label for="xui_version">Версия 3X-UI панели (тег Docker-образа)</label>
+                        <input type="text" id="xui_version" value="3.6.0" placeholder="3.6.0 или latest">
+                    </div>
+                </div>
+
+                <!-- Single Server Panel Settings -->
+                <div id="singlePanelSection">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="xui_username">Логин админа 3X-UI</label>
+                            <input type="text" id="xui_username" placeholder="admin">
+                        </div>
+                        <div class="form-group">
+                            <label for="xui_password">Пароль админа 3X-UI</label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="xui_password" placeholder="admin">
+                                <button type="button" class="btn-toggle-eye" data-target="xui_password" title="Показать/Скрыть пароль">👁️</button>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="sub_secret">Секретная фраза панели</label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="sub_secret" placeholder="8492048194029481">
+                                <button type="button" class="btn-toggle-eye" data-target="sub_secret" title="Показать/Скрыть фразы">👁️</button>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="client_tcp_list">Клиенты VLESS TCP (через запятую или с новой строки)</label>
+                            <input type="text" id="client_tcp_list" placeholder="Опционально (например: alex, mom, dad)">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="client_xhttp_list">Клиенты VLESS XHTTP (через запятую или с новой строки)</label>
+                            <input type="text" id="client_xhttp_list" placeholder="Опционально (например: alex, mom, phone)">
+                        </div>
+                    </div>
+                </div>
+                <!-- Cascade Dual Node Panel Settings -->
+                <div id="cascadePanelSection" class="hidden">
+                    <!-- Freedom Node Panel & Client -->
+                    <div class="section-block">
+                        <div class="section-title">2.1. Панель и клиент Зарубежного сервера (Freedom Node)</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="freedom_xui_username">Логин админа Freedom 3X-UI</label>
+                                <input type="text" id="freedom_xui_username" placeholder="admin">
+                            </div>
+                            <div class="form-group">
+                                <label for="freedom_xui_password">Пароль админа Freedom 3X-UI</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="freedom_xui_password" placeholder="admin">
+                                    <button type="button" class="btn-toggle-eye" data-target="freedom_xui_password" title="Показать/Скрыть пароль">👁️</button>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="freedom_sub_secret">Секретная фраза Freedom панели</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="freedom_sub_secret" placeholder="8492048194029481">
+                                    <button type="button" class="btn-toggle-eye" data-target="freedom_sub_secret" title="Показать/Скрыть фразу">👁️</button>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="freedom_client_name">Имя XHTTP клиента для каскада (используется местной прокси нодой для доступа к зарубежной)</label>
+                                <input type="text" id="freedom_client_name" value="local-proxy-node-client" placeholder="local-proxy-node-client">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Proxy Node Panel & End-User Clients -->
+                    <div class="section-block">
+                        <div class="section-title">2.2. Панель и VPN-клиенты Местного сервера (Proxy Node)</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="proxy_xui_username">Логин админа Proxy 3X-UI</label>
+                                <input type="text" id="proxy_xui_username" placeholder="admin">
+                            </div>
+                            <div class="form-group">
+                                <label for="proxy_xui_password">Пароль админа Proxy 3X-UI</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="proxy_xui_password" placeholder="admin">
+                                    <button type="button" class="btn-toggle-eye" data-target="proxy_xui_password" title="Показать/Скрыть пароль">👁️</button>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="proxy_sub_secret">Секретная фраза Proxy панели</label>
+                                <div class="input-password-wrapper">
+                                    <input type="password" id="proxy_sub_secret" placeholder="8492048194029481">
+                                    <button type="button" class="btn-toggle-eye" data-target="proxy_sub_secret" title="Показать/Скрыть фразу">👁️</button>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="proxy_client_tcp_list">Клиенты VLESS TCP (через запятую или с новой строки)</label>
+                                <input type="text" id="proxy_client_tcp_list" placeholder="Опционально (например: alex, mom, dad)">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="proxy_client_xhttp_list">Клиенты VLESS XHTTP (через запятую или с новой строки)</label>
+                                <input type="text" id="proxy_client_xhttp_list" placeholder="Опционально (например: alex, mom, phone)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="actions-row">
+                    <button type="button" class="btn btn-secondary" id="btnBack2">← Назад</button>
+                    <button type="button" class="btn btn-success" id="btnStartDeploy">🚀 Начать развертывание</button>
+                </div>
+            </div>
+            <!-- Step 3: Live Deploy Logs & Final Summary -->
+            <div class="step-content" id="step3">
+                <h2>3. Ход развертывания</h2>
+                <p class="step-desc">Подключение к серверам, подбор свободных портов и запуск контейнеров...</p>
+                <div class="terminal-container">
+                    <div class="terminal-header">
+                        <div class="terminal-title">Консоль удаленного развертывания</div>
+                        <button type="button" class="btn-copy-terminal" id="btnCopyLogs" title="Скопировать логи">📋 Копировать лог</button>
+                    </div>
+                    <div class="terminal-body" id="terminalLogs">
+                        <div class="log-line info">[INIT] Консоль готова...</div>
+                    </div>
+                </div>
+                <!-- Rich Final Results Card -->
+                <div class="summary-card hidden" id="summaryCard">
+                    <div class="summary-header">🎉 Установка успешно завершена!</div>
+                    
+                    <div id="panelsContainer">
+                        <!-- Rendered via JS -->
+                    </div>
+                    <div class="summary-section" id="clientsSection">
+                        <div class="summary-section-title">📱 Конфигурации и подписки пользователей</div>
+                        <div id="clientsContainer" class="clients-container">
+                            <!-- Dynamic Client Cards Rendered via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay hidden" id="qrModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span id="qrModalTitle">QR Код для подключения</span>
+                <button type="button" class="modal-close" id="btnCloseQr">✕</button>
+            </div>
+            <div class="modal-body">
+                <img id="qrModalImg" src="" alt="QR Code">
+                <div id="qrModalUrl" class="val-code"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

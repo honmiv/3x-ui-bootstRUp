@@ -42,7 +42,7 @@ is_valid_domain() {
 }
 
 check_root() {
-    [[ $EUID -eq 0 ]] || die "Скрипт должен запускаться от root."
+    [[ $EUID -eq 0 ]] || die "Script must be run as root: sudo ./setup.sh"
 }
 
 get_package_manager() {
@@ -55,25 +55,25 @@ get_package_manager() {
 
 install_docker() {
     if ! command -v docker &>/dev/null; then
-        info "Docker не найден. Устанавливаю Docker."
+        info "Docker not found. Installing Docker."
         if command -v pacman &>/dev/null; then
-            pacman -S --noconfirm docker docker-compose || die "Не удалось установить Docker."
+            pacman -S --noconfirm docker docker-compose || die "Failed to install Docker."
         else
-            curl -fsSL https://get.docker.com | sh || die "Не удалось установить Docker."
+            curl -fsSL https://get.docker.com | sh || die "Failed to install Docker."
         fi
     fi
 
     if command -v systemctl &>/dev/null; then
-        systemctl is-active --quiet docker || systemctl start docker || die "Не удалось запустить Docker."
+        systemctl is-active --quiet docker || systemctl start docker || die "Failed to start Docker service."
         systemctl is-enabled --quiet docker || systemctl enable docker
     fi
 
-    docker compose version &>/dev/null || die "Плагин docker compose недоступен."
-    success "Docker доступен."
+    docker compose version &>/dev/null || die "Docker compose plugin unavailable."
+    success "Docker is ready."
 }
 
 install_missing_deps() {
-    section "Проверка окружения"
+    section "Environment check"
     local missing=()
     for cmd in curl; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
@@ -83,10 +83,10 @@ install_missing_deps() {
         local pm
         pm=$(get_package_manager)
         case "$pm" in
-            apt)     apt-get update && apt-get install -y curl iproute2 || die "Не удалось установить зависимости." ;;
-            dnf|yum) $pm install -y curl iproute || die "Не удалось установить зависимости." ;;
-            pacman)  pacman -Sy --noconfirm curl iproute2 || die "Не удалось установить зависимости." ;;
-            *)       die "Не удалось определить менеджер пакетов." ;;
+            apt)     apt-get update && apt-get install -y curl iproute2 || die "Failed to install system dependencies." ;;
+            dnf|yum) $pm install -y curl iproute || die "Failed to install system dependencies." ;;
+            pacman)  pacman -Sy --noconfirm curl iproute2 || die "Failed to install system dependencies." ;;
+            *)       die "Could not determine package manager." ;;
         esac
     fi
 
@@ -94,27 +94,27 @@ install_missing_deps() {
 }
 
 reset_working_dir() {
-    info "Подготавливаю рабочую директорию ./working."
+    info "Preparing ./working directory."
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
         compose down
     fi
     rm -rf "$SCRIPT_DIR/working" && mkdir -p "$SCRIPT_DIR/working"
-    success "Рабочая директория подготовлена."
+    success "Working directory ready."
 }
 
 prompt_domain() {
     while :; do
-        read -r -p "$(echo -e "${CYAN}[..]${NC} Введите домен (например sub.example.com): ")" DOMAIN
+        read -r -p "$(echo -e "${CYAN}[..]${NC} Enter domain (e.g. sub.example.com): ")" DOMAIN
         if is_valid_domain "$DOMAIN"; then
             break
         fi
-        warn "Некорректный домен, попробуйте снова."
+        warn "Invalid domain, please try again."
     done
 }
 
 prompt_sub_path() {
     local default="subs"
-    read -r -p "$(echo -e "${CYAN}[..]${NC} Путь-префикс (по умолчанию $default): ")" SECRET_SUB_PATH
+    read -r -p "$(echo -e "${CYAN}[..]${NC} Path prefix [default: $default]: ")" SECRET_SUB_PATH
     SECRET_SUB_PATH="${SECRET_SUB_PATH:-$default}"
     SECRET_SUB_PATH="${SECRET_SUB_PATH#/}"
     SECRET_SUB_PATH="${SECRET_SUB_PATH%/}"
@@ -123,14 +123,14 @@ prompt_sub_path() {
 prompt_subscription_urls() {
     RUSSIAN_SUB_URL=""
     FOREIGN_SUB_URL=""
-    read -r -p "$(echo -e "${CYAN}[..]${NC} Есть ли русская нода? (y/N): ")" has_ru
-    if [[ "$has_ru" =~ ^[YyДд]$ ]]; then
-        read -r -p "$(echo -e "${CYAN}[..]${NC} URL подписок русской ноды: ")" RUSSIAN_SUB_URL
+    read -r -p "$(echo -e "${CYAN}[..]${NC} Configure Russian node? (y/N): ")" has_ru
+    if [[ "$has_ru" =~ ^[Yy]$ ]]; then
+        read -r -p "$(echo -e "${CYAN}[..]${NC} Russian node subscription URL: ")" RUSSIAN_SUB_URL
         RUSSIAN_SUB_URL="${RUSSIAN_SUB_URL%/}"
     fi
-    read -r -p "$(echo -e "${CYAN}[..]${NC} URL подписок нерусской ноды: ")" FOREIGN_SUB_URL
+    read -r -p "$(echo -e "${CYAN}[..]${NC} Foreign node subscription URL: ")" FOREIGN_SUB_URL
     FOREIGN_SUB_URL="${FOREIGN_SUB_URL%/}"
-    [[ -n "$RUSSIAN_SUB_URL" || -n "$FOREIGN_SUB_URL" ]] || die "Не указан ни один URL подписок."
+    [[ -n "$RUSSIAN_SUB_URL" || -n "$FOREIGN_SUB_URL" ]] || die "At least one subscription URL must be specified."
 }
 
 apply_template_values() {
@@ -148,7 +148,7 @@ generate_config() {
     local target_dir="$2"
     local source_path relative_path target_relative target_path
 
-    [[ -d "$template_dir" ]] || die "Шаблоны не найдены: $template_dir"
+    [[ -d "$template_dir" ]] || die "Templates not found: $template_dir"
     rm -rf "$target_dir"
     mkdir -p "$target_dir"
 
@@ -165,34 +165,34 @@ generate_config() {
         fi
     done < <(find "$template_dir" -type f -print0)
 
-    success "Конфиги сгенерированы в $target_dir"
+    success "Configurations generated in $target_dir"
 }
 
 process_templates() {
-    section "Генерация конфигов"
+    section "Generating configuration"
     generate_config "$SCRIPT_DIR/templates" "$SCRIPT_DIR/working"
 }
 
 start_containers() {
-    section "Запуск контейнеров"
+    section "Starting containers"
     compose up -d --build
 }
 
 wait_for_ssl() {
     local cert_timeout=300 cert_counter=0
-    section "Ожидание SSL-сертификата"
+    section "Waiting for SSL certificate"
 
     while ! curl -s --connect-timeout 2 --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}:443" -o /dev/null; do
         if [[ "$cert_counter" -ge "$cert_timeout" ]]; then
-            warn "Проверьте логи: docker compose -f $DOCKER_COMPOSE_FILE logs caddy"
-            die "SSL-сертификат не получен за $cert_timeout секунд."
+            warn "Check logs: docker compose -f $DOCKER_COMPOSE_FILE logs caddy"
+            die "SSL certificate was not obtained within $cert_timeout seconds."
         fi
-        printf "\r${YELLOW}[..]${NC} Проверка SSL-сертификата %s %s/%s" "$(show_spinner "$cert_counter")" "$cert_counter" "$cert_timeout"
+        printf "\r${YELLOW}[..]${NC} Validating SSL certificate %s %s/%s" "$(show_spinner "$cert_counter")" "$cert_counter" "$cert_timeout"
         sleep 1
         ((cert_counter++))
     done
     echo
-    success "SSL-сертификат получен."
+    success "SSL certificate is active."
 }
 
 show_spinner() {
@@ -202,13 +202,13 @@ show_spinner() {
 }
 
 print_results() {
-    section "Готово"
-    echo "Подписки доступны по адресу:"
+    section "Done"
+    echo "Subscriptions available at:"
     echo "  https://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
     echo "  http://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
     echo
-    echo "Список клиентов (proxy/freedom): $SCRIPT_DIR/subs.yml"
-    echo "После правки subs.yml перезапустите: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"
+    echo "Client list (proxy/freedom): $SCRIPT_DIR/subs.yml"
+    echo "After editing subs.yml restart: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"
 }
 
 main() {

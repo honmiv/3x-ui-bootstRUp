@@ -145,6 +145,7 @@
   <nav>
     <div class="wrap">
       <a href="#install">Install</a>
+      <a href="#webui">Web UI</a>
       <a href="#update">Update</a>
       <a href="#requirements">Requirements</a>
       <a href="#architecture">Architecture</a>
@@ -169,6 +170,29 @@ cd 3x-ui-bootstRUp
 ./install.sh</code></pre>
         </div>
       </div>
+    </section>
+
+    <section id="webui">
+      <h2>Graphical Web UI Wizard</h2>
+      <p>A step-by-step local graphical Web UI launcher is available for easy configuration:</p>
+      <div class="grid">
+        <div class="panel">
+          <h3>Launch on Linux / macOS</h3>
+          <pre><code>./install.sh</code></pre>
+        </div>
+        <div class="panel">
+          <h3>Launch on Windows</h3>
+          <pre><code>install.bat</code></pre>
+        </div>
+      </div>
+      <h3>Web UI Features:</h3>
+      <ul>
+        <li><strong>Topology Selection:</strong> Choose single-server setup or 2-stage automated cascade deployment (Freedom + Proxy Node).</li>
+        <li><strong>SSH Testing:</strong> Interactive connection validation before starting deployment.</li>
+        <li><strong>3X-UI Versioning:</strong> Specify a shared Docker image tag for panels (e.g. <code>3.6.0</code> or <code>latest</code>).</li>
+        <li><strong>Real-time Monitoring:</strong> Streaming SSE console log output with an animated deployment timer.</li>
+        <li><strong>Security & Privacy:</strong> Masked credentials in logs and summary panel cards with toggleable visibility (👁️), one-click copying (📋), and generated QR codes.</li>
+      </ul>
     </section>
 
     <section id="update">

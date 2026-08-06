@@ -1,6 +1,10 @@
-.gitignore
 working
 .caddy_data
 .idea
 *.code-workspace
 backup
+setup_backup.yml
+__pycache__/
+*.pyc
+.python_env
+venv

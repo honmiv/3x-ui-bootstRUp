@@ -167,6 +167,7 @@
   <nav>
     <div class="wrap">
       <a href="#install">Установка</a>
+      <a href="#webui">Веб-мастер</a>
       <a href="#update">Обновление</a>
       <a href="#requirements">Требования</a>
       <a href="#architecture">Архитектура</a>
@@ -191,6 +192,29 @@ cd 3x-ui-bootstRUp
 ./install.sh</code></pre>
         </div>
       </div>
+    </section>
+
+    <section id="webui">
+      <h2>Графический Веб-мастер (Web UI)</h2>
+      <p>Для максимально удобной настройки доступен локальный графический интерфейс с пошаговым мастером:</p>
+      <div class="grid">
+        <div class="panel">
+          <h3>Запуск на Linux / macOS</h3>
+          <pre><code>./install.sh</code></pre>
+        </div>
+        <div class="panel">
+          <h3>Запуск на Windows</h3>
+          <pre><code>install.bat</code></pre>
+        </div>
+      </div>
+      <h3>Возможности Веб-мастера:</h3>
+      <ul>
+        <li><strong>Выбор топологии:</strong> установка на одиночный сервер или автоматическое развертывание 2-серверного каскада (Freedom + Proxy Node).</li>
+        <li><strong>Проверка SSH:</strong> интерактивная проверка соединения перед запуском процесса.</li>
+        <li><strong>Выбор версии 3X-UI:</strong> возможность указать единый тег Docker-образа (например, <code>3.6.0</code> или <code>latest</code>).</li>
+        <li><strong>Живой мониторинг:</strong> интерактивная консоль логов с анимированным таймером развертывания.</li>
+        <li><strong>Безопасность данных:</strong> пароли в логах маскируются, а в итоговой карточке доступны скрытые поля с кнопкой просмотра (👁️) и удобным копированием (📋).</li>
+      </ul>
     </section>
 
     <section id="update">

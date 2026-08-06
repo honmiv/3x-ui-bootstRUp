@@ -171,7 +171,9 @@ get_unique_random_port() {
 
 apply_template_values() {
     local target_path="$1"
+    local xui_ver="${XUI_VERSION:-3.6.0}"
     sed -i \
+       -e "s|{{XUI_VERSION}}|${xui_ver}|g" \
        -e "s|{{DOMAIN}}|${DOMAIN}|g" \
        -e "s|{{XUI_WEB_BASE_PATH}}|${XUI_WEB_BASE_PATH}|g" \
        -e "s|{{XUI_SUB_PATH}}|${XUI_SUB_PATH}|g" \
@@ -333,198 +335,107 @@ reset_working_dir() {
     success "$MSG_WORKDIR_READY"
 }
 
-select_language() {
-    echo -e "${CYAN}== Language / Язык ==${NC}"
-    prompt_choice "Choose language / Выберите язык [RU/en, Enter = RU]: " \
-        "Invalid input. Enter RU, en, or press Enter. / Неверный ввод. Введите RU, en или нажмите Enter." \
-        '^$|^[Rr][Uu]$|^[Ee][Nn]$' \
-        LANG_CHOICE
-    if [[ "$LANG_CHOICE" =~ ^[Ee][Nn]$ ]]; then LANG="EN"; else LANG="RU"; fi
-}
-
 load_messages() {
-    if [[ "$LANG" == "RU" ]]; then
-        MSG_DOCKER_MIRRORS="Настройка российского зеркала реестра Docker (резерв) из-за известных проблем с доступом к Docker Hub в России. Если у вас есть другое предпочтительное зеркало, вы можете изменить его в /root/3x-ui-bootstRUp/docker/daemon.json и повторно запустить установку"
-        MSG_STEP_PREFLIGHT="Проверка окружения"
-        MSG_DEPS_INSTALLING="Устанавливаю системные зависимости через %s: %s"
-        MSG_DEPS_READY="Системные зависимости доступны."
-        MSG_DOCKER_INSTALLING="Docker не найден. Устанавливаю Docker."
-        MSG_DOCKER_READY="Docker доступен и служба запущена."
-        MSG_WORKDIR_RESET="Подготавливаю рабочую директорию ./working."
-        MSG_WORKDIR_READY="Рабочая директория подготовлена."
-        MSG_API_START="Настройки панели"
-        MSG_API_FETCHING="Получаю текущие настройки панели."
-        MSG_API_FETCH_ERR="Не удалось получить текущие настройки панели."
-        MSG_API_SENDING="Применяю адреса панели и подписок."
-        MSG_API_UPDATE_ERR="Не удалось обновить настройки панели через API."
-        MSG_API_UPDATE_SUCCESS="Настройки панели обновлены."
-        MSG_SUB_FETCHING="Получаю ссылки клиента из подписки."
-        MSG_SUB_FETCH_SUCCESS="Ссылки клиента получены."
-        MSG_SUB_FETCH_ERR="Не удалось получить или декодировать данные подписки."
-        MSG_SUB_EXTRACT_ERR="Не удалось извлечь TCP или XHTTP ссылку из подписки."
-        MSG_NOT_ROOT="Запустите скрипт от имени root: sudo ./setup.sh"
-        MSG_SUB_URL_TITLE="Подписка:"
-        MSG_VLESS_TCP_URL_TITLE="VLESS TCP Reality:"
-        MSG_VLESS_XHTTP_URL_TITLE="VLESS XHTTP Reality:"
-        MSG_CLIENT_ERR="Не удалось добавить клиента в панель."
-        MSG_APT_LOCKED="apt/dpkg занят другим процессом. Жду освобождения блокировки."
-        MSG_DNF_LOCKED="dnf/rpm занят другим процессом. Жду освобождения блокировки."
-        MSG_PACMAN_LOCKED="pacman заблокирован файлом db.lck. Жду освобождения блокировки."
-        MSG_DEP_ERR="Не удалось установить системные зависимости."
-        MSG_DOCKER_ERR="Не удалось установить Docker."
-        MSG_DOCKER_START_ERR="Не удалось запустить службу Docker."
-        MSG_UNSUPPORTED_PM="Неподдерживаемый пакетный менеджер. Установите вручную: %s"
-        MSG_CLIENT_EMPTY="Имя клиента не может быть пустым."
-        MSG_USERS_FILE_FOUND="Найден templates/users.yml. Создаю VPN-клиентов из файла."
-        MSG_CLIENT_TITLE="Клиент:"
-        MSG_CRED_TITLE="Учетные данные панели"
-        MSG_REQ_LOGIN="Логин панели [Enter = admin]: "
-        MSG_REQ_PASSWORD="Пароль панели [Enter = admin]: "
-        MSG_REQ_CLIENT="Имя VPN-клиента: "
-        MSG_SETUP_TITLE="Домен"
-        MSG_DOMAIN_REQ="Введите ваше доменное имя (например, example.duckdns.org): "
-        MSG_DOMAIN_EMPTY="Домен не может быть пустым."
-        MSG_DOMAIN_INVALID="Некорректный домен: %s. Используйте ASCII-домен без протокола: латинские буквы, цифры, дефисы и точки."
-        MSG_SEC_SECRET_TITLE="Секретная фраза"
-        MSG_SEC_SECRET_DESC="Секретная фраза используется для генерации скрытых путей панели и подписок.\nEnter оставит случайную строку. Своя фраза нужна, если вы хотите получить те же endpoints\nдля панели и подписок на другом инстансе 3x-ui, например на другом сервере.\nИтоговые URL будут показаны в конце.\nВведите собственную фразу или примите случайно сгенерированную."
-        MSG_SUGGEST_SECRET="Секретная фраза [Enter = %s]: "
-        MSG_PORTS_GENERATING="Подбираю свободные внутренние порты."
-        MSG_PORTS_SELECTED="Порты выбраны: панель %s, подписки %s, Caddy %s, TCP Reality %s, XHTTP Reality %s."
-        MSG_KEYS_GENERATING="Генерирую Reality-ключи."
-        MSG_KEYS_READY="Reality-ключи сгенерированы."
-        MSG_PROCESSING="Генерация конфигурации"
-        MSG_CONFIG_SUCCESS="Создан файл: %s"
-        MSG_CONFIG_ERR="Шаблон не найден:"
-        MSG_START_PANEL="Запуск панели 3x-ui"
-        MSG_WAIT_3XUI="Жду готовности 3x-ui: %s"
-        MSG_3XUI_WAIT_PROGRESS="[%s] 3x-ui: %ds / %ds"
-        MSG_3XUI_TIMEOUT="3x-ui не ответил на %s за %d секунд."
-        MSG_3XUI_READY="3x-ui ответил на %s за %d сек."
-        MSG_FINAL_LAUNCH="Запуск Caddy"
-        MSG_WAIT_SSL="Ожидание HTTPS-сертификата"
-        MSG_SSL_TIMEOUT="Сертификат не стал доступен за %d секунд."
-        MSG_SSL_LOGS_HINT="Проверьте логи Caddy с помощью: docker compose -f $DOCKER_COMPOSE_FILE --project-directory . logs caddy"
-        MSG_SSL_VALIDATING="[%s] HTTPS на 443: %ds / %ds"
-        MSG_SSL_SUCCESS="HTTPS-сертификат активен за %d сек."
-        MSG_PANEL_USER_CONFIGURING="Настраиваю пользователя панели."
-        MSG_PANEL_USER_READY="Пользователь панели настроен."
-        MSG_INBOUND_ADDING="Добавляю входящее подключение: %s."
-        MSG_CLIENT_ADDING="Добавляю VPN-клиента."
-        MSG_CLIENT_READY="VPN-клиент добавлен."
-        MSG_RESULTS_TITLE="Готово"
-        MSG_SETUP_DONE="Установка завершена."
-        MSG_CRED_PANEL="3x-UI панель доступна на:"
-        MSG_QR_SUB="QR-код подписки"
-        MSG_QR_TCP="QR-код VLESS TCP Reality"
-        MSG_QR_XHTTP="QR-код VLESS XHTTP Reality"
-        MSG_CASCADE_TITLE="Настройка каскада"
-        MSG_CASCADE_REQ="Вы настраиваете каскад? [y/N, Enter = N]: "
-        MSG_CASCADE_ERR="Неверный ввод. Введите y/n или нажмите Enter."
-        MSG_NODE_TYPE_TITLE="Тип ноды"
-        MSG_NODE_TYPE_REQ="Устанавливается ли панель НА зарубежную (1/freedom) или местную (2/proxy) ноду? [1/2, Enter = 1]: "
-        MSG_NODE_TYPE_ERR="Неверный ввод. Введите 1, 2, freedom, proxy или нажмите Enter."
-        MSG_XRAY_ROUTING_UPDATING="Настраиваю маршрутизацию XRay для зарубежной ноды (freedom)."
-        MSG_FOREIGN_SUB_TITLE="Подписка зарубежной ноды"
-        MSG_FOREIGN_SUB_REQ="Введите URL подписки (Subscription URL) с вашей зарубежной (Freedom) ноды (например: https://example.duckdns.org/subscriptions_path/client_name): "
-        MSG_FOREIGN_SUB_ERR="URL подписки не может быть пустым. Введите корректный URL (начинающийся с http:// или https://):"
-        MSG_XRAY_OUTBOUND_SUB_UPDATING="Добавляю подписку зарубежной ноды в XRay outbound subscriptions."
-        MSG_XRAY_OUTBOUND_SUB_SUCCESS="Подписка зарубежной ноды успешно добавлена."
-        MSG_XRAY_OUTBOUND_SUB_ERR="Не удалось добавить подписку зарубежной ноды."
-    else
-        MSG_DOCKER_MIRRORS="Configuring Russian Docker registry mirror (fallback) due to known issues with Docker Hub access in Russia. If you have a different preferred mirror, you can change it in /root/3x-ui-bootstRUp/docker/daemon.json and re-run installation"
-        MSG_STEP_PREFLIGHT="Environment check"
-        MSG_DEPS_INSTALLING="Installing system dependencies with %s: %s"
-        MSG_DEPS_READY="System dependencies are available."
-        MSG_DOCKER_INSTALLING="Docker is not installed. Installing Docker."
-        MSG_DOCKER_READY="Docker is available and running."
-        MSG_WORKDIR_RESET="Preparing ./working directory."
-        MSG_WORKDIR_READY="Working directory is ready."
-        MSG_API_START="Panel settings"
-        MSG_API_FETCHING="Reading current panel settings."
-        MSG_API_FETCH_ERR="Failed to read current panel settings."
-        MSG_API_SENDING="Applying panel and subscription URLs."
-        MSG_API_UPDATE_ERR="Failed to update panel settings via API."
-        MSG_API_UPDATE_SUCCESS="Panel settings updated."
-        MSG_SUB_FETCHING="Fetching client links from subscription."
-        MSG_SUB_FETCH_SUCCESS="Client links fetched."
-        MSG_SUB_FETCH_ERR="Failed to fetch or decode subscription data."
-        MSG_SUB_EXTRACT_ERR="Failed to extract TCP or XHTTP link from subscription."
-        MSG_NOT_ROOT="Run this script as root: sudo ./setup.sh"
-        MSG_SUB_URL_TITLE="Subscription:"
-        MSG_VLESS_TCP_URL_TITLE="VLESS TCP Reality:"
-        MSG_VLESS_XHTTP_URL_TITLE="VLESS XHTTP Reality:"
-        MSG_CLIENT_ERR="Failed to add client to the panel."
-        MSG_APT_LOCKED="apt/dpkg is locked by another process. Waiting."
-        MSG_DNF_LOCKED="dnf/rpm is locked by another process. Waiting."
-        MSG_PACMAN_LOCKED="pacman is locked by db.lck. Waiting."
-        MSG_DEP_ERR="Failed to install system dependencies."
-        MSG_DOCKER_ERR="Failed to install Docker."
-        MSG_DOCKER_START_ERR="Failed to start Docker service."
-        MSG_UNSUPPORTED_PM="Unsupported package manager. Install manually: %s"
-        MSG_CLIENT_EMPTY="Client name cannot be empty."
-        MSG_USERS_FILE_FOUND="Found templates/users.yml. Creating VPN clients from the file."
-        MSG_CLIENT_TITLE="Client:"
-        MSG_CRED_TITLE="Panel credentials"
-        MSG_REQ_LOGIN="Panel username [Enter = admin]: "
-        MSG_REQ_PASSWORD="Panel password [Enter = admin]: "
-        MSG_REQ_CLIENT="VPN client name: "
-        MSG_SETUP_TITLE="Domain"
-        MSG_DOMAIN_REQ="Enter your domain name (e.g., example.duckdns.org): "
-        MSG_DOMAIN_EMPTY="Domain cannot be empty."
-        MSG_DOMAIN_INVALID="Invalid domain: %s. Use an ASCII domain without protocol: letters, digits, hyphens, and dots."
-        MSG_SEC_SECRET_TITLE="Secret phrase"
-        MSG_SEC_SECRET_DESC="The secret phrase is used to generate hidden panel and subscription paths.\nPress Enter to keep the generated random value. Enter your own phrase if you want the same\npanel and subscription endpoints on another 3x-ui instance, for example on another server.\nFinal URLs will be shown at the end.\nEnter a custom phrase or accept the randomly generated one."
-        MSG_SUGGEST_SECRET="Secret phrase [Enter = %s]: "
-        MSG_PORTS_GENERATING="Selecting free internal ports."
-        MSG_PORTS_SELECTED="Selected ports: panel %s, subscription %s, Caddy %s, TCP Reality %s, XHTTP Reality %s."
-        MSG_KEYS_GENERATING="Generating Reality keys."
-        MSG_KEYS_READY="Reality keys generated."
-        MSG_PROCESSING="Generating configuration"
-        MSG_CONFIG_SUCCESS="Created file: %s"
-        MSG_CONFIG_ERR="Template not found:"
-        MSG_START_PANEL="Starting 3x-ui panel"
-        MSG_WAIT_3XUI="Waiting for 3x-ui readiness: %s"
-        MSG_3XUI_WAIT_PROGRESS="[%s] 3x-ui: %ds / %ds"
-        MSG_3XUI_TIMEOUT="3x-ui did not respond at %s within %d seconds."
-        MSG_3XUI_READY="3x-ui responded at %s in %d sec."
-        MSG_FINAL_LAUNCH="Starting Caddy"
-        MSG_WAIT_SSL="Waiting for HTTPS certificate"
-        MSG_SSL_TIMEOUT="Certificate was not available within %d seconds."
-        MSG_SSL_LOGS_HINT="Check Caddy logs using: docker compose -f $DOCKER_COMPOSE_FILE --project-directory . logs caddy"
-        MSG_SSL_VALIDATING="[%s] HTTPS on 443: %ds / %ds"
-        MSG_SSL_SUCCESS="HTTPS certificate is active in %d sec."
-        MSG_PANEL_USER_CONFIGURING="Configuring panel user."
-        MSG_PANEL_USER_READY="Panel user configured."
-        MSG_INBOUND_ADDING="Adding inbound: %s."
-        MSG_CLIENT_ADDING="Adding VPN client."
-        MSG_CLIENT_READY="VPN client added."
-        MSG_RESULTS_TITLE="Done"
-        MSG_SETUP_DONE="Installation completed."
-        MSG_CRED_PANEL="3x-UI panel is available at:"
-        MSG_QR_SUB="Subscription QR code"
-        MSG_QR_TCP="VLESS TCP Reality QR code"
-        MSG_QR_XHTTP="VLESS XHTTP Reality QR code"
-        MSG_CASCADE_TITLE="Cascade Setup"
-        MSG_CASCADE_REQ="Are you configuring a cascade? [y/N, Enter = N]: "
-        MSG_CASCADE_ERR="Invalid input. Enter y/n or press Enter."
-        MSG_NODE_TYPE_TITLE="Node Type"
-        MSG_NODE_TYPE_REQ="Is the panel installed ON a foreign (1/freedom) or local (2/proxy) node? [1/2, Enter = 1]: "
-        MSG_NODE_TYPE_ERR="Invalid input. Enter 1, 2, freedom, proxy or press Enter."
-        MSG_XRAY_ROUTING_UPDATING="Configuring XRay routing for foreign node (freedom)."
-        MSG_FOREIGN_SUB_TITLE="Foreign Node Subscription"
-        MSG_FOREIGN_SUB_REQ="Enter the subscription URL from your foreign (Freedom) node (e.g., https://example.duckdns.org/subscriptions_path/client_name): "
-        MSG_FOREIGN_SUB_ERR="Subscription URL cannot be empty. Please enter a valid URL (starting with http:// or https://):"
-        MSG_XRAY_OUTBOUND_SUB_UPDATING="Adding foreign node subscription to XRay outbound subscriptions."
-        MSG_XRAY_OUTBOUND_SUB_SUCCESS="Foreign node outbound subscription added successfully."
-        MSG_XRAY_OUTBOUND_SUB_ERR="Failed to add foreign node outbound subscription."
-    fi
+    MSG_DOCKER_MIRRORS="Configuring Docker registry mirror fallback"
+    MSG_STEP_PREFLIGHT="Environment check"
+    MSG_DEPS_INSTALLING="Installing system dependencies with %s: %s"
+    MSG_DEPS_READY="System dependencies are available."
+    MSG_DOCKER_INSTALLING="Docker is not installed. Installing Docker."
+    MSG_DOCKER_READY="Docker is available and running."
+    MSG_WORKDIR_RESET="Preparing ./working directory."
+    MSG_WORKDIR_READY="Working directory is ready."
+    MSG_API_START="Panel settings"
+    MSG_API_FETCHING="Reading current panel settings."
+    MSG_API_FETCH_ERR="Failed to read current panel settings."
+    MSG_API_SENDING="Applying panel and subscription URLs."
+    MSG_API_UPDATE_ERR="Failed to update panel settings via API."
+    MSG_API_UPDATE_SUCCESS="Panel settings updated."
+    MSG_SUB_FETCHING="Fetching client links from subscription."
+    MSG_SUB_FETCH_SUCCESS="Client links fetched."
+    MSG_SUB_FETCH_ERR="Failed to fetch or decode subscription data."
+    MSG_SUB_EXTRACT_ERR="Failed to extract TCP or XHTTP link from subscription."
+    MSG_NOT_ROOT="Run this script as root: sudo ./setup.sh"
+    MSG_SUB_URL_TITLE="Subscription:"
+    MSG_VLESS_TCP_URL_TITLE="VLESS TCP Reality:"
+    MSG_VLESS_XHTTP_URL_TITLE="VLESS XHTTP Reality:"
+    MSG_CLIENT_ERR="Failed to add client to the panel."
+    MSG_APT_LOCKED="apt/dpkg is locked by another process. Waiting."
+    MSG_DNF_LOCKED="dnf/rpm is locked by another process. Waiting."
+    MSG_PACMAN_LOCKED="pacman is locked by db.lck. Waiting."
+    MSG_DEP_ERR="Failed to install system dependencies."
+    MSG_DOCKER_ERR="Failed to install Docker."
+    MSG_DOCKER_START_ERR="Failed to start Docker service."
+    MSG_UNSUPPORTED_PM="Unsupported package manager. Install manually: %s"
+    MSG_CLIENT_EMPTY="Client name cannot be empty."
+    MSG_USERS_FILE_FOUND="Found templates/users.yml. Creating VPN clients from the file."
+    MSG_CLIENT_TITLE="Client:"
+    MSG_CRED_TITLE="Panel credentials"
+    MSG_REQ_LOGIN="Panel username [Enter = admin]: "
+    MSG_REQ_PASSWORD="Panel password [Enter = admin]: "
+    MSG_REQ_CLIENT="VPN client name: "
+    MSG_SETUP_TITLE="Domain"
+    MSG_DOMAIN_REQ="Enter your domain name (e.g., example.duckdns.org): "
+    MSG_DOMAIN_EMPTY="Domain cannot be empty."
+    MSG_DOMAIN_INVALID="Invalid domain: %s. Use an ASCII domain without protocol: letters, digits, hyphens, and dots."
+    MSG_SEC_SECRET_TITLE="Secret phrase"
+    MSG_SEC_SECRET_DESC="The secret phrase is used to generate hidden panel and subscription paths."
+    MSG_SUGGEST_SECRET="Secret phrase [Enter = %s]: "
+    MSG_PORTS_GENERATING="Selecting free internal ports."
+    MSG_PORTS_SELECTED="Selected ports: panel %s, subscription %s, Caddy %s, TCP Reality %s, XHTTP Reality %s."
+    MSG_KEYS_GENERATING="Generating Reality keys."
+    MSG_KEYS_READY="Reality keys generated."
+    MSG_PROCESSING="Generating configuration"
+    MSG_CONFIG_SUCCESS="Created file: %s"
+    MSG_CONFIG_ERR="Template not found:"
+    MSG_START_PANEL="Starting 3x-ui panel"
+    MSG_WAIT_3XUI="Waiting for 3x-ui readiness: %s"
+    MSG_3XUI_WAIT_PROGRESS="[%s] 3x-ui: %ds / %ds"
+    MSG_3XUI_TIMEOUT="3x-ui did not respond at %s within %d seconds."
+    MSG_3XUI_READY="3x-ui responded at %s in %d sec."
+    MSG_FINAL_LAUNCH="Starting Caddy"
+    MSG_WAIT_SSL="Waiting for HTTPS certificate"
+    MSG_SSL_TIMEOUT="Certificate was not available within %d seconds."
+    MSG_SSL_LOGS_HINT="Check Caddy logs using: docker compose -f $DOCKER_COMPOSE_FILE --project-directory . logs caddy"
+    MSG_SSL_VALIDATING="[%s] HTTPS on 443: %ds / %ds"
+    MSG_SSL_SUCCESS="HTTPS certificate is active in %d sec."
+    MSG_PANEL_USER_CONFIGURING="Configuring panel user."
+    MSG_PANEL_USER_READY="Panel user configured."
+    MSG_INBOUND_ADDING="Adding inbound: %s."
+    MSG_CLIENT_ADDING="Adding VPN client."
+    MSG_CLIENT_READY="VPN client added."
+    MSG_RESULTS_TITLE="Done"
+    MSG_SETUP_DONE="Installation completed."
+    MSG_CRED_PANEL="3x-UI panel is available at:"
+    MSG_QR_SUB="Subscription QR code"
+    MSG_QR_TCP="VLESS TCP Reality QR code"
+    MSG_QR_XHTTP="VLESS XHTTP Reality QR code"
+    MSG_CASCADE_TITLE="Cascade Setup"
+    MSG_CASCADE_REQ="Are you configuring a cascade? [y/N, Enter = N]: "
+    MSG_CASCADE_ERR="Invalid input. Enter y/n or press Enter."
+    MSG_NODE_TYPE_TITLE="Node Type"
+    MSG_NODE_TYPE_REQ="Is the panel installed ON a foreign (1/freedom) or local (2/proxy) node? [1/2, Enter = 1]: "
+    MSG_NODE_TYPE_ERR="Invalid input. Enter 1, 2, freedom, proxy or press Enter."
+    MSG_XRAY_ROUTING_UPDATING="Configuring XRay routing for foreign node (freedom)."
+    MSG_FOREIGN_SUB_TITLE="Foreign Node Subscription"
+    MSG_FOREIGN_SUB_REQ="Enter the subscription URL from your foreign (Freedom) node: "
+    MSG_FOREIGN_SUB_ERR="Subscription URL cannot be empty. Please enter a valid URL (starting with http:// or https://):"
+    MSG_XRAY_OUTBOUND_SUB_UPDATING="Adding foreign node subscription to XRay outbound subscriptions."
+    MSG_XRAY_OUTBOUND_SUB_SUCCESS="Foreign node outbound subscription added successfully."
+    MSG_XRAY_OUTBOUND_SUB_ERR="Failed to add foreign node outbound subscription."
 }
 
 prompt_domain() {
     section "$MSG_SETUP_TITLE"
-    DOMAIN=""
+    DOMAIN=$(echo "${DOMAIN:-}" | tr -d '[:space:]')
+    if [[ -n "$DOMAIN" ]] && is_valid_domain "$DOMAIN"; then
+        success "Domain: $DOMAIN"
+        return 0
+    fi
     while true; do
-        prompt_required "$MSG_DOMAIN_REQ" "$MSG_DOMAIN_EMPTY" DOMAIN
+        if [[ -z "$DOMAIN" ]]; then
+            prompt_required "$MSG_DOMAIN_REQ" "$MSG_DOMAIN_EMPTY" DOMAIN
+            DOMAIN=$(echo "$DOMAIN" | tr -d '[:space:]')
+        fi
         if ! is_valid_domain "$DOMAIN"; then
             warn "$(printf "$MSG_DOMAIN_INVALID" "$DOMAIN")"
             DOMAIN=""
@@ -536,6 +447,21 @@ prompt_domain() {
 
 prompt_node_type() {
     section "$MSG_CASCADE_TITLE"
+    if [[ -n "${CASCADE_CHOICE:-}" ]]; then
+        if [[ "$CASCADE_CHOICE" =~ ^[Yy]$|^[Yy][Ee][Ss]$ ]]; then
+            if [[ -z "${NODE_TYPE_CHOICE:-}" || "$NODE_TYPE_CHOICE" =~ ^1$|^[Ff][Rr][Ee][Ee][Dd][Oo][Mm]$ ]]; then
+                NODE_TYPE="freedom"
+            else
+                NODE_TYPE="proxy"
+                FOREIGN_SUB_URL="${FOREIGN_SUB_URL:-}"
+            fi
+        else
+            NODE_TYPE="custom"
+        fi
+        success "Cascade Node Type: $NODE_TYPE"
+        return 0
+    fi
+
     prompt_choice "$MSG_CASCADE_REQ" \
         "$MSG_CASCADE_ERR" \
         '^$|^[YyNn]$|^[Yy][Ee][Ss]$|^[Nn][Oo]$' \
@@ -570,6 +496,10 @@ prompt_node_type() {
 
 
 prompt_secret_phrase() {
+    if [[ -n "${SECRET_PHRASE:-}" ]]; then
+        success "Secret phrase provided via environment."
+        return 0
+    fi
     DEFAULT_SECRET_PHRASE=$(tr -dc '0-9' < /dev/urandom | head -c 16)
     section "$MSG_SEC_SECRET_TITLE"
     echo -e "${YELLOW}${MSG_SEC_SECRET_DESC}${NC}"
@@ -578,34 +508,27 @@ prompt_secret_phrase() {
 
 prompt_panel_credentials() {
     section "$MSG_CRED_TITLE"
+    if [[ -n "${USERNAME:-}" && -n "${USER_PASSWORD:-}" ]]; then
+        success "Panel credentials provided via environment."
+        return 0
+    fi
     prompt_with_default "$MSG_REQ_LOGIN" "admin" USERNAME
     prompt_secret_with_default "$MSG_REQ_PASSWORD" "admin" USER_PASSWORD
     echo
 }
 
 prompt_client_name() {
+    if [[ -n "${CLIENT_EMAIL:-}" ]]; then
+        return 0
+    fi
+    if [[ -n "${USERNAME:-}" ]]; then
+        CLIENT_EMAIL="$USERNAME"
+        return 0
+    fi
     prompt_required "$MSG_REQ_CLIENT" "$MSG_CLIENT_EMPTY" CLIENT_EMAIL
 }
 
-read_users_file() {
-    local users_file="./templates/users.yml"
-    [[ -f "$users_file" ]] || return 0
 
-    local section="" line name
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" =~ ^[[:space:]]*([[:alpha:]][[:alnum:]_-]*):[[:space:]]*$ ]]; then
-            section="${BASH_REMATCH[1]}"
-        elif [[ "$line" =~ ^[[:space:]]*-[[:space:]]+(.*)$ ]]; then
-            name="${BASH_REMATCH[1]}"
-            name=$(printf '%s' "$name" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            [[ -z "$name" ]] && continue
-            case "$section" in
-                xhttp) XHTTP_CLIENTS+=("$name") ;;
-                tcp)   TCP_CLIENTS+=("$name") ;;
-            esac
-        fi
-    done < "$users_file"
-}
 
 generate_ports() {
     info "$MSG_PORTS_GENERATING"
@@ -1216,18 +1139,7 @@ add_interactive_client() {
     CREATED_CLIENTS+=("$CLIENT_EMAIL")
 }
 
-add_clients_from_file() {
-    info "$MSG_USERS_FILE_FOUND"
-    local email
-    for email in "${XHTTP_CLIENTS[@]}"; do
-        add_client "$email" "[2]"
-        CREATED_CLIENTS+=("$email")
-    done
-    for email in "${TCP_CLIENTS[@]}"; do
-        add_client "$email" "[1]"
-        CREATED_CLIENTS+=("$email")
-    done
-}
+
 
 build_sub_and_connect_urls() {
     local client_name_enc
@@ -1281,45 +1193,46 @@ collect_results() {
     RESULTS_SUB_URLS=()
     RESULTS_TCP_URLS=()
     RESULTS_XHTTP_URLS=()
-    local email
-    for email in "${CREATED_CLIENTS[@]}"; do
-        CLIENT_EMAIL="$email"
-        build_sub_and_connect_urls
-        RESULTS_CLIENTS+=("$CLIENT_EMAIL")
-        RESULTS_SUB_URLS+=("$CLIENT_SUBSCRIPTION_URL")
-        RESULTS_TCP_URLS+=("$CLIENT_VLESS_TCP_URL")
-        RESULTS_XHTTP_URLS+=("$CLIENT_VLESS_XHTTP_URL")
+
+    local client_name
+    for client_name in "${CREATED_CLIENTS[@]}"; do
+        CLIENT_EMAIL="$client_name"
+        if build_sub_and_connect_urls; then
+            RESULTS_CLIENTS+=("$client_name")
+            RESULTS_SUB_URLS+=("$CLIENT_SUBSCRIPTION_URL")
+            RESULTS_TCP_URLS+=("${CLIENT_VLESS_TCP_URL:-}")
+            RESULTS_XHTTP_URLS+=("${CLIENT_VLESS_XHTTP_URL:-}")
+        fi
     done
 }
 
 print_results() {
     section "$MSG_RESULTS_TITLE"
-    success "$MSG_SETUP_DONE"
-
-    echo -e "\n${CYAN}${MSG_CRED_PANEL}${NC}"
+    echo -e "${GREEN}${MSG_SETUP_DONE}${NC}\n"
+    echo -e "${CYAN}${MSG_CRED_PANEL}${NC}"
     echo -e "  ${YELLOW}https://${DOMAIN}/${XUI_WEB_BASE_PATH}/${NC}"
 
     local i
     for i in "${!RESULTS_CLIENTS[@]}"; do
-        echo -e "\n${CYAN}${MSG_CLIENT_TITLE}${NC} ${RESULTS_CLIENTS[$i]}"
+        echo -e "\nClient: ${RESULTS_CLIENTS[$i]}"
 
-        echo -e "\n${CYAN}${MSG_SUB_URL_TITLE}${NC}"
-        echo -e "  ${YELLOW}${RESULTS_SUB_URLS[$i]}${NC}"
-        echo -e "${CYAN}${MSG_QR_SUB}${NC}"
+        echo -e "\nSubscription:"
+        echo -e "  ${RESULTS_SUB_URLS[$i]}"
+        echo -e "Subscription QR Code:"
         qrencode -t ANSIUTF8 "${RESULTS_SUB_URLS[$i]}"
 
         if [[ -n "${RESULTS_TCP_URLS[$i]}" ]]; then
-            echo -e "\n${CYAN}${MSG_VLESS_TCP_URL_TITLE}${NC}"
-            echo -e "  ${YELLOW}${RESULTS_TCP_URLS[$i]}${NC}"
-            echo -e "${CYAN}${MSG_QR_TCP}${NC}"
+            echo -e "\nVLESS TCP Reality:"
+            echo -e "  ${RESULTS_TCP_URLS[$i]}"
+            echo -e "VLESS TCP QR Code:"
             qrencode -t ANSIUTF8 "${RESULTS_TCP_URLS[$i]}"
             echo
         fi
 
         if [[ -n "${RESULTS_XHTTP_URLS[$i]}" ]]; then
-            echo -e "\n${CYAN}${MSG_VLESS_XHTTP_URL_TITLE}${NC}"
-            echo -e "  ${YELLOW}${RESULTS_XHTTP_URLS[$i]}${NC}"
-            echo -e "${CYAN}${MSG_QR_XHTTP}${NC}"
+            echo -e "\nVLESS XHTTP Reality:"
+            echo -e "  ${RESULTS_XHTTP_URLS[$i]}"
+            echo -e "VLESS XHTTP QR Code:"
             qrencode -t ANSIUTF8 "${RESULTS_XHTTP_URLS[$i]}"
             echo
         fi
@@ -1327,7 +1240,6 @@ print_results() {
 }
 
 main() {
-    select_language
     load_messages
     check_root
     install_missing_deps
@@ -1347,9 +1259,28 @@ main() {
     configure_panel_user
     add_inbound vless-tcp-reality
     add_inbound vless-xhttp-reality
-    read_users_file
-    if [[ ${#XHTTP_CLIENTS[@]} -gt 0 || ${#TCP_CLIENTS[@]} -gt 0 ]]; then
-        add_clients_from_file
+    if [[ -n "${CLIENTS_TCP_LIST:-}" || -n "${CLIENTS_XHTTP_LIST:-}" ]]; then
+        local tcp_names=" ${CLIENTS_TCP_LIST:-} "
+        local xhttp_names=" ${CLIENTS_XHTTP_LIST:-} "
+        local all_names
+        all_names=$(echo "${CLIENTS_TCP_LIST:-} ${CLIENTS_XHTTP_LIST:-}" | tr ' ' '\n' | sort -u | grep -v '^$')
+
+        local name
+        for name in $all_names; do
+            local in_tcp=0
+            local in_xhttp=0
+            [[ "$tcp_names" =~ [[:space:]]"$name"[[:space:]] ]] && in_tcp=1
+            [[ "$xhttp_names" =~ [[:space:]]"$name"[[:space:]] ]] && in_xhttp=1
+
+            if [[ $in_tcp -eq 1 && $in_xhttp -eq 1 ]]; then
+                add_client "$name" "[1,2]"
+            elif [[ $in_tcp -eq 1 ]]; then
+                add_client "$name" "[1]"
+            elif [[ $in_xhttp -eq 1 ]]; then
+                add_client "$name" "[2]"
+            fi
+            CREATED_CLIENTS+=("$name")
+        done
     else
         add_interactive_client
     fi

@@ -131,7 +131,7 @@
     <div class="wrap hero">
       <div>
         <h1>3x-ui bootstRUp</h1>
-        <p class="lead">Automated 3x-ui setup with Caddy as the front proxy and Nginx as the fallback site. VPN connections, the admin panel, subscriptions, and regular HTTPS traffic share one domain and one port.</p>
+        <p class="lead">Automated setup of a self-steal VLESS+REALITY (TCP/xhttp) configuration on 3x-ui. VPN connections, the admin panel, subscriptions, and regular HTTPS traffic share one domain and one port.</p>
         <p><a href="https://github.com/honmiv/3x-ui-bootstRUp">Main repository</a> · <a href="../ru/">Русский</a></p>
       </div>
       <div class="status">
@@ -255,10 +255,12 @@ Client HTTP -> Caddy:80 -> HTTPS redirect or Nginx fallback</code></pre>
       <h3>3x-ui automation</h3>
       <ul>
         <li>Starts the 3x-ui container and configures it through the API.</li>
+        <li>Prompts for the node type (foreign "freedom" or local "proxy") and automatically configures the corresponding Xray routing rules.</li>
         <li>Updates admin credentials, applies routing paths, creates VLESS TCP and xhttp Reality inbounds, and adds a VPN client.</li>
       </ul>
       <h3>Validation and integration</h3>
       <ul>
+        <li>Uses a pre-built Caddy image with L4 support from <code>ghcr.io</code> for faster installation (instead of building locally).</li>
         <li>Starts Caddy and waits for successful SSL/TLS certificate issuance.</li>
         <li>Checks HTTPS availability on port 443.</li>
         <li>Retrieves and decodes subscription data, then prints connection links and QR codes.</li>

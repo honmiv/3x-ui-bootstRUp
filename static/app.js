@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     qrModal.addEventListener('click', (e) => {
-        if (e.target === qrModal) {
+        if (!e.target.closest('.modal-card')) {
             qrModal.classList.add('hidden');
         }
     });

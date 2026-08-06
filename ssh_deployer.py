@@ -79,14 +79,15 @@ class SSHDeployer:
             os.chmod(tf.name, 0o600)
             self._key_file = tf.name
         if self.password and not self._key_file:
+            safe_pass = repr(self.password)
             if sys.platform == "win32":
                 tf_pass = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.bat')
-                tf_pass.write(f'@echo {self.password}\n')
+                tf_pass.write(f'@python -c "import sys; sys.stdout.write({safe_pass})"\n')
                 tf_pass.close()
                 self._askpass_file = tf_pass.name
             else:
                 tf_pass = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.sh')
-                tf_pass.write(f'#!/bin/sh\necho "{self.password}"\n')
+                tf_pass.write(f'#!/bin/sh\nexec python3 -c "import sys; sys.stdout.write({safe_pass})"\n')
                 tf_pass.close()
                 os.chmod(tf_pass.name, 0o700)
                 self._askpass_file = tf_pass.name

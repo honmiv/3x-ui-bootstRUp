@@ -12,9 +12,7 @@ services:
       - 3xui-caddy-net
 
   caddy:
-    build:
-      context: ./templates/docker-compose
-      dockerfile: Dockerfile-caddy-l4
+    image: ghcr.io/honmiv/caddy-l4:latest
     container_name: caddy
     restart: always
     depends_on:

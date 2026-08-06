@@ -17,7 +17,7 @@ def strip_ansi(text: str) -> str:
 def generate_random_string(length: int = 16) -> str:
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
-def get_bundle_base64() -> str:
+def get_bundle_bytes() -> bytes:
     buf = io.BytesIO()
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
@@ -30,7 +30,8 @@ def get_bundle_base64() -> str:
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, repo_dir)
                 tar.add(full_path, arcname=rel_path)
-    return base64.b64encode(buf.getvalue()).decode('ascii')
+    return buf.getvalue()
+
 def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]]]:
     clients = []
     current_client = None
@@ -120,15 +121,21 @@ class SSHDeployer:
         target = f"{self.user}@{self.host}"
         cmd.extend([target, remote_cmd])
         return cmd, env
-    async def exec_command(self, remote_cmd: str, log_callback: Optional[Callable[[str], None]] = None) -> tuple[int, str]:
+    async def exec_command(self, remote_cmd: str, log_callback: Optional[Callable[[str], None]] = None, stdin_data: Optional[bytes] = None) -> tuple[int, str]:
         cmd, env = self._build_ssh_cmd_and_env(remote_cmd)
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE if stdin_data else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env
             )
+            if stdin_data and proc.stdin:
+                proc.stdin.write(stdin_data)
+                await proc.stdin.drain()
+                proc.stdin.close()
+
             output_lines = []
             while True:
                 line = await proc.stdout.readline()
@@ -168,9 +175,9 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
         await deployer.exec_command("systemctl start docker && systemctl enable docker", lambda m: log(m, "info"))
 
         log(f"Syncing local files to {host}...", "info")
-        bundle_b64 = get_bundle_base64()
-        sync_cmd = f"mkdir -p {remote_dir} && echo '{bundle_b64}' | base64 -d | tar -xzf - -C {remote_dir}"
-        rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"))
+        bundle_bytes = get_bundle_bytes()
+        sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
+        rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
             log(f"[ERROR] Failed to transfer files to {host}: {sync_out}", "error")
             return False, ""

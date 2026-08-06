@@ -413,6 +413,19 @@ load_messages() {
         MSG_QR_SUB="QR-код подписки"
         MSG_QR_TCP="QR-код VLESS TCP Reality"
         MSG_QR_XHTTP="QR-код VLESS XHTTP Reality"
+        MSG_CASCADE_TITLE="Настройка каскада"
+        MSG_CASCADE_REQ="Вы настраиваете каскад? [y/N, Enter = N]: "
+        MSG_CASCADE_ERR="Неверный ввод. Введите y/n или нажмите Enter."
+        MSG_NODE_TYPE_TITLE="Тип ноды"
+        MSG_NODE_TYPE_REQ="Устанавливается ли панель НА зарубежную (1/freedom) или местную (2/proxy) ноду? [1/2, Enter = 1]: "
+        MSG_NODE_TYPE_ERR="Неверный ввод. Введите 1, 2, freedom, proxy или нажмите Enter."
+        MSG_XRAY_ROUTING_UPDATING="Настраиваю маршрутизацию XRay для зарубежной ноды (freedom)."
+        MSG_FOREIGN_SUB_TITLE="Подписка зарубежной ноды"
+        MSG_FOREIGN_SUB_REQ="Введите URL подписки (Subscription URL) с вашей зарубежной (Freedom) ноды: "
+        MSG_FOREIGN_SUB_ERR="URL подписки не может быть пустым. Введите корректный URL (начинающийся с http:// или https://):"
+        MSG_XRAY_OUTBOUND_SUB_UPDATING="Добавляю подписку зарубежной ноды в XRay outbound subscriptions."
+        MSG_XRAY_OUTBOUND_SUB_SUCCESS="Подписка зарубежной ноды успешно добавлена."
+        MSG_XRAY_OUTBOUND_SUB_ERR="Не удалось добавить подписку зарубежной ноды."
     else
         MSG_DOCKER_MIRRORS="Configuring Russian Docker registry mirror (fallback) due to known issues with Docker Hub access in Russia. If you have a different preferred mirror, you can change it in /root/3x-ui-bootstRUp/docker/daemon.json and re-run installation"
         MSG_STEP_PREFLIGHT="Environment check"
@@ -485,6 +498,19 @@ load_messages() {
         MSG_QR_SUB="Subscription QR code"
         MSG_QR_TCP="VLESS TCP Reality QR code"
         MSG_QR_XHTTP="VLESS XHTTP Reality QR code"
+        MSG_CASCADE_TITLE="Cascade Setup"
+        MSG_CASCADE_REQ="Are you configuring a cascade? [y/N, Enter = N]: "
+        MSG_CASCADE_ERR="Invalid input. Enter y/n or press Enter."
+        MSG_NODE_TYPE_TITLE="Node Type"
+        MSG_NODE_TYPE_REQ="Is the panel installed ON a foreign (1/freedom) or local (2/proxy) node? [1/2, Enter = 1]: "
+        MSG_NODE_TYPE_ERR="Invalid input. Enter 1, 2, freedom, proxy or press Enter."
+        MSG_XRAY_ROUTING_UPDATING="Configuring XRay routing for foreign node (freedom)."
+        MSG_FOREIGN_SUB_TITLE="Foreign Node Subscription"
+        MSG_FOREIGN_SUB_REQ="Enter the subscription URL from your foreign (Freedom) node: "
+        MSG_FOREIGN_SUB_ERR="Subscription URL cannot be empty. Please enter a valid URL (starting with http:// or https://):"
+        MSG_XRAY_OUTBOUND_SUB_UPDATING="Adding foreign node subscription to XRay outbound subscriptions."
+        MSG_XRAY_OUTBOUND_SUB_SUCCESS="Foreign node outbound subscription added successfully."
+        MSG_XRAY_OUTBOUND_SUB_ERR="Failed to add foreign node outbound subscription."
     fi
 }
 
@@ -501,6 +527,41 @@ prompt_domain() {
         break
     done
 }
+
+prompt_node_type() {
+    section "$MSG_CASCADE_TITLE"
+    prompt_choice "$MSG_CASCADE_REQ" \
+        "$MSG_CASCADE_ERR" \
+        '^$|^[YyNn]$|^[Yy][Ee][Ss]$|^[Nn][Oo]$' \
+        CASCADE_CHOICE
+
+    if [[ "$CASCADE_CHOICE" =~ ^[Yy]$|^[Yy][Ee][Ss]$ ]]; then
+        section "$MSG_NODE_TYPE_TITLE"
+        prompt_choice "$MSG_NODE_TYPE_REQ" \
+            "$MSG_NODE_TYPE_ERR" \
+            '^$|^[12]$|^[Ff][Rr][Ee][Ee][Dd][Oo][Mm]$|^[Pp][Rr][Oo][Xx][Yy]$' \
+            NODE_TYPE_CHOICE
+            
+        if [[ -z "$NODE_TYPE_CHOICE" || "$NODE_TYPE_CHOICE" =~ ^1$|^[Ff][Rr][Ee][Ee][Dd][Oo][Mm]$ ]]; then
+            NODE_TYPE="freedom"
+        else
+            NODE_TYPE="proxy"
+            section "$MSG_FOREIGN_SUB_TITLE"
+            while true; do
+                read -r -p "$MSG_FOREIGN_SUB_REQ" FOREIGN_SUB_URL
+                FOREIGN_SUB_URL=$(echo "$FOREIGN_SUB_URL" | tr -d '[:space:]')
+                if [[ -n "$FOREIGN_SUB_URL" && "$FOREIGN_SUB_URL" =~ ^https?:// ]]; then
+                    break
+                else
+                    echo -e "${RED}${MSG_FOREIGN_SUB_ERR}${NC}"
+                fi
+            done
+        fi
+    else
+        NODE_TYPE="custom"
+    fi
+}
+
 
 prompt_secret_phrase() {
     DEFAULT_SECRET_PHRASE=$(tr -dc '0-9' < /dev/urandom | head -c 16)
@@ -613,10 +674,7 @@ update_panel_settings_api() {
     local image_version
     image_version=$(docker ps -f name=3xui --format "{{.Image}}" | awk -F: '{print $2}' | tr -d '[:space:]')
 
-    local api_path="panel/setting"
-    if [[ -n "$image_version" ]] && [[ "$(printf '%s\n%s' "3.3.1" "$image_version" | sort -V | head -n1)" == "3.3.1" ]]; then
-        api_path="panel/api/setting"
-    fi
+    local api_path="panel/api/setting"
 
     local current_settings
     info "$MSG_API_FETCHING"
@@ -658,8 +716,350 @@ update_panel_settings_api() {
         -H "x-csrf-token: ${CSRF_TOKEN}" \
         --data-raw "$payload"
 
-    grep -q '"success":true' ./working/update_result.json || die "$MSG_API_UPDATE_ERR"
+    if ! grep -q '"success":true' ./working/update_result.json; then
+        warn "Failed to update panel settings via API. Response details:"
+        cat ./working/update_result.json 2>/dev/null || true
+        echo
+        die "$MSG_API_UPDATE_ERR"
+    fi
     success "$MSG_API_UPDATE_SUCCESS"
+}
+
+update_xray_routing() {
+    local image_version
+    image_version=$(docker ps -f name=3xui --format "{{.Image}}" | awk -F: '{print $2}' | tr -d '[:space:]')
+
+    local api_path="panel/xray"
+    if [[ -n "$image_version" ]] && [[ "$(printf '%s\n%s' "3.3.1" "$image_version" | sort -V | head -n1)" == "3.3.1" ]]; then
+        api_path="panel/api/xray"
+    fi
+
+    if [[ "$NODE_TYPE" == "freedom" ]]; then
+        info "$MSG_XRAY_ROUTING_UPDATING"
+
+        local xray_json
+        xray_json=$(jq -c . << 'EOF'
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 62789,
+      "protocol": "tunnel",
+      "settings": {
+        "rewriteAddress": "127.0.0.1"
+      },
+      "tag": "api"
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "AsIs",
+        "finalRules": [
+          {
+            "action": "block",
+            "ip": [
+              "geoip:private"
+            ]
+          },
+          {
+            "action": "allow"
+          }
+        ]
+      }
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "api"
+        ],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "ip": [
+          "geoip:private"
+        ],
+        "outboundTag": "blocked"
+      },
+      {
+        "type": "field",
+        "enabled": true,
+        "protocol": [
+          "bittorrent"
+        ],
+        "outboundTag": "blocked"
+      },
+      {
+        "type": "field",
+        "enabled": true,
+        "ip": [
+          "geoip:ru"
+        ],
+        "outboundTag": "blocked"
+      },
+      {
+        "type": "field",
+        "enabled": true,
+        "domain": [
+          "geosite:category-ru"
+        ],
+        "outboundTag": "blocked"
+      }
+    ],
+    "domainStrategy": "AsIs"
+  },
+  "log": {
+    "access": "none",
+    "dnsLog": false,
+    "error": "",
+    "loglevel": "warning",
+    "maskAddress": ""
+  },
+  "policy": {
+    "system": {
+      "statsInboundDownlink": true,
+      "statsInboundUplink": true,
+      "statsOutboundDownlink": false,
+      "statsOutboundUplink": false
+    },
+    "levels": {
+      "0": {
+        "statsUserDownlink": true,
+        "statsUserUplink": true
+      }
+    }
+  },
+  "api": {
+    "services": [
+      "HandlerService",
+      "LoggerService",
+      "StatsService",
+      "RoutingService"
+    ],
+    "tag": "api"
+  },
+  "metrics": {
+    "listen": "127.0.0.1:11111",
+    "tag": "metrics_out"
+  },
+  "stats": {}
+}
+EOF
+)
+        echo "$xray_json" > ./working/xray_template.json
+        compose cp ./working/xray_template.json 3xui:/tmp/xray_template.json
+
+        panel_api_request "${api_path}/update" "./working/xray_update_result.json" \
+            -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
+            -H "x-csrf-token: ${CSRF_TOKEN}" \
+            --data-urlencode "xraySetting@/tmp/xray_template.json"
+
+        if grep -q '"success":true' ./working/xray_update_result.json; then
+            panel_api_request "${api_path}/" "./working/xray_restart_result.json" \
+                -X POST \
+                -H "x-csrf-token: ${CSRF_TOKEN}"
+        else
+            warn "Failed to update XRay routing. Details:"
+            cat ./working/xray_update_result.json 2>/dev/null || true
+            echo
+        fi
+    elif [[ "$NODE_TYPE" == "proxy" ]]; then
+        info "$MSG_XRAY_OUTBOUND_SUB_UPDATING"
+
+        local encoded_url
+        encoded_url=$(jq -rn --arg url "$FOREIGN_SUB_URL" '$url | @uri')
+
+        local payload="remark=&url=${encoded_url}&tagPrefix=&updateInterval=600&enabled=true&allowPrivate=false&allowInsecure=false&prepend=false"
+
+        panel_api_request "${api_path}/outbound-subs" "./working/outbound_sub_result.json" \
+            -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
+            -H "x-csrf-token: ${CSRF_TOKEN}" \
+            -d "$payload"
+
+        if grep -q '"success":true' ./working/outbound_sub_result.json; then
+            success "$MSG_XRAY_OUTBOUND_SUB_SUCCESS"
+            local sub_id
+            sub_id=$(jq -r '.obj.id // empty' ./working/outbound_sub_result.json 2>/dev/null || true)
+            if [[ -z "$sub_id" || "$sub_id" == "null" ]]; then
+                sub_id=1
+            fi
+            panel_api_request "${api_path}/outbound-subs/${sub_id}/refresh" "./working/outbound_sub_refresh.json" \
+                -X POST \
+                -H "x-csrf-token: ${CSRF_TOKEN}"
+
+            local sub_outbound_tag=""
+            panel_api_request "${api_path}/" "./working/xray_current_setting.json"
+            sub_outbound_tag=$(jq -r '.obj | try fromjson catch {} | .outbounds[]? | select(.tag | startswith("sub1-")) | .tag' ./working/xray_current_setting.json 2>/dev/null | head -n 1 || true)
+
+            if [[ -z "$sub_outbound_tag" ]]; then
+                sub_outbound_tag=$(jq -r '.obj[]? | select(.tag | startswith("sub1-")) | .tag' ./working/outbound_sub_refresh.json 2>/dev/null | head -n 1 || true)
+            fi
+
+            if [[ -z "$sub_outbound_tag" ]]; then
+                sub_outbound_tag="sub1-vless-xhttp-reality-russian-node"
+            fi
+
+            local xray_proxy_json
+            xray_proxy_json=$(jq -c \
+                --arg xhttp_in "in-${XHTTP_REALITY_INBOUND_PORT}-xhttp" \
+                --arg tcp_in "in-${TCP_REALITY_INBOUND_PORT}-tcp" \
+                --arg sub_tag "$sub_outbound_tag" \
+                '.routing.rules = [
+                  {
+                    "type": "field",
+                    "inboundTag": ["api"],
+                    "outboundTag": "api"
+                  },
+                  {
+                    "type": "field",
+                    "ip": ["geoip:private"],
+                    "outboundTag": "blocked"
+                  },
+                  {
+                    "type": "field",
+                    "enabled": true,
+                    "protocol": ["bittorrent"],
+                    "outboundTag": "blocked"
+                  },
+                  {
+                    "type": "field",
+                    "enabled": true,
+                    "ip": ["geoip:ru"],
+                    "outboundTag": "direct"
+                  },
+                  {
+                    "type": "field",
+                    "enabled": true,
+                    "domain": ["geosite:category-ru"],
+                    "outboundTag": "direct"
+                  },
+                  {
+                    "type": "field",
+                    "enabled": true,
+                    "inboundTag": [$tcp_in],
+                    "outboundTag": $sub_tag
+                  },
+                  {
+                    "type": "field",
+                    "enabled": true,
+                    "inboundTag": [$xhttp_in],
+                    "outboundTag": $sub_tag
+                  }
+                ]' << 'EOF'
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 62789,
+      "protocol": "tunnel",
+      "settings": {
+        "rewriteAddress": "127.0.0.1"
+      },
+      "tag": "api"
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "AsIs",
+        "finalRules": [
+          {
+            "action": "block",
+            "ip": [
+              "geoip:private"
+            ]
+          },
+          {
+            "action": "allow"
+          }
+        ]
+      }
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "rules": [],
+    "domainStrategy": "AsIs"
+  },
+  "log": {
+    "access": "none",
+    "dnsLog": false,
+    "error": "",
+    "loglevel": "warning",
+    "maskAddress": ""
+  },
+  "policy": {
+    "system": {
+      "statsInboundDownlink": true,
+      "statsInboundUplink": true,
+      "statsOutboundDownlink": false,
+      "statsOutboundUplink": false
+    },
+    "levels": {
+      "0": {
+        "statsUserDownlink": true,
+        "statsUserUplink": true
+      }
+    }
+  },
+  "api": {
+    "services": [
+      "HandlerService",
+      "LoggerService",
+      "StatsService",
+      "RoutingService"
+    ],
+    "tag": "api"
+  },
+  "metrics": {
+    "listen": "127.0.0.1:11111",
+    "tag": "metrics_out"
+  },
+  "stats": {}
+}
+EOF
+            )
+
+            echo "$xray_proxy_json" > ./working/xray_template.json
+            compose cp ./working/xray_template.json 3xui:/tmp/xray_template.json
+
+            panel_api_request "${api_path}/update" "./working/xray_update_result.json" \
+                -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
+                -H "x-csrf-token: ${CSRF_TOKEN}" \
+                --data-urlencode "xraySetting@/tmp/xray_template.json"
+
+            if grep -q '"success":true' ./working/xray_update_result.json; then
+                panel_api_request "${api_path}/" "./working/xray_restart_result.json" \
+                    -X POST \
+                    -H "x-csrf-token: ${CSRF_TOKEN}"
+            else
+                warn "Failed to update XRay routing for proxy node. Details:"
+                cat ./working/xray_update_result.json 2>/dev/null || true
+                echo
+            fi
+        else
+            warn "$MSG_XRAY_OUTBOUND_SUB_ERR Details:"
+            cat ./working/outbound_sub_result.json 2>/dev/null || true
+            echo
+        fi
+    fi
 }
 
 start_container() {
@@ -734,7 +1134,7 @@ configure_panel_user() {
     fetch_panel_page "./working/panel.html"
     CSRF_TOKEN=$(get_csrf_token ./working/panel.html)
 
-    panel_api_request "panel/setting/updateUser" "/dev/null" \
+    panel_api_request "panel/api/setting/updateUser" "/dev/null" \
         -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
         -H "x-csrf-token: ${CSRF_TOKEN}" \
         --data-raw "oldUsername=${enc_old_user}&oldPassword=${enc_old_pass}&newUsername=${enc_new_user}&newPassword=${enc_new_pass}"
@@ -751,7 +1151,7 @@ add_inbound() {
     local payload
     info "$(printf "$MSG_INBOUND_ADDING" "$config_name")"
     payload=$(jq -r --arg filename "$config_name" '
-      { up: 0, down: 0, total: 0, remark: $filename, enable: true, expiryTime: 0, trafficReset: "never", lastTrafficResetTime: 0 } + . | to_entries | map("\(.key)=\(if (.value | type) == "object" then (.value | tojson | @uri) else (.value | tostring | @uri) end)") | join("&")
+      { up: 0, down: 0, total: 0, remark: $filename, enable: true, expiryTime: 0, trafficReset: "never", lastTrafficResetTime: 0, tag: .tag } + . | to_entries | map("\(.key)=\(if (.value | type) == "object" then (.value | tojson | @uri) else (.value | tostring | @uri) end)") | join("&")
     ' "./working/3x-ui/$config_name")
 
     panel_api_request "panel/api/inbounds/add" "./working/add-inbound-response.json" \
@@ -856,6 +1256,7 @@ main() {
     reset_working_dir
 
     prompt_domain
+    prompt_node_type
     prompt_secret_phrase
     generate_ports
 
@@ -871,6 +1272,8 @@ main() {
     prompt_client_name
     add_client
     update_panel_settings_api
+    update_xray_routing
+
 
     start_3xui
     wait_for_3xui_tcp "$TCP_REALITY_INBOUND_PORT"

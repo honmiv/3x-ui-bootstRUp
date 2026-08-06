@@ -29,6 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
         qrModal.classList.add('hidden');
     });
 
+    qrModal.addEventListener('click', (e) => {
+        if (e.target === qrModal) {
+            qrModal.classList.add('hidden');
+        }
+    });
+
     const showQrModal = (title, url) => {
         qrModalTitle.textContent = title;
         qrModalUrl.textContent = url;
@@ -548,11 +554,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.message) {
                         appendLog(item.message, item.level);
 
-                        if (item.message.includes('[ЭТАП 1/2]')) {
+                        if (item.message.includes('[STAGE 1/2]') || item.message.includes('[ЭТАП 1/2]')) {
                             updateBadgeStatus('Развертывание Freedom Node (1/2)...', '#f59e0b', true);
-                        } else if (item.message.includes('[ЭТАП 2/2]')) {
+                        } else if (item.message.includes('[STAGE 2/2]') || item.message.includes('[ЭТАП 2/2]')) {
                             updateBadgeStatus('Развертывание Proxy Node (2/2)...', '#f59e0b', true);
-                        } else if (item.message.includes('Запуск развертывания на одиночном')) {
+                        } else if (item.message.includes('Starting deployment process') || item.message.includes('Запуск развертывания на одиночном')) {
                             updateBadgeStatus('Развертывание VPS...', '#f59e0b', true);
                         }
                     }

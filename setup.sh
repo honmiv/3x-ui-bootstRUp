@@ -13,6 +13,8 @@ readonly PANEL_CONTAINER="3xui"
 readonly PANEL_API_PORT="2053"
 
 declare -a USED_PORTS=()
+declare -a XHTTP_CLIENTS=() TCP_CLIENTS=() CREATED_CLIENTS=()
+declare -a RESULTS_CLIENTS=() RESULTS_SUB_URLS=() RESULTS_TCP_URLS=() RESULTS_XHTTP_URLS=()
 
 die() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
@@ -373,6 +375,8 @@ load_messages() {
         MSG_DOCKER_START_ERR="Не удалось запустить службу Docker."
         MSG_UNSUPPORTED_PM="Неподдерживаемый пакетный менеджер. Установите вручную: %s"
         MSG_CLIENT_EMPTY="Имя клиента не может быть пустым."
+        MSG_USERS_FILE_FOUND="Найден templates/users.yml. Создаю VPN-клиентов из файла."
+        MSG_CLIENT_TITLE="Клиент:"
         MSG_CRED_TITLE="Учетные данные панели"
         MSG_REQ_LOGIN="Логин панели [Enter = admin]: "
         MSG_REQ_PASSWORD="Пароль панели [Enter = admin]: "
@@ -458,6 +462,8 @@ load_messages() {
         MSG_DOCKER_START_ERR="Failed to start Docker service."
         MSG_UNSUPPORTED_PM="Unsupported package manager. Install manually: %s"
         MSG_CLIENT_EMPTY="Client name cannot be empty."
+        MSG_USERS_FILE_FOUND="Found templates/users.yml. Creating VPN clients from the file."
+        MSG_CLIENT_TITLE="Client:"
         MSG_CRED_TITLE="Panel credentials"
         MSG_REQ_LOGIN="Panel username [Enter = admin]: "
         MSG_REQ_PASSWORD="Panel password [Enter = admin]: "
@@ -579,6 +585,26 @@ prompt_panel_credentials() {
 
 prompt_client_name() {
     prompt_required "$MSG_REQ_CLIENT" "$MSG_CLIENT_EMPTY" CLIENT_EMAIL
+}
+
+read_users_file() {
+    local users_file="./templates/users.yml"
+    [[ -f "$users_file" ]] || return 0
+
+    local section="" line name
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^[[:space:]]*([[:alpha:]][[:alnum:]_-]*):[[:space:]]*$ ]]; then
+            section="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[[:space:]]*-[[:space:]]+(.*)$ ]]; then
+            name="${BASH_REMATCH[1]}"
+            name=$(printf '%s' "$name" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ -z "$name" ]] && continue
+            case "$section" in
+                xhttp) XHTTP_CLIENTS+=("$name") ;;
+                tcp)   TCP_CLIENTS+=("$name") ;;
+            esac
+        fi
+    done < "$users_file"
 }
 
 generate_ports() {
@@ -1161,11 +1187,19 @@ add_inbound() {
 }
 
 add_client() {
+    local email="$1"
+    local inbound_ids="$2"
     info "$MSG_CLIENT_ADDING"
-    CLIENT_UUID=$(cat /proc/sys/kernel/random/uuid)
+    local client_uuid
+    client_uuid=$(cat /proc/sys/kernel/random/uuid)
 
     local client_payload
-    client_payload=$(jq -n --arg email "${CLIENT_EMAIL}" --arg subId "${CLIENT_EMAIL}" --arg id "${CLIENT_UUID}" '{ client: { email: $email, subId: $subId, id: $id, password: "", auth: "", flow: "xtls-rprx-vision", security: "auto", totalGB: 0, expiryTime: 0, reset: 0, limitIp: 0, tgId: 0, group: "", comment: "", enable: true }, inboundIds: [1,2] }')
+    client_payload=$(jq -n \
+        --arg email "$email" \
+        --arg subId "$email" \
+        --arg id "$client_uuid" \
+        --argjson inboundIds "$inbound_ids" \
+        '{ client: { email: $email, subId: $subId, id: $id, password: "", auth: "", flow: "xtls-rprx-vision", security: "auto", totalGB: 0, expiryTime: 0, reset: 0, limitIp: 0, tgId: 0, group: "", comment: "", enable: true }, inboundIds: $inboundIds }')
 
     panel_api_request "panel/api/clients/add" "./working/add-client-response.json" \
         -H 'content-type: application/json' \
@@ -1174,6 +1208,25 @@ add_client() {
 
     grep -q '"success":true' ./working/add-client-response.json || die "$MSG_CLIENT_ERR"
     success "$MSG_CLIENT_READY"
+}
+
+add_interactive_client() {
+    prompt_client_name
+    add_client "$CLIENT_EMAIL" "[1,2]"
+    CREATED_CLIENTS+=("$CLIENT_EMAIL")
+}
+
+add_clients_from_file() {
+    info "$MSG_USERS_FILE_FOUND"
+    local email
+    for email in "${XHTTP_CLIENTS[@]}"; do
+        add_client "$email" "[2]"
+        CREATED_CLIENTS+=("$email")
+    done
+    for email in "${TCP_CLIENTS[@]}"; do
+        add_client "$email" "[1]"
+        CREATED_CLIENTS+=("$email")
+    done
 }
 
 build_sub_and_connect_urls() {
@@ -1194,7 +1247,7 @@ build_sub_and_connect_urls() {
     CLIENT_VLESS_TCP_URL=$(echo "$raw_sub_data" | grep "type=tcp" || true)
     CLIENT_VLESS_XHTTP_URL=$(echo "$raw_sub_data" | grep "type=xhttp" || true)
 
-    if [[ -z "$CLIENT_VLESS_TCP_URL" || -z "$CLIENT_VLESS_XHTTP_URL" ]]; then
+    if [[ -z "$CLIENT_VLESS_TCP_URL" && -z "$CLIENT_VLESS_XHTTP_URL" ]]; then
         die "$MSG_SUB_EXTRACT_ERR"
     fi
 
@@ -1223,6 +1276,22 @@ EOF
     chmod 644 /etc/profile.d/3x-ui.sh
 }
 
+collect_results() {
+    RESULTS_CLIENTS=()
+    RESULTS_SUB_URLS=()
+    RESULTS_TCP_URLS=()
+    RESULTS_XHTTP_URLS=()
+    local email
+    for email in "${CREATED_CLIENTS[@]}"; do
+        CLIENT_EMAIL="$email"
+        build_sub_and_connect_urls
+        RESULTS_CLIENTS+=("$CLIENT_EMAIL")
+        RESULTS_SUB_URLS+=("$CLIENT_SUBSCRIPTION_URL")
+        RESULTS_TCP_URLS+=("$CLIENT_VLESS_TCP_URL")
+        RESULTS_XHTTP_URLS+=("$CLIENT_VLESS_XHTTP_URL")
+    done
+}
+
 print_results() {
     section "$MSG_RESULTS_TITLE"
     success "$MSG_SETUP_DONE"
@@ -1230,22 +1299,31 @@ print_results() {
     echo -e "\n${CYAN}${MSG_CRED_PANEL}${NC}"
     echo -e "  ${YELLOW}https://${DOMAIN}/${XUI_WEB_BASE_PATH}/${NC}"
 
-    echo -e "\n${CYAN}${MSG_SUB_URL_TITLE}${NC}"
-    echo -e "  ${YELLOW}${CLIENT_SUBSCRIPTION_URL}${NC}"
-    echo -e "${CYAN}${MSG_QR_SUB}${NC}"
-    qrencode -t ANSIUTF8 "$CLIENT_SUBSCRIPTION_URL"
+    local i
+    for i in "${!RESULTS_CLIENTS[@]}"; do
+        echo -e "\n${CYAN}${MSG_CLIENT_TITLE}${NC} ${RESULTS_CLIENTS[$i]}"
 
-    echo -e "\n${CYAN}${MSG_VLESS_TCP_URL_TITLE}${NC}"
-    echo -e "  ${YELLOW}${CLIENT_VLESS_TCP_URL}${NC}"
-    echo -e "${CYAN}${MSG_QR_TCP}${NC}"
-    qrencode -t ANSIUTF8 "$CLIENT_VLESS_TCP_URL"
-    echo
+        echo -e "\n${CYAN}${MSG_SUB_URL_TITLE}${NC}"
+        echo -e "  ${YELLOW}${RESULTS_SUB_URLS[$i]}${NC}"
+        echo -e "${CYAN}${MSG_QR_SUB}${NC}"
+        qrencode -t ANSIUTF8 "${RESULTS_SUB_URLS[$i]}"
 
-    echo -e "\n${CYAN}${MSG_VLESS_XHTTP_URL_TITLE}${NC}"
-    echo -e "  ${YELLOW}${CLIENT_VLESS_XHTTP_URL}${NC}"
-    echo -e "${CYAN}${MSG_QR_XHTTP}${NC}"
-    qrencode -t ANSIUTF8 "$CLIENT_VLESS_XHTTP_URL"
-    echo
+        if [[ -n "${RESULTS_TCP_URLS[$i]}" ]]; then
+            echo -e "\n${CYAN}${MSG_VLESS_TCP_URL_TITLE}${NC}"
+            echo -e "  ${YELLOW}${RESULTS_TCP_URLS[$i]}${NC}"
+            echo -e "${CYAN}${MSG_QR_TCP}${NC}"
+            qrencode -t ANSIUTF8 "${RESULTS_TCP_URLS[$i]}"
+            echo
+        fi
+
+        if [[ -n "${RESULTS_XHTTP_URLS[$i]}" ]]; then
+            echo -e "\n${CYAN}${MSG_VLESS_XHTTP_URL_TITLE}${NC}"
+            echo -e "  ${YELLOW}${RESULTS_XHTTP_URLS[$i]}${NC}"
+            echo -e "${CYAN}${MSG_QR_XHTTP}${NC}"
+            qrencode -t ANSIUTF8 "${RESULTS_XHTTP_URLS[$i]}"
+            echo
+        fi
+    done
 }
 
 main() {
@@ -1269,8 +1347,12 @@ main() {
     configure_panel_user
     add_inbound vless-tcp-reality
     add_inbound vless-xhttp-reality
-    prompt_client_name
-    add_client
+    read_users_file
+    if [[ ${#XHTTP_CLIENTS[@]} -gt 0 || ${#TCP_CLIENTS[@]} -gt 0 ]]; then
+        add_clients_from_file
+    else
+        add_interactive_client
+    fi
     update_panel_settings_api
     update_xray_routing
 
@@ -1281,7 +1363,7 @@ main() {
 
     wait_for_ssl
 
-    build_sub_and_connect_urls
+    collect_results
     install_ssh_login_notice
     print_results
 }

@@ -1,0 +1,25 @@
+{
+    email subserver@{{DOMAIN}}
+    log {
+        level {$LOG_LEVEL:INFO}
+        format json
+        output stdout
+    }
+}
+
+http://{{DOMAIN}} {
+    redir https://{{DOMAIN}}{uri} permanent
+}
+
+{{DOMAIN}} {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+    }
+
+    handle /{{SECRET_SUB_PATH}}* {
+        reverse_proxy subs-server:8000
+    }
+
+    respond "Not Found" 404
+}

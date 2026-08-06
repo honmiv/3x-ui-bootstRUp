@@ -1,0 +1,38 @@
+services:
+  subs-server:
+    build:
+      context: .
+      dockerfile: templates/docker-compose/Dockerfile-python
+    container_name: subs-server
+    restart: unless-stopped
+    environment:
+      SECRET_SUB_PATH: "{{SECRET_SUB_PATH}}"
+      DATABASE_FILE: "/data/subs.yml"
+      FORCE_FILE: "/data/force-subs.yml"
+      RUSSIAN_SUB_URL: "{{RUSSIAN_SUB_URL}}"
+      FOREIGN_SUB_URL: "{{FOREIGN_SUB_URL}}"
+      PORT: "8000"
+    volumes:
+      - ./subs.yml:/data/subs.yml:ro
+      - ./force-subs.yml:/data/force-subs.yml:ro
+    networks:
+      - sub-caddy-net
+
+  caddy:
+    image: caddy:2
+    container_name: sub-caddy
+    restart: always
+    depends_on:
+      - subs-server
+    volumes:
+      - ./.caddy_data/sub/data:/data
+      - ./working/caddy/Caddyfile:/etc/caddy/Caddyfile
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - sub-caddy-net
+
+networks:
+  sub-caddy-net:
+    driver: bridge

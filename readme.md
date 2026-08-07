@@ -19,5 +19,5 @@ curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.z
 
 ### ⚡ Windows PowerShell
 ```powershell
-iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; .\install.ps1
+cd ~; iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```

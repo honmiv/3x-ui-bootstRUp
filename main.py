@@ -59,24 +59,32 @@ def save_backup_config(data: Dict[str, Any]):
         lines = ["# Auto-generated setup backup\n\n"]
 
         lines.append("common:\n")
+        if "deploy_mode" in data:
+            lines.append(f"  deploy_mode: {fmt_val(data['deploy_mode'])}\n")
         if "is_cascade" in data:
             lines.append(f"  is_cascade: {fmt_val(data['is_cascade'])}\n")
         lines.append("\n")
 
         lines.append("freedom_node:\n")
-        for k in ["freedom_host", "freedom_port", "freedom_user", "freedom_password", "freedom_xui_username", "freedom_xui_password", "freedom_sub_secret", "freedom_client_name", "freedom_xui_version"]:
+        for k in ["freedom_host", "freedom_port", "freedom_user", "freedom_password", "freedom_key", "freedom_auth_type", "freedom_xui_username", "freedom_xui_password", "freedom_sub_secret", "freedom_client_name", "freedom_xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("proxy_node:\n")
-        for k in ["proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_xui_username", "proxy_xui_password", "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list", "proxy_xui_version"]:
+        for k in ["proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key", "proxy_auth_type", "proxy_xui_username", "proxy_xui_password", "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list", "proxy_xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("standard_node:\n")
-        for k in ["vps_host", "vps_port", "vps_user", "vps_password", "vps_key"]:
+        for k in ["vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"]:
+            if k in data:
+                lines.append(f"  {k}: {fmt_val(data[k])}\n")
+        lines.append("\n")
+
+        lines.append("sub_server:\n")
+        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")

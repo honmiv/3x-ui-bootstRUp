@@ -103,6 +103,10 @@ reset_working_dir() {
 }
 
 prompt_domain() {
+    if [[ -n "${DOMAIN:-}" ]] && is_valid_domain "$DOMAIN"; then
+        info "Using domain from environment: $DOMAIN"
+        return
+    fi
     while :; do
         read -r -p "$(echo -e "${CYAN}[..]${NC} Enter domain (e.g. sub.example.com): ")" DOMAIN
         if is_valid_domain "$DOMAIN"; then
@@ -113,6 +117,12 @@ prompt_domain() {
 }
 
 prompt_sub_path() {
+    if [[ -n "${SECRET_SUB_PATH:-}" ]]; then
+        SECRET_SUB_PATH="${SECRET_SUB_PATH#/}"
+        SECRET_SUB_PATH="${SECRET_SUB_PATH%/}"
+        info "Using secret sub path from environment: $SECRET_SUB_PATH"
+        return
+    fi
     local default="subs"
     read -r -p "$(echo -e "${CYAN}[..]${NC} Path prefix [default: $default]: ")" SECRET_SUB_PATH
     SECRET_SUB_PATH="${SECRET_SUB_PATH:-$default}"
@@ -121,6 +131,14 @@ prompt_sub_path() {
 }
 
 prompt_subscription_urls() {
+    if [[ -n "${RUSSIAN_SUB_URL:-}" || -n "${FOREIGN_SUB_URL:-}" ]]; then
+        RUSSIAN_SUB_URL="${RUSSIAN_SUB_URL:-}"
+        RUSSIAN_SUB_URL="${RUSSIAN_SUB_URL%/}"
+        FOREIGN_SUB_URL="${FOREIGN_SUB_URL:-}"
+        FOREIGN_SUB_URL="${FOREIGN_SUB_URL%/}"
+        info "Using subscription URLs from environment."
+        return
+    fi
     RUSSIAN_SUB_URL=""
     FOREIGN_SUB_URL=""
     read -r -p "$(echo -e "${CYAN}[..]${NC} Configure Russian node? (y/N): ")" has_ru
@@ -131,6 +149,27 @@ prompt_subscription_urls() {
     read -r -p "$(echo -e "${CYAN}[..]${NC} Foreign node subscription URL: ")" FOREIGN_SUB_URL
     FOREIGN_SUB_URL="${FOREIGN_SUB_URL%/}"
     [[ -n "$RUSSIAN_SUB_URL" || -n "$FOREIGN_SUB_URL" ]] || die "At least one subscription URL must be specified."
+}
+
+create_subs_yml() {
+    info "Configuring subs.yml database."
+    cat <<EOF > "$SCRIPT_DIR/subs.yml"
+proxy:
+EOF
+    if [[ -n "${PROXY_CLIENTS:-}" ]]; then
+        for client in $PROXY_CLIENTS; do
+            echo "  - $client" >> "$SCRIPT_DIR/subs.yml"
+        done
+    fi
+    cat <<EOF >> "$SCRIPT_DIR/subs.yml"
+
+freedom:
+EOF
+    if [[ -n "${FREEDOM_CLIENTS:-}" ]]; then
+        for client in $FREEDOM_CLIENTS; do
+            echo "  - $client" >> "$SCRIPT_DIR/subs.yml"
+        done
+    fi
 }
 
 apply_template_values() {
@@ -219,6 +258,7 @@ main() {
     prompt_domain
     prompt_sub_path
     prompt_subscription_urls
+    create_subs_yml
 
     process_templates
     start_containers

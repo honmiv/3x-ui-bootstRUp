@@ -274,11 +274,24 @@ def main():
 
     print(f"==================================================")
     print(f"  3x-ui-bootstRUp Web UI running at: {url}")
+    print(f"  Open {url} in browser")
     print(f"  Press Ctrl+C to stop local server")
     print(f"==================================================")
 
     try:
-        webbrowser.open(url)
+        null_fd = os.open(os.devnull, os.O_RDWR)
+        stderr_fd = os.dup(2)
+        stdout_fd = os.dup(1)
+        os.dup2(null_fd, 2)
+        os.dup2(null_fd, 1)
+        try:
+            webbrowser.open(url)
+        finally:
+            os.dup2(stderr_fd, 2)
+            os.dup2(stdout_fd, 1)
+            os.close(stderr_fd)
+            os.close(stdout_fd)
+            os.close(null_fd)
     except Exception:
         pass
 

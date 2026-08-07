@@ -29,152 +29,266 @@
         <div class="stepper">
             <div class="step active" data-step="1">
                 <div class="step-number">1</div>
-                <div class="step-label">Серверы и Режим</div>
+                <div class="step-label">Выбор режима</div>
             </div>
             <div class="step-line"></div>
             <div class="step" data-step="2">
                 <div class="step-number">2</div>
-                <div class="step-label">Настройки панели</div>
+                <div class="step-label">Серверы и SSH</div>
             </div>
             <div class="step-line"></div>
             <div class="step" data-step="3">
                 <div class="step-number">3</div>
+                <div class="step-label">Настройки панели</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
                 <div class="step-label">Развертывание</div>
             </div>
         </div>
         <!-- Main Form Container -->
         <div class="card">
-            <!-- Step 1: Server Connection & Deployment Mode -->
+            <!-- Step 1: Mode Selection & Architecture Diagram -->
             <div class="step-content active" id="step1">
-                <h2>1. Режим развертывания и параметры серверов</h2>
-                <p class="step-desc">Выберите одиночную установку или единое развертывание каскада из 2 серверов.</p>
+                <h2>1. Выбор режима развертывания</h2>
+                <p class="step-desc">Выберите архитектуру сети для оптимизации скорости, защиты от блокировок и маршрутизации трафика.</p>
                 <!-- Section 1: Deployment Topology -->
                 <div class="section-block">
-                    <div class="section-title">1. Режим развертывания</div>
+                    <div class="section-title">Схема установки</div>
                     <div class="form-grid">
                         <div class="form-group full-width">
-                            <label>Схема установки</label>
-                            <div class="radio-group">
+                            <div class="radio-group mode-grid">
                                 <label class="radio-card">
-                                    <input type="radio" name="is_cascade" value="no" checked id="cascade_no">
-                                    <span>Одиночный сервер</span>
+                                    <input type="radio" name="deploy_mode" value="cascade" checked id="mode_cascade">
+                                    <div class="card-content">
+                                        <span class="card-title">🔗 Каскад</span>
+                                        <span class="card-desc">Freedom Node + Proxy Node</span>
+                                    </div>
                                 </label>
                                 <label class="radio-card">
-                                    <input type="radio" name="is_cascade" value="yes" id="cascade_yes">
-                                    <span>Автоматический каскад</span>
+                                    <input type="radio" name="deploy_mode" value="cascade_sub" id="mode_cascade_sub">
+                                    <div class="card-content">
+                                        <span class="card-title">🌐 Каскад + Сервер подписок</span>
+                                        <span class="card-desc">Freedom Node + Proxy Node + Подписки</span>
+                                    </div>
                                 </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="deploy_mode" value="single" id="mode_single">
+                                    <div class="card-content">
+                                        <span class="card-title">🖥️ Одиночный сервер</span>
+                                        <span class="card-desc">Standalone Node</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="deploy_mode" value="sub_only" id="mode_sub_only">
+                                    <div class="card-content">
+                                        <span class="card-title">📡 Сервер подписок</span>
+                                        <span class="card-desc">Отдельный Сервер подписок</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="subWarningBanner" class="warning-banner hidden">
+                                <span class="warning-icon">⚠️</span>
+                                <span><strong>Внимание:</strong> Режим с Сервером подписок находится в разработке и еще не протестирован в реальном развертывании.</span>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Visual Topology Diagram Block -->
+                <div class="section-block">
+                    <div class="section-title">Наглядная схема трафика</div>
+                    <div class="topology-container" id="topologyDiagram">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <div class="actions-row">
+                    <button type="button" class="btn btn-primary" id="btnNextStep1">Далее к вводу серверов →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Server Connection (SSH & Domains) -->
+            <div class="step-content" id="step2">
+                <h2>2. Параметры серверов и SSH-доступа</h2>
+                <p class="step-desc">Укажите доменные имена/IP-адреса и параметры авторизации для каждого сервера.</p>
+
                 <!-- Single Node Form -->
-                <div id="singleNodeSection" class="section-block">
-                    <div class="section-title">2. Подключение к серверу</div>
+                <div id="singleNodeSection" class="section-block hidden">
+                    <div class="section-title">Подключение к серверу 3X-UI</div>
                     <div class="form-grid">
+                        <div class="form-group full-width domain-port-row">
+                            <div class="form-group domain-field">
+                                <label for="vps_host">Домен</label>
+                                <input type="text" id="vps_host" placeholder="xui.duckdns.org" class="ssh-input" required>
+                            </div>
+                            <div class="form-group port-field">
+                                <label for="vps_port">SSH Порт</label>
+                                <input type="number" id="vps_port" value="22" class="ssh-input">
+                            </div>
+                        </div>
                         <div class="form-group full-width">
-                            <label for="vps_host">Доменное имя / DNS сервера</label>
-                            <input type="text" id="vps_host" placeholder="например, vpn.example.com" class="ssh-input" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="vps_port">SSH Порт</label>
-                            <input type="number" id="vps_port" value="22" class="ssh-input">
-                        </div>
-                        <div class="form-group">
                             <label for="vps_user">SSH Пользователь</label>
                             <input type="text" id="vps_user" value="root" class="ssh-input">
                         </div>
                         <div class="form-group full-width">
-                            <label>Способ авторизации SSH</label>
-                            <div class="radio-group">
-                                <label class="radio-card">
-                                    <input type="radio" name="auth_type" value="password" checked id="auth_type_pass">
-                                    <span>Пароль</span>
-                                </label>
-                                <label class="radio-card">
-                                    <input type="radio" name="auth_type" value="key" id="auth_type_key">
-                                    <span>SSH Приватный ключ</span>
-                                </label>
+                            <label>SSH Авторизация</label>
+                            <div class="auth-input-group">
+                                <div class="auth-field-wrapper" id="vpsPassGroup">
+                                    <div class="input-password-wrapper">
+                                        <input type="password" id="vps_password" placeholder="password" class="ssh-input">
+                                        <button type="button" class="btn-toggle-eye" data-target="vps_password" title="Показать/Скрыть пароль">👁️</button>
+                                    </div>
+                                </div>
+                                <div class="auth-field-wrapper hidden" id="vpsKeyGroup">
+                                    <textarea id="vps_key" rows="1" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" class="ssh-input ssh-key-input"></textarea>
+                                </div>
+                                <select id="vps_auth_type" class="ssh-input auth-type-select" data-pass="vpsPassGroup" data-key="vpsKeyGroup">
+                                    <option value="password" selected>Пароль</option>
+                                    <option value="key">SSH Ключ</option>
+                                </select>
                             </div>
-                        </div>
-                        <div class="form-group full-width" id="passGroup">
-                            <label for="vps_password">Пароль SSH</label>
-                            <div class="input-password-wrapper">
-                                <input type="password" id="vps_password" placeholder="Введите пароль root" class="ssh-input">
-                                <button type="button" class="btn-toggle-eye" data-target="vps_password" title="Показать/Скрыть пароль">👁️</button>
-                            </div>
-                        </div>
-                        <div class="form-group full-width hidden" id="keyGroup">
-                            <label for="vps_key">SSH Приватный ключ</label>
-                            <textarea id="vps_key" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..." class="ssh-input"></textarea>
                         </div>
                     </div>
                 </div>
+
                 <!-- Cascade Dual Node Form -->
-                <div id="cascadeNodeSection" class="hidden">
+                <div id="cascadeNodeSection">
                     <!-- Foreign Node -->
                     <div class="section-block">
-                        <div class="section-title">2.1. Зарубежный сервер (Freedom Node)</div>
+                        <div class="section-title">2.1. Freedom Node (Выходной сервер)</div>
                         <div class="form-grid">
+                            <div class="form-group full-width domain-port-row">
+                                <div class="form-group domain-field">
+                                    <label for="freedom_host">Домен</label>
+                                    <input type="text" id="freedom_host" placeholder="freedom.duckdns.org" class="ssh-input">
+                                </div>
+                                <div class="form-group port-field">
+                                    <label for="freedom_port">SSH Порт</label>
+                                    <input type="number" id="freedom_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
                             <div class="form-group full-width">
-                                <label for="freedom_host">Домен / DNS Зарубежного сервера</label>
-                                <input type="text" id="freedom_host" placeholder="freedom.example.com" class="ssh-input">
-                            </div>
-                            <div class="form-group">
-                                <label for="freedom_port">SSH Порт</label>
-                                <input type="number" id="freedom_port" value="22" class="ssh-input">
-                            </div>
-                            <div class="form-group">
-                                <label for="freedom_user">Пользователь</label>
+                                <label for="freedom_user">SSH Пользователь</label>
                                 <input type="text" id="freedom_user" value="root" class="ssh-input">
                             </div>
                             <div class="form-group full-width">
-                                <label for="freedom_password">Пароль SSH</label>
-                                <div class="input-password-wrapper">
-                                    <input type="password" id="freedom_password" placeholder="Пароль root зарубежного VPS" class="ssh-input">
-                                    <button type="button" class="btn-toggle-eye" data-target="freedom_password" title="Показать/Скрыть пароль">👁️</button>
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="freedomPassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="freedom_password" placeholder="password" class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye" data-target="freedom_password" title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="freedomKeyGroup">
+                                        <textarea id="freedom_key" rows="1" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="freedom_auth_type" class="ssh-input auth-type-select" data-pass="freedomPassGroup" data-key="freedomKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- Local Node -->
                     <div class="section-block">
-                        <div class="section-title">2.2. Местный сервер (Proxy Node / Входной)</div>
+                        <div class="section-title">2.2. Proxy Node (Входной сервер)</div>
                         <div class="form-grid">
+                            <div class="form-group full-width domain-port-row">
+                                <div class="form-group domain-field">
+                                    <label for="proxy_host">Домен</label>
+                                    <input type="text" id="proxy_host" placeholder="proxy.duckdns.org" class="ssh-input">
+                                </div>
+                                <div class="form-group port-field">
+                                    <label for="proxy_port">SSH Порт</label>
+                                    <input type="number" id="proxy_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
                             <div class="form-group full-width">
-                                <label for="proxy_host">Домен / DNS Местного сервера</label>
-                                <input type="text" id="proxy_host" placeholder="proxy.example.com" class="ssh-input">
-                            </div>
-                            <div class="form-group">
-                                <label for="proxy_port">SSH Порт</label>
-                                <input type="number" id="proxy_port" value="22" class="ssh-input">
-                            </div>
-                            <div class="form-group">
-                                <label for="proxy_user">Пользователь</label>
+                                <label for="proxy_user">SSH Пользователь</label>
                                 <input type="text" id="proxy_user" value="root" class="ssh-input">
                             </div>
                             <div class="form-group full-width">
-                                <label for="proxy_password">Пароль SSH</label>
-                                <div class="input-password-wrapper">
-                                    <input type="password" id="proxy_password" placeholder="Пароль root местного VPS" class="ssh-input">
-                                    <button type="button" class="btn-toggle-eye" data-target="proxy_password" title="Показать/Скрыть пароль">👁️</button>
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="proxyPassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="proxy_password" placeholder="password" class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye" data-target="proxy_password" title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="proxyKeyGroup">
+                                        <textarea id="proxy_key" rows="1" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="proxy_auth_type" class="ssh-input auth-type-select" data-pass="proxyPassGroup" data-key="proxyKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Subscription Server SSH & Host Form -->
+                <div id="subServerSshSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">2.3 Сервер подписок (Отдельный VPS)</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width domain-port-row" id="subHostDetailGroup">
+                                <div class="form-group domain-field">
+                                    <label for="sub_vps_host">Домен</label>
+                                    <input type="text" id="sub_vps_host" placeholder="sub.duckdns.org" class="ssh-input" required>
+                                </div>
+                                <div class="form-group port-field" id="subPortGroup">
+                                    <label for="sub_vps_port">SSH Порт</label>
+                                    <input type="number" id="sub_vps_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
+                            <div class="form-group full-width" id="subUserGroup">
+                                <label for="sub_vps_user">SSH Пользователь</label>
+                                <input type="text" id="sub_vps_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="subPassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="sub_vps_password" placeholder="password" class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye" data-target="sub_vps_password" title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="subKeyGroup">
+                                        <textarea id="sub_vps_key" rows="1" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="sub_auth_type" class="ssh-input auth-type-select" data-pass="subPassGroup" data-key="subKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="actions-row">
+                    <button type="button" class="btn btn-secondary" id="btnBackToStep1">← Назад</button>
                     <button type="button" class="btn btn-primary" id="btnTestSSH">⚡ Проверить SSH подключение</button>
                     <button type="button" class="btn btn-success hidden" id="btnNext1">Далее →</button>
                 </div>
                 <div class="test-result" id="testResult"></div>
             </div>
-            <!-- Step 2: Panel Settings & Clients -->
-            <div class="step-content" id="step2">
-                <h2>2. Настройки панели и VPN-клиентов</h2>
+
+            <!-- Step 3: Panel Settings & Clients -->
+            <div class="step-content" id="step3">
+                <h2>3. Настройки панели и VPN-клиентов</h2>
                 <p class="step-desc">Учетные данные панели и список подключаемых пользователей (опционально).</p>
 
                 <!-- Shared Panel Version -->
-                <div class="section-block">
+                <div class="section-block" id="xuiVersionBlock">
                     <div class="form-group full-width">
                         <label for="xui_version">Версия 3X-UI панели (тег Docker-образа)</label>
                         <input type="text" id="xui_version" value="3.6.0" placeholder="3.6.0 или latest">
@@ -182,7 +296,7 @@
                 </div>
 
                 <!-- Single Server Panel Settings -->
-                <div id="singlePanelSection">
+                <div id="singlePanelSection" class="hidden">
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="xui_username">Логин админа 3X-UI</label>
@@ -213,10 +327,10 @@
                     </div>
                 </div>
                 <!-- Cascade Dual Node Panel Settings -->
-                <div id="cascadePanelSection" class="hidden">
+                <div id="cascadePanelSection">
                     <!-- Freedom Node Panel & Client -->
                     <div class="section-block">
-                        <div class="section-title">2.1. Панель и клиент Зарубежного сервера (Freedom Node)</div>
+                        <div class="section-title">3.1. Панель и клиент Целевого сервера (Freedom Node)</div>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="freedom_xui_username">Логин админа Freedom 3X-UI</label>
@@ -237,14 +351,14 @@
                                 </div>
                             </div>
                             <div class="form-group full-width">
-                                <label for="freedom_client_name">Имя XHTTP клиента для каскада (используется местной прокси нодой для доступа к зарубежной)</label>
+                                <label for="freedom_client_name">Имя XHTTP клиента для каскада (используется прокси нодой для доступа к целевой ноде)</label>
                                 <input type="text" id="freedom_client_name" value="local-proxy-node-client" placeholder="local-proxy-node-client">
                             </div>
                         </div>
                     </div>
                     <!-- Proxy Node Panel & End-User Clients -->
                     <div class="section-block">
-                        <div class="section-title">2.2. Панель и VPN-клиенты Местного сервера (Proxy Node)</div>
+                        <div class="section-title">3.2. Панель и VPN-клиенты прокси ноды</div>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="proxy_xui_username">Логин админа Proxy 3X-UI</label>
@@ -275,22 +389,59 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Sub Server Panel / Options Section -->
+                <div id="subServerPanelSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Параметры Сервера подписок</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="sub_secret_path">Префикс пути подписок (например, subs -> https://domain/subs/username)</label>
+                                <input type="text" id="sub_secret_path" value="subs" placeholder="subs">
+                            </div>
+                            <div id="subOnlyTargetGroup" class="form-grid full-width hidden">
+                                <div class="form-group full-width">
+                                    <label for="sub_russian_url">URL подписок прокси ноды (RUSSIAN_SUB_URL)</label>
+                                    <input type="text" id="sub_russian_url" placeholder="https://proxy.duckdns.org:2096/secret_phrase">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="sub_foreign_url">URL подписок целевой ноды (FOREIGN_SUB_URL)</label>
+                                    <input type="text" id="sub_foreign_url" placeholder="https://freedom.duckdns.org:2096/secret_phrase">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="sub_proxy_clients">Имена клиентов Прокси ноды (через запятую)</label>
+                                    <input type="text" id="sub_proxy_clients" placeholder="client1, client2">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="sub_freedom_clients">Имена клиентов Целевой ноды (через запятую)</label>
+                                    <input type="text" id="sub_freedom_clients" placeholder="foreign-user-1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="actions-row">
-                    <button type="button" class="btn btn-secondary" id="btnBack2">← Назад</button>
-                    <button type="button" class="btn btn-success" id="btnStartDeploy">🚀 Начать развертывание</button>
+                    <button type="button" class="btn btn-secondary" id="btnBackToStep2">← Назад</button>
+                    <button type="button" class="btn btn-success" id="btnNextStep3">Далее к развертыванию →</button>
                 </div>
             </div>
-            <!-- Step 3: Live Deploy Logs & Final Summary -->
-            <div class="step-content" id="step3">
-                <h2>3. Ход развертывания</h2>
-                <p class="step-desc">Подключение к серверам, подбор свободных портов и запуск контейнеров...</p>
+
+            <!-- Step 4: Live Deploy Logs & Final Summary -->
+            <div class="step-content" id="step4">
+                <h2>4. Автоматическое развертывание</h2>
+                <p class="step-desc">Проверьте данные и нажмите запуск для автоматической настройки серверов.</p>
+                <div class="actions-row" style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-secondary" id="btnBackToStep3">← Назад</button>
+                    <button type="button" class="btn btn-success" id="btnStartDeploy">🚀 Запустить развертывание</button>
+                </div>
+
                 <div class="terminal-container">
                     <div class="terminal-header">
                         <div class="terminal-title">Консоль удаленного развертывания</div>
                         <button type="button" class="btn-copy-terminal" id="btnCopyLogs" title="Скопировать логи">📋 Копировать лог</button>
                     </div>
                     <div class="terminal-body" id="terminalLogs">
-                        <div class="log-line info">[INIT] Консоль готова...</div>
+                        <div class="log-line info">[INIT] Готов к развертыванию. Нажмите кнопку "Запустить развертывание"...</div>
                     </div>
                 </div>
                 <!-- Rich Final Results Card -->

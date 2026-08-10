@@ -144,6 +144,134 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        } else if (mode === 'proxy_only') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">📱</span>
+                            <span class="node-title">Клиент</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Запрос</span>
+                            <span class="arrow-label">подписки</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Proxy Node</span>
+                            <span class="node-desc">Входной сервер</span>
+                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="topology-stage">
+                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">📱</span>
+                            <span class="node-title">Клиент</span>
+                            <span class="node-desc">С подпиской</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Proxy Node</span>
+                            <span class="node-desc">Входной сервер</span>
+                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Freedom Node</span>
+                            <span class="node-desc">Выходной сервер</span>
+                            <span class="topology-badge topology-badge-foreign">🌐 Зарубежье</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Выход</span>
+                            <span class="arrow-label">в сеть</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🌍</span>
+                            <span class="node-title">Свободный Web</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'freedom_only') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">📱</span>
+                            <span class="node-title">Клиент</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Запрос</span>
+                            <span class="arrow-label">подписки</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Proxy Node</span>
+                            <span class="node-desc">Входной сервер</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="topology-stage">
+                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">📱</span>
+                            <span class="node-title">Клиент</span>
+                            <span class="node-desc">С подпиской</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Proxy Node</span>
+                            <span class="node-desc">Входной сервер</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🖧</span>
+                            <span class="node-title">Freedom Node</span>
+                            <span class="node-desc">Выходной сервер</span>
+                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Выход</span>
+                            <span class="arrow-label">в сеть</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🌍</span>
+                            <span class="node-title">Свободный Web</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         } else if (mode === 'cascade') {
             html = `
                 <div class="topology-stage">
@@ -355,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const subWarningBanner = document.getElementById('subWarningBanner');
 
         if (subWarningBanner) {
-            if (mode === 'cascade_sub' || mode === 'sub_only') {
+            if (mode === 'cascade_sub' || mode === 'sub_only' || mode === 'proxy_only' || mode === 'freedom_only') {
                 subWarningBanner.classList.remove('hidden');
             } else {
                 subWarningBanner.classList.add('hidden');
@@ -364,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTopologyDiagram(mode);
 
-        if (mode === 'single') {
+        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
             singleNodeSection.classList.remove('hidden');
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.add('hidden');
@@ -848,7 +976,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnNext1.classList.add('hidden');
 
             try {
-                if (mode === 'single') {
+                if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
                     const host = document.getElementById('vps_host').value.trim();
                     const port = parseInt(document.getElementById('vps_port').value) || 22;
                     const user = document.getElementById('vps_user').value.trim() || 'root';
@@ -1053,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             xui_version: commonVersion
         };
 
-        if (mode === 'single') {
+        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
             payload.vps_host = document.getElementById('vps_host').value.trim();
             payload.domain = payload.vps_host;
             payload.vps_port = parseInt(document.getElementById('vps_port').value) || 22;
@@ -1114,6 +1242,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mode === 'single') {
             updateBadgeStatus(`Развертывание ${payload.vps_host || 'сервера'}...`, '#f59e0b', true);
+        } else if (mode === 'proxy_only') {
+            updateBadgeStatus(`Развертывание Proxy Node на ${payload.vps_host || 'сервере'}...`, '#f59e0b', true);
+        } else if (mode === 'freedom_only') {
+            updateBadgeStatus(`Развертывание Freedom Node на ${payload.vps_host || 'сервере'}...`, '#f59e0b', true);
         } else if (mode === 'sub_only') {
             updateBadgeStatus('Развертывание Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'cascade_sub') {
@@ -1315,8 +1447,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const xuiUser = result.xui_username || cfg.xui_username || 'admin';
                     const xuiPass = result.xui_password || cfg.xui_password || 'admin';
                     const subSecret = result.sub_secret || cfg.sub_secret || '';
+                    
+                    let panelTitle = 'Панель управления 3X-UI';
+                    let panelIcon = '🔑';
+                    if (mode === 'proxy_only') {
+                        panelTitle = 'Панель управления Proxy Node';
+                        panelIcon = '🛡️';
+                    } else if (mode === 'freedom_only') {
+                        panelTitle = 'Панель управления Freedom Node';
+                        panelIcon = '🕊️';
+                    }
 
-                    panelsContainer.appendChild(renderPanelBlock('Панель управления 3X-UI', '🔑', xuiUrl, xuiUser, xuiPass, subSecret));
+                    panelsContainer.appendChild(renderPanelBlock(panelTitle, panelIcon, xuiUrl, xuiUser, xuiPass, subSecret));
                 }
 
                 const clientsContainer = document.getElementById('clientsContainer');

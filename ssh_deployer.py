@@ -321,13 +321,22 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     web_base_path = hashlib.md5(f"{sub_secret}-panel".encode('utf-8')).hexdigest()[:16]
     log("Generated secure deployment configuration.", "info")
 
-    if deploy_mode == "single":
+    if deploy_mode in ["single", "proxy_only", "freedom_only"]:
         host = config.get("vps_host", "").strip()
         port = int(config.get("vps_port", 22))
         user = config.get("vps_user", "root").strip()
         password = config.get("vps_password", "")
         key_data = config.get("vps_key", "")
         log(f"Starting deployment process on single server {host}...", "info")
+        cascade_choice = "n"
+        node_type_choice = "1"
+        if deploy_mode == "freedom_only":
+            cascade_choice = "y"
+            node_type_choice = "1"
+        elif deploy_mode == "proxy_only":
+            cascade_choice = "y"
+            node_type_choice = "2"
+            
         env_vars = {
             "DOMAIN": host,
             "EMAIL": email,
@@ -339,15 +348,16 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "SECRET_PHRASE": sub_secret,
             "CLIENTS_TCP_LIST": clients_tcp_str,
             "CLIENTS_XHTTP_LIST": clients_xhttp_str,
-            "CASCADE_CHOICE": "n",
-            "NODE_TYPE_CHOICE": "1"
+            "CASCADE_CHOICE": cascade_choice,
+            "NODE_TYPE_CHOICE": node_type_choice,
+            "FOREIGN_SUB_URL": ""
         }
         ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
         
         final_xui_url = parsed_xui_url or f"https://{host}/{web_base_path}/"
         result_data = {
-            "deploy_mode": "single",
+            "deploy_mode": deploy_mode,
             "xui_url": final_xui_url,
             "xui_username": xui_username,
             "xui_password": xui_password,

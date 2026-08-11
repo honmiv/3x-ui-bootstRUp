@@ -5,7 +5,7 @@ $EnvDir = Join-Path $ScriptDir ".python_env"
 $PythonUrl = "https://github.com/indygreg/python-build-standalone/releases/download/20240224/cpython-3.12.2+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
 
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "  3x-ui-bootstRUp Local Web UI Launcher  " -ForegroundColor Cyan
+Write-Host "  3X UI Deployment Manager Web UI Launcher  " -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 
 $PythonBin = ""

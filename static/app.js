@@ -1,4 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
+    ['category-full', 'category-single', 'category-maintenance'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const state = localStorage.getItem(id);
+            if (state === 'open') el.setAttribute('open', '');
+            else if (state === 'closed') el.removeAttribute('open');
+            el.addEventListener('toggle', () => localStorage.setItem(id, el.open ? 'open' : 'closed'));
+        }
+    });
+
     const randomDigits = (len = 16) => {
         let res = '';
         for (let i = 0; i < len; i++) res += Math.floor(Math.random() * 10);
@@ -537,11 +547,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const backupPanelSection = document.getElementById('backupPanelSection');
         const recoveryPanelSection = document.getElementById('recoveryPanelSection');
         const updatePanelSection = document.getElementById('updatePanelSection');
+        const restartPanelSection = document.getElementById('restartPanelSection');
+        const restartServerSection = document.getElementById('restartServerSection');
         const subOnlyTargetGroup = document.getElementById('subOnlyTargetGroup');
         const subWarningBanner = document.getElementById('subWarningBanner');
         const devModeWarning = document.getElementById('devModeWarning');
         const devModeWarningStep1 = document.getElementById('devModeWarningStep1');
-        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui';
+        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server';
 
         if (subWarningBanner) {
             subWarningBanner.classList[isDevMode ? 'remove' : 'add']('hidden');
@@ -562,6 +574,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (backupPanelSection) backupPanelSection.classList.add('hidden');
         if (recoveryPanelSection) recoveryPanelSection.classList.add('hidden');
         if (updatePanelSection) updatePanelSection.classList.add('hidden');
+        if (restartPanelSection) restartPanelSection.classList.add('hidden');
+        if (restartServerSection) restartServerSection.classList.add('hidden');
+
+        const topologySection = document.getElementById('topologySection');
+        if (topologySection) {
+            if (mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
+                topologySection.classList.add('hidden');
+            } else {
+                topologySection.classList.remove('hidden');
+            }
+        }
 
         if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
             singleNodeSection.classList.remove('hidden');
@@ -625,17 +648,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
             if (recoveryPanelSection) recoveryPanelSection.classList.remove('hidden');
             fetchBackupList();
-        } else if (mode === 'update_3xui') {
+        } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.add('hidden');
 
-            if (updateNodeSection) updateNodeSection.classList.remove('hidden');
+            if (updateNodeSection) {
+                updateNodeSection.classList.remove('hidden');
+                const titleEl = updateNodeSection.querySelector('.section-title');
+                if (titleEl) {
+                    if (mode === 'update_3xui') titleEl.textContent = 'Сервер для обновления 3X-UI панели';
+                    else if (mode === 'restart_panel') titleEl.textContent = 'Сервер для перезапуска 3X-UI панели';
+                    else if (mode === 'restart_server') titleEl.textContent = 'Сервер для перезагрузки';
+                }
+            }
             if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
-            if (updatePanelSection) updatePanelSection.classList.remove('hidden');
+            if (mode === 'update_3xui' && updatePanelSection) updatePanelSection.classList.remove('hidden');
+            if (mode === 'restart_panel' && restartPanelSection) restartPanelSection.classList.remove('hidden');
+            if (mode === 'restart_server' && restartServerSection) restartServerSection.classList.remove('hidden');
         }
         resetSSHValidation();
     };

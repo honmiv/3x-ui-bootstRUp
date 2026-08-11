@@ -19,8 +19,9 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
     background-image: 
-        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.8) 0px, rgba(15, 23, 42, 1) 100%);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
@@ -30,7 +31,7 @@ body {
 }
 .app-container {
     width: 100%;
-    max-width: 760px;
+    max-width: 1140px;
 }
 .app-header {
     display: flex;
@@ -155,7 +156,7 @@ body {
 /* Card */
 .card {
     background: var(--card-bg);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 30px;
@@ -253,18 +254,20 @@ input[type="password"],
 textarea {
     width: 100%;
     padding: 10px 14px;
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid var(--border-color);
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     color: var(--text-primary);
     font-size: 0.9rem;
     font-family: inherit;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
 }
 input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), inset 0 0 10px rgba(59, 130, 246, 0.1);
 }
 .input-password-wrapper {
     position: relative;
@@ -405,8 +408,8 @@ input:focus, textarea:focus {
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 10px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.15);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     z-index: 100;
     padding: 4px;
     opacity: 0;
@@ -495,11 +498,88 @@ input:focus, textarea:focus {
     display: flex;
     gap: 12px;
 }
-.radio-group.mode-grid {
+/* Mode Categories & Grid */
+.modes-categories-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.mode-category {
+    background: rgba(15, 23, 42, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+.category-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    position: relative;
+}
+.category-header::-webkit-details-marker {
+    display: none;
+}
+.category-header::after {
+    content: "▼";
+    position: absolute;
+    right: 0;
+    font-size: 10px;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+details.mode-category:not([open]) .category-header {
+    margin-bottom: 0;
+}
+details.mode-category:not([open]) .category-header::after {
+    transform: rotate(-90deg);
+}
+.category-badge {
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.2px;
+}
+.badge-primary {
+    background: rgba(59, 130, 246, 0.18);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+.badge-info {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.badge-warning {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.category-sub {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.radio-group.mode-grid-3 {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
 }
+@media (max-width: 900px) {
+    .radio-group.mode-grid-3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 600px) {
+    .radio-group.mode-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
 .radio-card {
     flex: 1;
     display: flex;
@@ -513,6 +593,15 @@ input:focus, textarea:focus {
     font-size: 0.85rem;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.radio-card:has(input[type="radio"]:checked) {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 0 0 1px rgba(59, 130, 246, 0.5);
+    transform: translateY(-2px);
+}
+.radio-card:has(input[type="radio"]:checked) .card-title {
+    color: #60a5fa;
+}
 .radio-card .card-content {
     display: flex;
     flex-direction: column;
@@ -521,10 +610,61 @@ input:focus, textarea:focus {
 .radio-card .card-title {
     font-weight: 600;
     color: var(--text-primary);
+    transition: color 0.2s ease;
 }
 .radio-card .card-desc {
     font-size: 0.75rem;
     color: var(--text-secondary);
+}
+
+/* Collapsible Topology */
+.topology-details {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 18px;
+    transition: all 0.3s ease;
+}
+.topology-summary {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+.topology-summary::-webkit-details-marker {
+    display: none;
+}
+.topology-summary::after {
+    content: "▲";
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+.topology-details:not([open]) .topology-summary::after {
+    transform: rotate(180deg);
+}
+.topology-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-right: 12px;
+}
+.legend-box {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
 }
 .checkbox-card {
     display: flex;
@@ -622,6 +762,10 @@ input:focus, textarea:focus {
     margin-top: 25px;
 }
 .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 10px 20px;
     border-radius: 8px;
     font-size: 0.9rem;
@@ -637,8 +781,10 @@ input:focus, textarea:focus {
     transform: translateY(0) scale(0.97);
 }
 .btn-primary {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
     color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 .btn-primary:hover {
     background: var(--primary-hover);
@@ -1248,4 +1394,25 @@ input:focus, textarea:focus {
     display: flex;
     align-items: center;
     gap: 6px;
+}
+.logo-icon svg { display: block; }
+.btn-tool span svg { display: inline-block; vertical-align: text-bottom; margin-right: 4px; }
+.category-badge svg { display: inline-block; vertical-align: text-bottom; margin-right: 4px; }
+.card-title svg { display: inline-block; vertical-align: text-bottom; margin-right: 6px; }
+.warning-icon svg { display: inline-block; vertical-align: text-bottom; }
+.topology-summary svg { display: inline-block; vertical-align: text-bottom; margin-right: 8px; }
+.btn-toggle-eye svg { display: inline-block; vertical-align: middle; }
+
+/* Improve warning banner */
+.warning-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 16px;
+    border-radius: 12px;
+    color: #fcd34d;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.1);
 }

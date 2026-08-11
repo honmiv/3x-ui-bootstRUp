@@ -5,7 +5,7 @@ set "ENV_DIR=%~dp0.python_env"
 set "PYTHON_URL=https://github.com/indygreg/python-build-standalone/releases/download/20240224/cpython-3.12.2+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
 
 echo =========================================
-echo   3x-ui-bootstRUp Local Web UI Launcher 
+echo   3X UI Deployment Manager Web UI Launcher 
 echo =========================================
 
 if exist "%ENV_DIR%\python.exe" (

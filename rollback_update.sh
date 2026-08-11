@@ -13,7 +13,7 @@ cp -r "$backup_dir"/. "$working_dir"/
 
 compose_file="$working_dir/docker-compose/docker-compose.yml"
 if [[ -f "$compose_file" ]]; then
-  docker compose -f "$compose_file" --project-directory . up -d 3xui
+  docker compose -f "$compose_file" --project-directory . up -d
 else
   echo "Warning: docker-compose.yml not found at $compose_file. Service was not restarted." >&2
 fi

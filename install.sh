@@ -6,7 +6,7 @@ PORTABLE_PYTHON_RELEASE="20240224"
 PYTHON_VERSION="3.12.2"
 
 echo "========================================="
-echo "   3x-ui-bootstRUp Local Web UI Launcher "
+echo "   3X UI Deployment Manager Web UI Launcher "
 echo "========================================="
 
 detect_platform() {

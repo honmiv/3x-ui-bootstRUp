@@ -48,4 +48,5 @@ if (Test-Path (Join-Path $EnvDir "python.exe")) {
 }
 
 Write-Host "[OK] Starting local Web UI application..." -ForegroundColor Green
+$env:XUI_CLI_EXT = ".ps1"
 & $PythonBin (Join-Path $ScriptDir "main.py")

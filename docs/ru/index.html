@@ -1,10 +1,12 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>3x-ui bootstRUp: документация</title>
-  <meta name="description" content="Документация по установке и архитектуре 3x-ui bootstRUp с Caddy, Nginx и безопасным мультиплексированием.">
+  <meta name="description"
+    content="Документация по установке и архитектуре 3x-ui bootstRUp с Caddy, Nginx и безопасным мультиплексированием.">
   <style>
     :root {
       color-scheme: light;
@@ -18,7 +20,11 @@
       --code: #eef2f5;
       --warn: #7a4d00;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -26,49 +32,135 @@
       color: var(--text);
       line-height: 1.6;
     }
+
     header {
       background: #10231f;
       color: #f6fbf9;
       padding: 56px 24px 40px;
     }
-    .wrap { max-width: 1060px; margin: 0 auto; }
-    .hero { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr) 320px; align-items: end; }
-    h1, h2, h3 { line-height: 1.2; margin: 0 0 14px; }
-    h1 { font-size: clamp(34px, 5vw, 58px); letter-spacing: 0; max-width: 760px; }
-    h2 { font-size: 28px; margin-top: 40px; }
-    h3 { font-size: 20px; margin-top: 24px; }
-    p { margin: 0 0 16px; }
-    a { color: var(--accent-dark); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-    header a { color: #8ee0cd; }
-    .lead { font-size: 19px; color: #d6e7e2; max-width: 780px; }
+
+    .wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      align-items: end;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      margin: 0 0 14px;
+    }
+
+    h1 {
+      font-size: clamp(34px, 5vw, 58px);
+      letter-spacing: 0;
+      max-width: 760px;
+    }
+
+    h2 {
+      font-size: 28px;
+      margin-top: 40px;
+    }
+
+    h3 {
+      font-size: 20px;
+      margin-top: 24px;
+    }
+
+    p {
+      margin: 0 0 16px;
+    }
+
+    a {
+      color: var(--accent-dark);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    header a {
+      color: #8ee0cd;
+    }
+
+    .lead {
+      font-size: 19px;
+      color: #d6e7e2;
+      max-width: 780px;
+    }
+
     .status {
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .08);
       padding: 18px;
       border-radius: 8px;
     }
-    .status strong { display: block; font-size: 28px; color: #8ee0cd; }
-    .status a { color: #8ee0cd; font-weight: 700; }
+
+    .status strong {
+      display: block;
+      font-size: 28px;
+      color: #8ee0cd;
+    }
+
+    .status a {
+      color: #8ee0cd;
+      font-weight: 700;
+    }
+
     nav {
       position: sticky;
       top: 0;
       z-index: 2;
-      background: rgba(255,255,255,.96);
+      background: rgba(255, 255, 255, .96);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }
-    nav .wrap { display: flex; gap: 18px; overflow-x: auto; padding: 12px 24px; }
-    nav a { white-space: nowrap; color: var(--text); text-decoration: none; font-size: 14px; }
-    main { padding: 24px; }
-    section { padding: 6px 0 16px; border-bottom: 1px solid var(--line); }
-    .grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    nav .wrap {
+      display: flex;
+      gap: 18px;
+      overflow-x: auto;
+      padding: 12px 24px;
+    }
+
+    nav a {
+      white-space: nowrap;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    main {
+      padding: 24px;
+    }
+
+    section {
+      padding: 6px 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .panel {
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 20px;
     }
-    .panel p { margin-bottom: 12px; }
+
+    .panel p {
+      margin-bottom: 12px;
+    }
+
     .rollback {
       margin-top: 18px;
       padding: 14px 16px;
@@ -76,14 +168,22 @@
       background: #fff7ed;
       border-radius: 6px;
     }
+
     .rollback h4 {
       margin: 0 0 8px;
       color: #9a3412;
       font-size: 16px;
       line-height: 1.25;
     }
-    .rollback p { color: #7c2d12; }
-    .rollback .code-block { margin-bottom: 0; }
+
+    .rollback p {
+      color: #7c2d12;
+    }
+
+    .rollback .code-block {
+      margin-bottom: 0;
+    }
+
     pre {
       margin: 0;
       padding: 12px 14px 14px;
@@ -94,8 +194,16 @@
       color: #edf2f7;
       line-height: 1.55;
     }
-    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .94em; }
-    pre code { white-space: inherit; }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: .94em;
+    }
+
+    pre code {
+      white-space: inherit;
+    }
+
     .code-block {
       position: relative;
       margin: 12px 0 18px;
@@ -105,6 +213,7 @@
       background: #0f172a;
       box-shadow: 0 8px 18px rgba(15, 23, 42, .12);
     }
+
     .terminal-bar {
       display: flex;
       justify-content: flex-end;
@@ -114,6 +223,7 @@
       border-bottom: 1px solid #263447;
       background: #172033;
     }
+
     .copy-command {
       border: 1px solid rgba(148, 163, 184, .22);
       background: rgba(15, 23, 42, .48);
@@ -123,38 +233,109 @@
       font: 600 12px Inter, ui-sans-serif, system-ui, sans-serif;
       cursor: pointer;
     }
-    .copy-command:hover { background: rgba(30, 41, 59, .72); color: #f8fafc; }
-    .copy-command:focus-visible { outline: 2px solid #8ee0cd; outline-offset: 2px; }
+
+    .copy-command:hover {
+      background: rgba(30, 41, 59, .72);
+      color: #f8fafc;
+    }
+
+    .copy-command:focus-visible {
+      outline: 2px solid #8ee0cd;
+      outline-offset: 2px;
+    }
+
     .code-line {
       display: block;
       margin: 3px 0;
       padding: 4px 8px;
       border-radius: 5px;
       background: rgba(148, 163, 184, .10);
-    }    :not(pre) > code { background: var(--code); padding: 2px 5px; border-radius: 5px; }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); }
-    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-    th { background: #eef4f2; }
-    ul, ol { padding-left: 22px; }
-    .note { border-left: 4px solid var(--accent); padding: 12px 16px; background: #edf7f4; }
-    .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; overflow-x: auto; }
-    footer { padding: 32px 24px 48px; color: var(--muted); }
+    }
+
+    :not(pre)>code {
+      background: var(--code);
+      padding: 2px 5px;
+      border-radius: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef4f2;
+    }
+
+    ul,
+    ol {
+      padding-left: 22px;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      padding: 12px 16px;
+      background: #edf7f4;
+    }
+
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      overflow-x: auto;
+    }
+
+    footer {
+      padding: 32px 24px 48px;
+      color: var(--muted);
+    }
+
     @media (max-width: 780px) {
-      .hero, .grid { grid-template-columns: 1fr; }
-      header { padding-top: 38px; }
-      h1 { font-size: 36px; }
-      main { padding: 18px; }
-      nav .wrap { padding-inline: 18px; }
+
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding-top: 38px;
+      }
+
+      h1 {
+        font-size: 36px;
+      }
+
+      main {
+        padding: 18px;
+      }
+
+      nav .wrap {
+        padding-inline: 18px;
+      }
     }
   </style>
 </head>
+
 <body>
   <header>
     <div class="wrap hero">
       <div>
         <h1>3x-ui bootstRUp</h1>
-        <p class="lead">Автоматизированная настройка self-steal конфигурации VLESS+REALITY (TCP/xhttp) на 3x-ui. VPN, панель, подписки и обычный HTTPS-трафик работают через один домен и порт.</p>
-        <p><a href="https://github.com/honmiv/3x-ui-bootstRUp">Основной репозиторий</a> · <a href="../en/">English</a></p>
+        <p class="lead">Автоматизированная настройка self-steal конфигурации VLESS+REALITY (TCP/xhttp) на 3x-ui. VPN,
+          панель, подписки и обычный HTTPS-трафик работают через один домен и порт.</p>
+        <p><a href="https://github.com/honmiv/3x-ui-bootstRUp">Основной репозиторий</a> · <a href="../en/">English</a>
+        </p>
       </div>
       <div class="status">
         <span><a href="https://github.com/pwnnex/ByeByeVPN">ByeByeVPN</a></span>
@@ -183,13 +364,13 @@
       <div class="grid">
         <div class="panel">
           <h3>Автоматическая</h3>
-          <pre><code>curl -fsSL https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/install.sh | bash</code></pre>
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/honmiv/3x-ui-bootstRUp/master/start_3x_ui_deployment_manager.sh | bash</code></pre>
         </div>
         <div class="panel">
           <h3>Вручную</h3>
           <pre><code>git clone https://github.com/honmiv/3x-ui-bootstRUp.git
 cd 3x-ui-bootstRUp
-./install.sh</code></pre>
+./start_3x_ui_deployment_manager.sh</code></pre>
         </div>
       </div>
     </section>
@@ -200,20 +381,24 @@ cd 3x-ui-bootstRUp
       <div class="grid">
         <div class="panel">
           <h3>Запуск на Linux / macOS</h3>
-          <pre><code>./install.sh</code></pre>
+          <pre><code>./start_3x_ui_deployment_manager.sh</code></pre>
         </div>
         <div class="panel">
           <h3>Запуск на Windows</h3>
-          <pre><code>install.bat</code></pre>
+          <pre><code>start_3x_ui_deployment_manager.bat</code></pre>
         </div>
       </div>
       <h3>Возможности Веб-мастера:</h3>
       <ul>
-        <li><strong>Выбор топологии:</strong> установка на одиночный сервер или автоматическое развертывание 2-серверного каскада (Freedom + Proxy Node).</li>
+        <li><strong>Выбор топологии:</strong> установка на одиночный сервер или автоматическое развертывание
+          2-серверного каскада (Freedom + Proxy Node).</li>
         <li><strong>Проверка SSH:</strong> интерактивная проверка соединения перед запуском процесса.</li>
-        <li><strong>Выбор версии 3X-UI:</strong> возможность указать единый тег Docker-образа (например, <code>3.6.0</code> или <code>latest</code>).</li>
+        <li><strong>Выбор версии 3X-UI:</strong> возможность указать единый тег Docker-образа (например,
+          <code>3.6.0</code> или <code>latest</code>).
+        </li>
         <li><strong>Живой мониторинг:</strong> интерактивная консоль логов с анимированным таймером развертывания.</li>
-        <li><strong>Безопасность данных:</strong> пароли в логах маскируются, а в итоговой карточке доступны скрытые поля с кнопкой просмотра (👁️) и удобным копированием (📋).</li>
+        <li><strong>Безопасность данных:</strong> пароли в логах маскируются, а в итоговой карточке доступны скрытые
+          поля с кнопкой просмотра (👁️) и удобным копированием (📋).</li>
       </ul>
     </section>
 
@@ -231,13 +416,13 @@ git reset --hard origin/master</code></pre>
         <div class="panel">
           <h3>Обновление панели</h3>
           <p>Чтобы обновить панель на конкретную версию:</p>
-          <pre><code>./update.sh 3.3.1</code></pre>
+          <pre><code>./panel_update.sh 3.3.1</code></pre>
           <p>Чтобы обновить панель на последнюю версию:</p>
-          <pre><code>./update.sh latest</code></pre>
+          <pre><code>./panel_update.sh latest</code></pre>
           <div class="rollback">
             <h4>Откат обновления</h4>
             <p>Если после обновления что-то сломалось:</p>
-            <pre><code>./rollback_update.sh</code></pre>
+            <pre><code>./panel_recover.sh</code></pre>
           </div>
         </div>
       </div>
@@ -254,13 +439,18 @@ git reset --hard origin/master</code></pre>
     </section>
     <section id="architecture">
       <h2>Особенности архитектуры</h2>
-      <p>Все обращения: VPN, веб-панель, подписки и сайт-заглушка используют один домен с единым SNI (`sni=domain`). Выпуск и обновление TLS-сертификатов автоматически управляется через Caddy.</p>
+      <p>Все обращения: VPN, веб-панель, подписки и сайт-заглушка используют один домен с единым SNI (`sni=domain`).
+        Выпуск и обновление TLS-сертификатов автоматически управляется через Caddy.</p>
       <ol>
         <li>Входящий запрос поступает на <strong>Caddy</strong> (`domain:443`).</li>
-        <li>Caddy маршрутизирует трафик на inbound <strong>3x-ui (VLESS + TCP + Reality)</strong> без терминации TLS.</li>
-        <li>Если запрос не является клиентским TCP-подключением, он перенаправляется на inbound <strong>VLESS + xhttp + Reality</strong>.</li>
-        <li>Если запрос не является xhttp-подключением, TLS по-прежнему не терминируется, и трафик перенаправляется обратно на <strong>внутренний порт Caddy</strong>.</li>
-        <li>На внутреннем порту <strong>Caddy терминирует TLS</strong>. Расшифрованный HTTP-трафик маршрутизируется на панель 3x-ui, подписки или на <strong>Nginx:80</strong>.</li>
+        <li>Caddy маршрутизирует трафик на inbound <strong>3x-ui (VLESS + TCP + Reality)</strong> без терминации TLS.
+        </li>
+        <li>Если запрос не является клиентским TCP-подключением, он перенаправляется на inbound <strong>VLESS + xhttp +
+            Reality</strong>.</li>
+        <li>Если запрос не является xhttp-подключением, TLS по-прежнему не терминируется, и трафик перенаправляется
+          обратно на <strong>внутренний порт Caddy</strong>.</li>
+        <li>На внутреннем порту <strong>Caddy терминирует TLS</strong>. Расшифрованный HTTP-трафик маршрутизируется на
+          панель 3x-ui, подписки или на <strong>Nginx:80</strong>.</li>
       </ol>
       <p class="note">Для систем DPI любой неавторизованный запрос выглядит как стандартное обращение к HTTPS-сайту.</p>
       <div class="diagram">
@@ -272,14 +462,37 @@ Client HTTP -> Caddy:80 -> HTTPS redirect or Nginx fallback</code></pre>
     <section id="routing">
       <h2>Маршрутизация</h2>
       <table>
-        <thead><tr><th>Запрос / подключение</th><th>Результат</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Запрос / подключение</th>
+            <th>Результат</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td><code>domain:80</code></td><td>Сайт-заглушка (Nginx)</td></tr>
-          <tr><td><code>domain:443</code> обычный браузер или curl</td><td>Сайт-заглушка (Nginx)</td></tr>
-          <tr><td><code>domain:443/panel-secret-url</code></td><td>Панель управления 3x-ui</td></tr>
-          <tr><td><code>domain:443/sub-secret-url/{client-name}</code></td><td>Ссылка на конфигурацию подписки клиента</td></tr>
-          <tr><td><code>domain:443</code> xhttp</td><td>VPN-соединение: VLESS + xhttp</td></tr>
-          <tr><td><code>domain:443</code> TCP</td><td>VPN-соединение: VLESS + TCP</td></tr>
+          <tr>
+            <td><code>domain:80</code></td>
+            <td>Сайт-заглушка (Nginx)</td>
+          </tr>
+          <tr>
+            <td><code>domain:443</code> обычный браузер или curl</td>
+            <td>Сайт-заглушка (Nginx)</td>
+          </tr>
+          <tr>
+            <td><code>domain:443/panel-secret-url</code></td>
+            <td>Панель управления 3x-ui</td>
+          </tr>
+          <tr>
+            <td><code>domain:443/sub-secret-url/{client-name}</code></td>
+            <td>Ссылка на конфигурацию подписки клиента</td>
+          </tr>
+          <tr>
+            <td><code>domain:443</code> xhttp</td>
+            <td>VPN-соединение: VLESS + xhttp</td>
+          </tr>
+          <tr>
+            <td><code>domain:443</code> TCP</td>
+            <td>VPN-соединение: VLESS + TCP</td>
+          </tr>
         </tbody>
       </table>
     </section>
@@ -291,22 +504,27 @@ Client HTTP -> Caddy:80 -> HTTPS redirect or Nginx fallback</code></pre>
         <li>Проверяет права `root`.</li>
         <li>Определяет пакетный менеджер (`apt`, `dnf`, `yum`, `pacman`) и ожидает снятия блокировок.</li>
         <li>Устанавливает недостающие утилиты: jq, openssl, ss, qrencode и другие.</li>
-        <li>Устанавливает Docker и Docker Compose, если они отсутствуют. Для пользователей из РФ настраивает резервное зеркало реестра `dh-mirror.gitverse.ru`.</li>
+        <li>Устанавливает Docker и Docker Compose, если они отсутствуют. Для пользователей из РФ настраивает резервное
+          зеркало реестра `dh-mirror.gitverse.ru`.</li>
       </ul>
       <h3>Генерация конфигурации</h3>
       <ul>
-        <li>Подбирает свободные внутренние порты, генерирует X25519-ключи и безопасные URL-пути для панели и подписок.</li>
+        <li>Подбирает свободные внутренние порты, генерирует X25519-ключи и безопасные URL-пути для панели и подписок.
+        </li>
         <li>Обрабатывает шаблоны из `templates` и создает рабочие конфигурационные файлы.</li>
       </ul>
       <h3>Настройка 3x-ui</h3>
       <ul>
         <li>Запускает контейнер 3x-ui и настраивает его через API.</li>
-        <li>Запрашивает тип сервера (зарубежный "freedom" или местный "proxy") и настраивает правила маршрутизации Xray для соответствующего сценария.</li>
-        <li>Обновляет учетные данные администратора, применяет маршруты, создает inbound-подключения VLESS TCP и xhttp Reality, добавляет VPN-клиента.</li>
+        <li>Запрашивает тип сервера (зарубежный "freedom" или местный "proxy") и настраивает правила маршрутизации Xray
+          для соответствующего сценария.</li>
+        <li>Обновляет учетные данные администратора, применяет маршруты, создает inbound-подключения VLESS TCP и xhttp
+          Reality, добавляет VPN-клиента.</li>
       </ul>
       <h3>Валидация и интеграция</h3>
       <ul>
-        <li>Использует готовый образ Caddy с поддержкой L4 из <code>ghcr.io</code> для быстрой установки (вместо локальной сборки).</li>
+        <li>Использует готовый образ Caddy с поддержкой L4 из <code>ghcr.io</code> для быстрой установки (вместо
+          локальной сборки).</li>
         <li>Запускает Caddy и ожидает выпуска SSL/TLS-сертификата.</li>
         <li>Проверяет доступность HTTPS на 443 порту.</li>
         <li>Получает и декодирует данные подписки, выводит ссылки и QR-коды.</li>
@@ -317,7 +535,8 @@ Client HTTP -> Caddy:80 -> HTTPS redirect or Nginx fallback</code></pre>
     <section id="notes">
       <h2>Примечания</h2>
       <ul>
-        <li>Перенаправление нецелевого трафика между inbound-ами реализовано через поле `target`, а не через механизм `fallbacks` последних версий 3x-ui.</li>
+        <li>Перенаправление нецелевого трафика между inbound-ами реализовано через поле `target`, а не через механизм
+          `fallbacks` последних версий 3x-ui.</li>
         <li>Добавление или удаление inbound-ов требует аккуратной настройки `target`.</li>
         <li>Удаление `vless+tcp+reality` inbound без добавления inbound с тем же портом потребует правки Caddyfile.</li>
       </ul>
@@ -379,4 +598,5 @@ Client HTTP -> Caddy:80 -> HTTPS redirect or Nginx fallback</code></pre>
     });
   </script>
 </body>
+
 </html>

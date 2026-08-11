@@ -29,6 +29,43 @@ def log_event(message: str, level: str = "info"):
     global active_logs
     active_logs.append({"message": message, "level": level})
 
+def cli_ext() -> str:
+    ext = os.environ.get("XUI_CLI_EXT", "").strip().lstrip(".").lower()
+    if ext in ("sh", "bat", "cmd", "ps1"):
+        return ext
+    return "bat" if sys.platform.startswith("win") else "sh"
+
+def cli_script_path(base_name: str) -> str:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    preferred = cli_ext()
+    if preferred in ("bat", "cmd"):
+        candidates = [f"{base_name}.bat", f"{base_name}.cmd"]
+        if preferred == "cmd":
+            candidates.reverse()
+    else:
+        candidates = [f"{base_name}.{preferred}"]
+    candidates += [f"{base_name}.sh", f"{base_name}.cmd", f"{base_name}.bat", f"{base_name}.ps1"]
+    for name in candidates:
+        p = os.path.join(base_dir, name)
+        if os.path.exists(p):
+            return p
+    return ""
+
+def launch_script(script_path: str) -> None:
+    import subprocess
+    ext = os.path.splitext(script_path)[1].lower()
+    script_dir = os.path.dirname(os.path.abspath(script_path))
+    if ext == ".ps1":
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script_path],
+            cwd=script_dir, start_new_session=True,
+        )
+    elif ext == ".sh":
+        os.chmod(script_path, 0o755)
+        subprocess.Popen(["bash", script_path], cwd=script_dir, start_new_session=True)
+    else:
+        subprocess.Popen([script_path], cwd=script_dir, start_new_session=True)
+
 def load_backup_config() -> Dict[str, Any]:
     if not os.path.exists(BACKUP_FILE):
         return {}
@@ -119,7 +156,7 @@ def save_backup_config(data: Dict[str, Any]):
         pass
 
 def list_backup_files() -> List[Dict[str, Any]]:
-    backups_dir = os.path.join(os.path.dirname(__file__), "backups")
+    backups_dir = os.path.join(os.path.dirname(__file__), "panel", "backups")
     if not os.path.exists(backups_dir):
         return []
     result = []
@@ -233,7 +270,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
         if url_path == "/":
             url_path = "/index.html"
 
-        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        static_dir = os.path.join(os.path.dirname(__file__), "panel", "static")
         target_file = os.path.abspath(os.path.join(static_dir, url_path.lstrip("/")))
 
         if not target_file.startswith(static_dir) or not os.path.isfile(target_file):
@@ -372,12 +409,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
             def run_update_bg():
                 import time
-                import subprocess
                 time.sleep(0.5)
-                script_path = os.path.join(os.path.dirname(__file__), "update_sources.sh")
-                if os.path.exists(script_path):
-                    os.chmod(script_path, 0o755)
-                    subprocess.Popen(["bash", script_path], cwd=os.path.dirname(__file__), start_new_session=True)
+                script_path = cli_script_path("update_sources")
+                if script_path:
+                    launch_script(script_path)
                 time.sleep(0.5)
                 os._exit(0)
 
@@ -397,21 +432,15 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
             def run_restart_bg():
                 import time
-                import subprocess
                 time.sleep(0.3)
                 try:
                     server_ref.socket.close()
                 except Exception:
                     pass
                 time.sleep(0.3)
-                script_name = "install.bat" if sys.platform.startswith("win") else "install.sh"
-                script_path = os.path.join(os.path.dirname(__file__), script_name)
-                if os.path.exists(script_path):
-                    if not sys.platform.startswith("win"):
-                        os.chmod(script_path, 0o755)
-                        subprocess.Popen(["bash", script_path], cwd=os.path.dirname(__file__), start_new_session=True)
-                    else:
-                        subprocess.Popen([script_path], cwd=os.path.dirname(__file__), start_new_session=True)
+                script_path = cli_script_path("start_3x_ui_deployment_manager")
+                if script_path:
+                    launch_script(script_path)
                 os._exit(0)
 
             import threading

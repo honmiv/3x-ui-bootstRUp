@@ -53,4 +53,5 @@ else
 fi
 
 echo "[OK] Starting local Web UI application..."
+export XUI_CLI_EXT=".sh"
 exec "$PYTHON_BIN" main.py

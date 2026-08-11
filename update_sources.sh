@@ -45,7 +45,7 @@ main() {
         if [[ "$name" == "." || "$name" == ".." ]]; then
             continue
         fi
-        if [[ "$name" == "backups" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" ]]; then
+        if [[ "$name" == "backups" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" || "$name" == "panel" ]]; then
             echo "[KEEP] $name"
             continue
         fi
@@ -57,7 +57,7 @@ main() {
     cp -a "$src_dir"/. "$TARGET_DIR_ABS"/
 
     echo "[..] Setting script execution permissions..."
-    for script in setup.sh update.sh rollback_update.sh install.sh update_sources.sh backup.sh; do
+    for script in panel/setup.sh panel_update.sh panel_recover.sh start_3x_ui_deployment_manager.sh update_sources.sh panel_backup.sh; do
         [[ -f "$script" ]] && chmod +x "$script"
     done
 
@@ -68,9 +68,9 @@ main() {
         pkill -f "python.*main\.py" >/dev/null 2>&1 || true
     fi
 
-    if [[ -f "./install.sh" ]]; then
+    if [[ -f "./start_3x_ui_deployment_manager.sh" ]]; then
         echo "[..] Starting local Web UI application..."
-        exec ./install.sh
+        exec ./start_3x_ui_deployment_manager.sh
     fi
 }
 

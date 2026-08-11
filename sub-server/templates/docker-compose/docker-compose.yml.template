@@ -1,7 +1,7 @@
 services:
   subs-server:
     build:
-      context: .
+      context: ./sub-server
       dockerfile: templates/docker-compose/Dockerfile-python
     container_name: subs-server
     restart: unless-stopped
@@ -13,8 +13,8 @@ services:
       FOREIGN_SUB_URL: "{{FOREIGN_SUB_URL}}"
       PORT: "8000"
     volumes:
-      - ./subs.yml:/data/subs.yml:ro
-      - ./force-subs.yml:/data/force-subs.yml:ro
+      - ./sub-server/subs.yml:/data/subs.yml:ro
+      - ./sub-server/force-subs.yml:/data/force-subs.yml:ro
     networks:
       - sub-caddy-net
 

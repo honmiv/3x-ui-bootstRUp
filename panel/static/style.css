@@ -455,6 +455,13 @@ input:focus, textarea:focus {
     font-size: 0.75rem;
     color: #60a5fa;
 }
+.sidebar-form .custom-select-container {
+    width: 100%;
+    flex: 1 1 auto;
+}
+.sidebar-form .custom-select-options {
+    min-width: 100%;
+}
 .domain-port-row {
     display: flex !important;
     flex-direction: row !important;

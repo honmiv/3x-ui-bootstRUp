@@ -119,6 +119,7 @@ class SSHDeployer:
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "ConnectTimeout=10",
+            "-o", "NumberOfPasswordPrompts=1",
             "-p", self.port
         ]
         
@@ -140,7 +141,7 @@ class SSHDeployer:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdin=asyncio.subprocess.PIPE if stdin_data else None,
+                stdin=asyncio.subprocess.PIPE if stdin_data else asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env
@@ -198,6 +199,7 @@ class SSHDeployer:
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "ConnectTimeout=10",
+            "-o", "NumberOfPasswordPrompts=1",
         ]
         env = os.environ.copy()
         if self._key_file:
@@ -217,6 +219,7 @@ class SSHDeployer:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env

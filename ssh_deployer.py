@@ -12,12 +12,16 @@ import sys
 import tarfile
 import tempfile
 from typing import Callable, Dict, Any, Optional, List, Tuple
+
 ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
+
 def generate_random_string(length: int = 16) -> str:
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
+
 def get_bundle_bytes() -> bytes:
     buf = io.BytesIO()
     repo_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,15 +67,18 @@ def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]
     if current_client:
         clients.append(current_client)
     return xui_url, clients
+
 class SSHDeployer:
-    def __init__(self, host: str, port: int = 22, user: str = "root", password: str = "", key_data: str = ""):
+    def __init__(self, host: str, port: int = 22, user: str = "root", password: str = "", key_data: str = "", cancel_check: Optional[Callable[[], bool]] = None):
         self.host = host
         self.port = str(port)
         self.user = user
         self.password = password
         self.key_data = key_data
+        self.cancel_check = cancel_check
         self._key_file: Optional[str] = None
         self._askpass_file: Optional[str] = None
+
     async def __aenter__(self):
         if self.key_data.strip():
             tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
@@ -93,6 +100,7 @@ class SSHDeployer:
                 os.chmod(tf_pass.name, 0o700)
                 self._askpass_file = tf_pass.name
         return self
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._key_file and os.path.exists(self._key_file):
             try:
@@ -104,6 +112,7 @@ class SSHDeployer:
                 os.remove(self._askpass_file)
             except Exception:
                 pass
+
     def _build_ssh_cmd_and_env(self, remote_cmd: str) -> tuple[list[str], dict[str, str]]:
         cmd = [
             "ssh",
@@ -125,6 +134,7 @@ class SSHDeployer:
         target = f"{self.user}@{self.host}"
         cmd.extend([target, remote_cmd])
         return cmd, env
+
     async def exec_command(self, remote_cmd: str, log_callback: Optional[Callable[[str], None]] = None, stdin_data: Optional[bytes] = None) -> tuple[int, str]:
         cmd, env = self._build_ssh_cmd_and_env(remote_cmd)
         try:
@@ -142,13 +152,31 @@ class SSHDeployer:
 
             output_lines = []
             while True:
-                line = await proc.stdout.readline()
+                if self.cancel_check and self.cancel_check():
+                    try:
+                        proc.terminate()
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                    if log_callback:
+                        log_callback("[CANCEL] Команда отменена пользователем.")
+                    return 1, "Cancelled by user"
+                try:
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=0.5)
+                except asyncio.TimeoutError:
+                    if proc.returncode is not None:
+                        break
+                    continue
                 if not line:
                     break
                 decoded = strip_ansi(line.decode('utf-8', errors='replace')).rstrip()
-                output_lines.append(decoded)
-                if log_callback:
-                    log_callback(decoded)
+                if decoded:
+                    output_lines.append(decoded)
+                    if log_callback:
+                        log_callback(decoded)
             await proc.wait()
             return proc.returncode or 0, "\n".join(output_lines)
         except Exception as e:
@@ -163,9 +191,180 @@ class SSHDeployer:
             return True, "Connection successful"
         return False, f"Connection error (Code {rc}): {out}"
 
-async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None]) -> tuple[bool, str]:
+    def _build_scp_cmd_and_env(self, remote_path: str, local_path: str) -> tuple[list[str], dict[str, str]]:
+        cmd = [
+            "scp",
+            "-P", self.port,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "ConnectTimeout=10",
+        ]
+        env = os.environ.copy()
+        if self._key_file:
+            cmd.extend(["-i", self._key_file])
+        elif self._askpass_file:
+            env["SSH_ASKPASS"] = self._askpass_file
+            env["SSH_ASKPASS_REQUIRE"] = "force"
+            env["DISPLAY"] = "dummy:0"
+            if self.password:
+                env["SSH_DEPLOY_PASSWORD"] = self.password
+        target = f"{self.user}@{self.host}:{remote_path}"
+        cmd.extend([target, local_path])
+        return cmd, env
+
+    async def download_file(self, remote_path: str, local_path: str, log_callback: Optional[Callable[[str], None]] = None) -> tuple[int, str]:
+        cmd, env = self._build_scp_cmd_and_env(remote_path, local_path)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                env=env
+            )
+            output_lines = []
+            while True:
+                if self.cancel_check and self.cancel_check():
+                    try:
+                        proc.terminate()
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                    if log_callback:
+                        log_callback("[CANCEL] Скачивание отменено пользователем.")
+                    return 1, "Cancelled by user"
+                try:
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=0.5)
+                except asyncio.TimeoutError:
+                    if proc.returncode is not None:
+                        break
+                    continue
+                if not line:
+                    break
+                decoded = strip_ansi(line.decode('utf-8', errors='replace')).rstrip()
+                if decoded:
+                    output_lines.append(decoded)
+                    if log_callback:
+                        log_callback(decoded)
+            await proc.wait()
+            return proc.returncode or 0, "\n".join(output_lines)
+        except Exception as e:
+            err_msg = f"[ERROR] SCP download error: {str(e)}"
+            if log_callback:
+                log_callback(err_msg)
+            return 1, err_msg
+
+
+async def _ensure_remote_docker(deployer: SSHDeployer, log: Callable[[str, str], None]) -> tuple[bool, str]:
+    if deployer.cancel_check and deployer.cancel_check():
+        return False, "Cancelled by user"
+
+    rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
+    if rc == 0:
+        await deployer.exec_command("systemctl start docker 2>/dev/null || true; systemctl enable docker 2>/dev/null || true", lambda m: log(m, "info"))
+        return True, "Docker is already installed"
+
+    if deployer.cancel_check and deployer.cancel_check():
+        return False, "Cancelled by user"
+
+    log("Checking package manager status on remote server...", "info")
+    wait_lock_cmd = (
+        "while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1 || pgrep -x 'apt-get|dpkg|unattended-upgr' >/dev/null 2>&1; do "
+        "  echo '[..] Package manager is locked by system process. Waiting 5 seconds...'; "
+        "  sleep 5; "
+        "done"
+    )
+    rc, out = await deployer.exec_command(wait_lock_cmd, lambda m: log(m, "info"))
+    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
+        return False, out or "Cancelled by user"
+
+    log("Installing Docker using official get.docker.com script...", "info")
+    install_docker_cmd = "curl -fsSL https://get.docker.com | sh"
+    rc, out = await deployer.exec_command(install_docker_cmd, lambda m: log(m, "info"))
+    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
+        err_msg = f"Failed to install Docker: {out}"
+        log(f"[ERROR] {err_msg}", "error")
+        return False, err_msg
+
+    log("Configuring Docker daemon & registry mirrors...", "info")
+    mirror_cmd = (
+        "mkdir -p /etc/docker && "
+        "echo '{\"registry-mirrors\": [\"https://dh-mirror.gitverse.ru\"]}' > /etc/docker/daemon.json && "
+        "systemctl daemon-reload 2>/dev/null || true; "
+        "systemctl start docker && systemctl enable docker"
+    )
+    rc, out = await deployer.exec_command(mirror_cmd, lambda m: log(m, "info"))
+    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
+        return False, out or "Cancelled by user"
+
+    rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
+    if rc != 0:
+        return False, "Docker installation completed but 'docker' binary was not found in PATH."
+
+    return True, "Docker installed successfully"
+
+
+async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: Callable[[str, str], None]) -> tuple[bool, str, float]:
+    """Create a backup archive on the remote server, download it locally via SCP, and clean up.
+
+    Returns (success, local_backup_path, file_size_mb).
+    """
+    import datetime as _dt
+
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    backups_dir = os.path.join(repo_root, "backups")
+    os.makedirs(backups_dir, exist_ok=True)
+    local_backup_path = os.path.join(backups_dir, backup_name)
+
+    log("Creating backup archive on remote server...", "info")
+    remote_script = (
+        "set -e\n"
+        "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+        "if [ ! -d \"$WORK_DIR\" ]; then\n"
+        "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+        "fi\n"
+        "cd \"$WORK_DIR\"\n"
+        "rm -rf /tmp/remote_server_backup /tmp/server_backup.tar.gz\n"
+        "if [ -f \"backup.sh\" ]; then\n"
+        "  bash backup.sh /tmp/remote_server_backup\n"
+        "else\n"
+        "  mkdir -p /tmp/remote_server_backup\n"
+        "  [ -d \"working/3x-ui\" ] && cp -r working/3x-ui /tmp/remote_server_backup/3x-ui || true\n"
+        "  [ -d \"working/3xui\" ] && cp -r working/3xui /tmp/remote_server_backup/3xui || true\n"
+        "  [ -d \"working/docker-compose\" ] && cp -r working/docker-compose /tmp/remote_server_backup/docker-compose || true\n"
+        "  [ -d \"working/nginx-decoy\" ] && cp -r working/nginx-decoy /tmp/remote_server_backup/nginx-decoy || true\n"
+        "  [ -d \"working/caddy\" ] && cp -r working/caddy /tmp/remote_server_backup/caddy || true\n"
+        "fi\n"
+        "tar -czf /tmp/server_backup.tar.gz -C /tmp/remote_server_backup .\n"
+        "rm -rf /tmp/remote_server_backup\n"
+    )
+
+    rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+    if rc != 0:
+        log(f"[ERROR] Remote backup creation failed: {out}", "error")
+        return False, "", 0.0
+
+    log(f"⬇️ Downloading backup archive via SCP to ./backups/{backup_name}...", "info")
+    rc_scp, scp_out = await deployer.download_file("/tmp/server_backup.tar.gz", local_backup_path, lambda m: log(m, "info"))
+
+    # Cleanup remote archive
+    await deployer.exec_command("rm -f /tmp/server_backup.tar.gz")
+
+    if rc_scp != 0 or not os.path.exists(local_backup_path):
+        log(f"[ERROR] SCP download failed: {scp_out}", "error")
+        return False, "", 0.0
+
+    file_size_bytes = os.path.getsize(local_backup_path)
+    file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
+
+    return True, local_backup_path, file_size_mb
+
+
+async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
-    async with SSHDeployer(host, port, user, password, key_data) as deployer:
+    async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to {host}:{port}...", "info")
         ok, msg = await deployer.test_connection()
         if not ok:
@@ -173,10 +372,10 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return False, ""
 
         log(f"Checking and installing Docker on {host}...", "info")
-        rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
-        if rc != 0:
-            await deployer.exec_command("curl -fsSL https://get.docker.com | sh", lambda m: log(m, "info"))
-        await deployer.exec_command("systemctl start docker && systemctl enable docker", lambda m: log(m, "info"))
+        ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
+        if not ok_doc:
+            log(f"[ERROR] Docker setup failed on {host}: {doc_msg}", "error")
+            return False, ""
 
         log(f"Syncing local files to {host}...", "info")
         bundle_bytes = get_bundle_bytes()
@@ -199,9 +398,9 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return True, out
         return False, out
 
-async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None]) -> tuple[bool, str]:
+async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
-    async with SSHDeployer(host, port, user, password, key_data) as deployer:
+    async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to Subscription Server on {host}:{port}...", "info")
         ok, msg = await deployer.test_connection()
         if not ok:
@@ -209,10 +408,10 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return False, ""
 
         log(f"Checking and installing Docker on {host}...", "info")
-        rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
-        if rc != 0:
-            await deployer.exec_command("curl -fsSL https://get.docker.com | sh", lambda m: log(m, "info"))
-        await deployer.exec_command("systemctl start docker && systemctl enable docker", lambda m: log(m, "info"))
+        ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
+        if not ok_doc:
+            log(f"[ERROR] Docker setup failed on Subscription Server {host}: {doc_msg}", "error")
+            return False, ""
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
         bundle_bytes = get_bundle_bytes()
@@ -234,7 +433,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return True, out
         return False, out
 
-async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, str], None]) -> Tuple[bool, Dict[str, Any]]:
+async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> Tuple[bool, Dict[str, Any]]:
     def log(msg: str, level: str = "info"):
         log_callback(msg, level)
 
@@ -249,6 +448,286 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     xui_web_port = config.get("xui_web_port", "").strip()
     xui_sub_port = config.get("xui_sub_port", "").strip()
     sub_secret = config.get("sub_secret", "").strip() or generate_random_string(16)
+
+    # Remote Server Backup Mode
+    if deploy_mode == "backup":
+        host = (config.get("backup_vps_host") or config.get("vps_host") or "").strip()
+        port = int(config.get("backup_vps_port") or config.get("vps_port") or 22)
+        user = (config.get("backup_vps_user") or config.get("vps_user") or "root").strip()
+        password = config.get("backup_vps_password") if config.get("backup_vps_password") is not None else config.get("vps_password", "")
+        key_data = config.get("backup_vps_key") if config.get("backup_vps_key") is not None else config.get("vps_key", "")
+
+        if not host:
+            log("[ERROR] Remote domain host is required for backup mode.", "error")
+            return False, {}
+
+        raw_backup_name = config.get("backup_name", "").strip()
+        if not raw_backup_name:
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            raw_backup_name = f"{host}_{now_str}.tar.gz" if host else f"backup_{now_str}.tar.gz"
+        elif not any(raw_backup_name.endswith(ext) for ext in [".tar.gz", ".tgz", ".zip", ".tar"]):
+            raw_backup_name = f"{raw_backup_name}.tar.gz"
+
+        backup_name = os.path.basename(raw_backup_name)
+
+        log(f"Starting remote backup process for server {host}:{port}...", "info")
+        async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+            log(f"Connecting to {host}:{port}...", "info")
+            ok, msg = await deployer.test_connection()
+            if not ok:
+                log(f"[ERROR] SSH connection failed: {msg}", "error")
+                return False, {}
+
+            bk_ok, bk_local_path, file_size_mb = await _perform_remote_backup(deployer, backup_name, log)
+            if not bk_ok:
+                return False, {}
+
+            log("=========================================", "success")
+            log("🎉 BACKUP CREATED AND DOWNLOADED SUCCESSFULLY!", "success")
+            log(f"Local backup location: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            log("=========================================", "success")
+
+            return True, {
+                "deploy_mode": "backup",
+                "backup_host": host,
+                "backup_name": backup_name,
+                "backup_path": f"./backups/{backup_name}",
+                "file_size": f"{file_size_mb} MB"
+            }
+
+    # Recovery Mode from Backup Archive
+    if deploy_mode == "recovery":
+        host = (config.get("recovery_vps_host") or config.get("vps_host") or "").strip()
+        port = int(config.get("recovery_vps_port") or config.get("vps_port") or 22)
+        user = (config.get("recovery_vps_user") or config.get("vps_user") or "root").strip()
+        password = config.get("recovery_vps_password") if config.get("recovery_vps_password") is not None else config.get("vps_password", "")
+        key_data = config.get("recovery_vps_key") if config.get("recovery_vps_key") is not None else config.get("vps_key", "")
+        backup_filename = config.get("recovery_backup_file", "").strip()
+
+        if not host:
+            log("[ERROR] Target domain host is required for recovery mode.", "error")
+            return False, {}
+
+        if not backup_filename:
+            log("[ERROR] Backup file must be selected for recovery mode.", "error")
+            return False, {}
+
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        local_backup_path = os.path.join(repo_root, "backups", os.path.basename(backup_filename))
+
+        if not os.path.isfile(local_backup_path):
+            log(f"[ERROR] Selected backup archive '{backup_filename}' not found in ./backups/", "error")
+            return False, {}
+
+        with open(local_backup_path, "rb") as f:
+            backup_bytes = f.read()
+
+        remote_dir = "/opt/3x-ui-bootstRUp"
+
+        log(f"Starting Recovery process for server {host}:{port} using '{backup_filename}'...", "info")
+        async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+            log(f"Connecting to {host}:{port}...", "info")
+            ok, msg = await deployer.test_connection()
+            if not ok:
+                log(f"[ERROR] SSH connection failed: {msg}", "error")
+                return False, {}
+
+            log(f"Checking and installing dependencies and Docker on {host}...", "info")
+            ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
+            if not ok_doc:
+                log(f"[ERROR] Docker setup failed: {doc_msg}", "error")
+                return False, {}
+
+            log(f"Syncing local tool files to {host}...", "info")
+            bundle_bytes = get_bundle_bytes()
+            sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
+            rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
+            if rc != 0:
+                log(f"[ERROR] Failed to transfer tool files to {host}: {sync_out}", "error")
+                return False, {}
+
+            log(f"Uploading backup archive ({len(backup_bytes)} bytes) to {host}...", "info")
+            upload_cmd = "cat > /tmp/recovery_backup.tar.gz"
+            rc, up_out = await deployer.exec_command(upload_cmd, lambda m: log(m, "info"), stdin_data=backup_bytes)
+            if rc != 0:
+                log(f"[ERROR] Failed to upload backup archive to {host}: {up_out}", "error")
+                return False, {}
+
+            log("Extracting backup and launching Docker Compose...", "info")
+            
+            new_domain_str = shlex.quote(host)
+            remote_script = (
+                "set -e\n"
+                "cd /opt/3x-ui-bootstRUp\n"
+                "COMPOSE_FILE=\"working/docker-compose/docker-compose.yml\"\n"
+                "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                "  docker compose -f \"$COMPOSE_FILE\" --project-directory . down --remove-orphans 2>/dev/null || true\n"
+                "fi\n"
+                "docker stop 3xui caddy nginx-decoy 2>/dev/null || true\n"
+                "docker rm 3xui caddy nginx-decoy 2>/dev/null || true\n"
+                "rm -rf ./working && mkdir -p ./working\n"
+                "tar -xzf /tmp/recovery_backup.tar.gz -C ./working\n"
+                "rm -f /tmp/recovery_backup.tar.gz\n"
+                "\n"
+                "# Domain replacement if domain changed\n"
+                "CADDY_FILE=\"working/caddy/Caddyfile\"\n"
+                "NEW_DOM=" + new_domain_str + "\n"
+                "if [ -f \"$CADDY_FILE\" ]; then\n"
+                "  OLD_DOMAIN=$(grep -oE 'email 3xui@[A-Za-z0-9.-]+' \"$CADDY_FILE\" | head -n 1 | cut -d'@' -f2 || true)\n"
+                "  if [ -z \"$OLD_DOMAIN\" ]; then\n"
+                "    OLD_DOMAIN=$(grep -oE '^[A-Za-z0-9.-]+:[0-9]+' \"$CADDY_FILE\" | head -n 1 | cut -d':' -f1 || true)\n"
+                "  fi\n"
+                "  if [ -n \"$OLD_DOMAIN\" ] && [ \"$OLD_DOMAIN\" != \"$NEW_DOM\" ]; then\n"
+                "    echo \"[INFO] Domain change detected from '$OLD_DOMAIN' to '$NEW_DOM'. Updating Caddyfile & configs...\"\n"
+                "    sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"$CADDY_FILE\"\n"
+                "    [ -f \"working/nginx-decoy/default.conf\" ] && sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"working/nginx-decoy/default.conf\" || true\n"
+                "    find working/3x-ui/ -type f -name \"*.json\" -exec sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" {} + 2>/dev/null || true\n"
+                "  fi\n"
+                "  WEB_PATH=$(grep -oE '@web_base_path path /[^ /]+' \"$CADDY_FILE\" | head -n 1 | awk '{print $3}' | tr -d '/' || true)\n"
+                "  if [ -n \"$WEB_PATH\" ]; then\n"
+                "    echo \"RECOVERY_WEB_PATH=$WEB_PATH\"\n"
+                "  fi\n"
+                "fi\n"
+                "\n"
+                "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                "  docker compose -f \"$COMPOSE_FILE\" --project-directory . up -d\n"
+                "else\n"
+                "  echo \"[ERROR] docker-compose.yml not found in backup!\"\n"
+                "  exit 1\n"
+                "fi\n"
+            )
+
+            rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+            if rc != 0:
+                log(f"[ERROR] Recovery extraction or container startup failed: {out}", "error")
+                return False, {}
+
+            web_base_path = ""
+            try:
+                import tarfile
+                with tarfile.open(local_backup_path, "r:*") as tar:
+                    for member in tar.getmembers():
+                        if member.name.endswith("Caddyfile"):
+                            ef = tar.extractfile(member)
+                            if ef:
+                                caddy_text = ef.read().decode("utf-8", errors="replace")
+                                m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', caddy_text)
+                                if m_path:
+                                    web_base_path = m_path.group(1)
+                                    break
+            except Exception:
+                pass
+
+            if not web_base_path:
+                m_path_out = re.search(r'RECOVERY_WEB_PATH=([A-Za-z0-9_-]+)', out)
+                if m_path_out:
+                    web_base_path = m_path_out.group(1)
+
+            xui_url = f"https://{host}/{web_base_path}/" if web_base_path else f"https://{host}/"
+
+            log("=========================================", "success")
+            log("🎉 RECOVERY COMPLETED SUCCESSFULLY!", "success")
+            log(f"Server {host} restored from backup '{backup_filename}'", "success")
+            log(f"Panel URL: {xui_url}", "success")
+            log("=========================================", "success")
+
+            return True, {
+                "deploy_mode": "recovery",
+                "recovery_host": host,
+                "backup_file": backup_filename,
+                "xui_url": xui_url
+            }
+
+    # Remote Server 3X-UI Update Mode
+    if deploy_mode in ["update", "update_3xui"]:
+        host = (config.get("update_vps_host") or config.get("vps_host") or "").strip()
+        port = int(config.get("update_vps_port") or config.get("vps_port") or 22)
+        user = (config.get("update_vps_user") or config.get("vps_user") or "root").strip()
+        password = config.get("update_vps_password") if config.get("update_vps_password") is not None else config.get("vps_password", "")
+        key_data = config.get("update_vps_key") if config.get("update_vps_key") is not None else config.get("vps_key", "")
+        target_version = (config.get("update_xui_version") or config.get("xui_version") or "3.6.0").strip()
+
+        if not host:
+            log("[ERROR] Remote host is required for update mode.", "error")
+            return False, {}
+
+        remote_dir = "/opt/3x-ui-bootstRUp"
+
+        log(f"Starting 3X-UI update process for server {host}:{port} to version '{target_version}'...", "info")
+        async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+            log(f"Connecting to {host}:{port}...", "info")
+            ok, msg = await deployer.test_connection()
+            if not ok:
+                log(f"[ERROR] SSH connection failed: {msg}", "error")
+                return False, {}
+
+            log(f"Syncing local tool scripts to {host}:{remote_dir}...", "info")
+            bundle_bytes = get_bundle_bytes()
+            sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
+            rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
+            if rc != 0:
+                log(f"[ERROR] Failed to transfer scripts to {host}: {sync_out}", "error")
+                return False, {}
+
+            # --- Pre-update backup: create on server and download locally ---
+            log("📦 Creating pre-update backup before version change...", "info")
+            import datetime as _dt
+            now_str = _dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            backup_name = f"{host}_pre-update_{now_str}.tar.gz"
+
+            bk_ok, bk_local_path, file_size_mb = await _perform_remote_backup(deployer, backup_name, log)
+            if not bk_ok:
+                return False, {}
+
+            log(f"✅ Pre-update backup saved: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            # --- End of pre-update backup ---
+
+            log(f"Executing remote update.sh {target_version}...", "info")
+            version_str = shlex.quote(target_version)
+            remote_script = (
+                "set -e\n"
+                "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+                "if [ ! -d \"$WORK_DIR\" ]; then\n"
+                "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+                "fi\n"
+                "cd \"$WORK_DIR\"\n"
+                "chmod +x update.sh backup.sh 2>/dev/null || true\n"
+                "bash update.sh " + version_str + "\n"
+            )
+
+            rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+            if rc != 0:
+                log(f"[ERROR] Remote 3X-UI update failed: {out}", "error")
+                return False, {}
+
+            web_base_path = ""
+            caddy_cmd = "cat /opt/3x-ui-bootstRUp/working/caddy/Caddyfile 2>/dev/null || cat working/caddy/Caddyfile 2>/dev/null || true"
+            rc_cad, cad_out = await deployer.exec_command(caddy_cmd)
+            if rc_cad == 0 and cad_out:
+                m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', cad_out)
+                if m_path:
+                    web_base_path = m_path.group(1)
+
+            xui_url = f"https://{host}/{web_base_path}/" if web_base_path else f"https://{host}/"
+
+            log("=========================================", "success")
+            log("🎉 3X-UI PANEL UPDATED SUCCESSFULLY!", "success")
+            log(f"Server: {host}:{port}", "success")
+            log(f"New 3x-ui version: {target_version}", "success")
+            log(f"Panel URL: {xui_url}", "success")
+            log(f"Pre-update backup: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            log("=========================================", "success")
+
+            return True, {
+                "deploy_mode": "update_3xui",
+                "update_host": host,
+                "xui_version": target_version,
+                "xui_url": xui_url,
+                "backup_name": backup_name,
+                "backup_path": f"./backups/{backup_name}",
+                "backup_size": f"{file_size_mb} MB"
+            }
 
     # Standalone Subscription Server Mode
     if deploy_mode == "sub_only":
@@ -279,7 +758,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "FREEDOM_CLIENTS": " ".join(freedom_clients)
         }
 
-        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log)
+        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
         if not ok_sub:
             log("[ERROR] Failed to deploy Subscription Server.", "error")
             return False, {}
@@ -352,7 +831,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "NODE_TYPE_CHOICE": node_type_choice,
             "FOREIGN_SUB_URL": ""
         }
-        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log)
+        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
         
         final_xui_url = parsed_xui_url or f"https://{host}/{web_base_path}/"
@@ -413,7 +892,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "CASCADE_CHOICE": "y",
         "NODE_TYPE_CHOICE": "1"
     }
-    ok1, out1 = await _deploy_node(freedom_host, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log)
+    ok1, out1 = await _deploy_node(freedom_host, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
@@ -446,7 +925,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "NODE_TYPE_CHOICE": "2",
         "FOREIGN_SUB_URL": freedom_sub_url
     }
-    ok2, out2 = await _deploy_node(proxy_host, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log)
+    ok2, out2 = await _deploy_node(proxy_host, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check)
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
@@ -506,7 +985,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "FREEDOM_CLIENTS": " ".join(freedom_client_names)
         }
 
-        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log)
+        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
         if not ok3:
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}

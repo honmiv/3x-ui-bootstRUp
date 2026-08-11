@@ -668,6 +668,94 @@ input:focus, textarea:focus {
     font-size: 0.8rem;
     transition: all 0.2s ease;
 }
+.btn-danger {
+    background: #ef4444;
+    color: #fff;
+}
+.btn-danger:hover {
+    background: #dc2626;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+.btn-shutdown {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fca5a5;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.15);
+    transition: all 0.3s ease;
+}
+.btn-shutdown:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: #ef4444;
+    color: #fecdd3;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+}
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+.header-tools-group {
+    display: flex;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color);
+    padding: 4px;
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+}
+.btn-tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    transition: all 0.25s ease;
+    line-height: 1;
+}
+.btn-tool-blue {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+}
+.btn-tool-blue:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.35);
+    transform: translateY(-1px);
+}
+.btn-tool-amber {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #fde047;
+}
+.btn-tool-amber:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+    transform: translateY(-1px);
+}
+.btn-tool-red {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+}
+.btn-tool-red:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+}
 .btn-sm:hover {
     background: rgba(255, 255, 255, 0.2);
 }

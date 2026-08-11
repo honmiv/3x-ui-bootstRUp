@@ -25,6 +25,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrModalTitle = document.getElementById('qrModalTitle');
     const qrModalUrl = document.getElementById('qrModalUrl');
     const btnCloseQr = document.getElementById('btnCloseQr');
+
+    const fetchBackupList = async () => {
+        try {
+            const res = await fetch('/api/backups');
+            if (!res.ok) return;
+            const files = await res.json();
+            const select = document.getElementById('recovery_backup_file');
+            const selectedSpan = document.getElementById('recoveryBackupSelected');
+            const dropdown = document.getElementById('recoveryBackupDropdown');
+            if (!select || !selectedSpan || !dropdown) return;
+
+            select.innerHTML = '<option value="">-- Выберите архив --</option>';
+            dropdown.innerHTML = '';
+
+            if (!files || files.length === 0) {
+                selectedSpan.textContent = 'Архивы бэкапов не найдены в ./backups/';
+                dropdown.innerHTML = '<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./backups/</div>';
+                return;
+            }
+
+            files.forEach((f) => {
+                const opt = document.createElement('option');
+                opt.value = f.name;
+                opt.textContent = `${f.name} (${f.size}, ${f.mtime})`;
+                select.appendChild(opt);
+
+                const div = document.createElement('div');
+                div.className = 'custom-select-option';
+                div.style.cssText = 'padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;';
+                div.innerHTML = `<div><strong>📦 ${f.name}</strong><br><small style="color:#94a3b8">${f.mtime}</small></div><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${f.size}</span>`;
+                div.addEventListener('click', () => {
+                    select.value = f.name;
+                    selectedSpan.textContent = `${f.name} (${f.size})`;
+                    dropdown.classList.add('hidden');
+                    document.querySelectorAll('#recoveryBackupDropdown .custom-select-option').forEach(el => el.classList.remove('selected'));
+                    div.classList.add('selected');
+                });
+                dropdown.appendChild(div);
+            });
+
+            if (files.length > 0 && !select.value) {
+                select.value = files[0].name;
+                selectedSpan.textContent = `${files[0].name} (${files[0].size})`;
+                if (dropdown.children[0]) dropdown.children[0].classList.add('selected');
+            }
+        } catch (e) {
+            console.error('Failed to fetch backup list', e);
+        }
+    };
+
+    const recTrigger = document.getElementById('recoveryBackupTrigger');
+    const recDropdown = document.getElementById('recoveryBackupDropdown');
+    if (recTrigger && recDropdown) {
+        recTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            recDropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => {
+            recDropdown.classList.add('hidden');
+        });
+    }
+
     const hideQrModal = () => {
         if (qrModal) qrModal.classList.add('hidden');
     };
@@ -58,8 +120,11 @@ document.addEventListener('DOMContentLoaded', () => {
             btnEl.textContent = '✅';
             setTimeout(() => { btnEl.textContent = origText; }, 2000);
         }).catch(() => {
-            btnCopyLogs.textContent = '❌ Ошибка';
-            setTimeout(() => { btnCopyLogs.textContent = '📋 Копировать лог'; }, 2000);
+            const btnCopyLogs = document.getElementById('btnCopyLogs');
+            if (btnCopyLogs) {
+                btnCopyLogs.textContent = '❌ Ошибка';
+                setTimeout(() => { btnCopyLogs.textContent = '📋 Копировать лог'; }, 2000);
+            }
         });
     };
 
@@ -147,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'proxy_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-stage-title">1. Получение подписки (Прямо с нод)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -168,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="topology-stage">
-                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
+                    <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -187,11 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="topology-badge topology-badge-configurable">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
+                            <span class="arrow-label">VLESS XHTTP</span>
                             <span>➔</span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon">🕊️</span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
                             <span class="topology-badge topology-badge-foreign">🌐 Зарубежье</span>
@@ -211,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'freedom_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-stage-title">1. Получение подписки (Прямо с нод)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -232,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="topology-stage">
-                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
+                    <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -251,11 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="topology-badge topology-badge-ru">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
+                            <span class="arrow-label">VLESS XHTTP</span>
                             <span>➔</span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon">🕊️</span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
                             <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
@@ -272,74 +337,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-        } else if (mode === 'cascade') {
-            html = `
-                <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки</div>
-                    <div class="topology-flow">
-                        <div class="topology-node">
-                            <span class="node-icon">📱</span>
-                            <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">Запрос</span>
-                            <span class="arrow-label">подписки</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
-                        </div>
-                    </div>
+        } else if (mode === 'cascade' || mode === 'cascade_sub') {
+            const subTitle = mode === 'cascade_sub' ? '1. Получение единой подписки (Сервер подписок)' : '1. Получение подписки (Прямо с нод)';
+            const subNodeHtml = mode === 'cascade_sub' ? `
+                <div class="topology-node configurable">
+                    <span class="node-icon">📡</span>
+                    <span class="node-title">Сервер подписок</span>
+                    <span class="node-desc">Caddy Sub-Server</span>
+                    <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
                 </div>
-                <div class="topology-stage">
-                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
-                    <div class="topology-flow">
-                        <div class="topology-node">
-                            <span class="node-icon">📱</span>
-                            <span class="node-title">Клиент</span>
-                            <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Freedom Node</span>
-                            <span class="node-desc">Выходной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">Выход</span>
-                            <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node">
-                            <span class="node-icon">🌍</span>
-                            <span class="node-title">Свободный Web</span>
-                        </div>
-                    </div>
+            ` : `
+                <div class="topology-node configurable">
+                    <span class="node-icon">🖧</span>
+                    <span class="node-title">Proxy Node</span>
+                    <span class="node-desc">Входной сервер</span>
+                    <span class="topology-badge topology-badge-configurable">🇷🇺</span>
                 </div>
             `;
-        } else if (mode === 'cascade_sub') {
+
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-stage-title">${subTitle}</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -351,27 +369,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="arrow-label">подписки</span>
                             <span>➔</span>
                         </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">📡</span>
-                            <span class="node-title">Sub Server</span>
-                            <span class="node-desc">Прокси подписок</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">Запрос</span>
-                            <span class="arrow-label">подписки</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
-                        </div>
+                        ${subNodeHtml}
                     </div>
                 </div>
                 <div class="topology-stage">
-                    <div class="topology-stage-title">2. Обход блокировок (Каскадный туннель)</div>
+                    <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -390,11 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="topology-badge topology-badge-configurable">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
+                            <span class="arrow-label">VLESS XHTTP</span>
                             <span>➔</span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon">🕊️</span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
                             <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
@@ -414,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'sub_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки</div>
+                    <div class="topology-stage-title">Автономный Сервер подписок (Caddy Sub-Server)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -428,13 +430,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="topology-node configurable">
                             <span class="node-icon">📡</span>
-                            <span class="node-title">Sub Server</span>
-                            <span class="node-desc">Прокси подписок</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                            <span class="node-title">Сервер подписок</span>
+                            <span class="node-desc">Caddy Sub-Server</span>
+                            <span class="topology-badge topology-badge-configurable">🌐 Caddy</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">Запрос</span>
-                            <span class="arrow-label">подписки</span>
+                            <span class="arrow-label">Проксирование</span>
                             <span>➔</span>
                         </div>
                         <div class="topology-node">
@@ -444,23 +445,74 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 </div>
+            `;
+        } else if (mode === 'backup') {
+            html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">2. Обход блокировок</div>
+                    <div class="topology-stage-title">Создание бэкапа удаленного сервера</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
-                            <span class="node-title">Клиент</span>
-                            <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">./backups/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">VLESS</span>
+                            <span class="arrow-label">Упаковка &</span>
+                            <span class="arrow-label">SCP Скачивание</span>
                             <span>➔</span>
                         </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🖥️</span>
+                            <span class="node-title">Существующий VPS</span>
+                            <span class="node-desc">3X-UI + Docker + Caddy</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'recovery') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Восстановление конфигурации из бэкапа</div>
+                    <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">⚙️</span>
-                            <span class="node-title">Внешние ноды</span>
-                            <span class="node-desc">Существующие 3X-UI</span>
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">./backups/backup.tar.gz</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Загрузка &</span>
+                            <span class="arrow-label">Docker Compose</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🚀</span>
+                            <span class="node-title">Новый VPS</span>
+                            <span class="node-desc">Восстановленная</span>
+                            <span class="node-desc">3X-UI Панель</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'update_3xui') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Обновление 3X-UI панели на сервере</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">./backups/backup.tar.gz</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Бэкап и</span>
+                            <span class="arrow-label">обновление</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🚀</span>
+                            <span class="node-title">VPS c 3x-ui</span>
+                            <span class="node-desc">Обновленный Docker</span>
+                            <span class="node-desc">Образ 3X-UI</span>
                         </div>
                     </div>
                 </div>
@@ -474,23 +526,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const singleNodeSection = document.getElementById('singleNodeSection');
         const cascadeNodeSection = document.getElementById('cascadeNodeSection');
         const subServerSshSection = document.getElementById('subServerSshSection');
+        const backupNodeSection = document.getElementById('backupNodeSection');
+        const recoveryNodeSection = document.getElementById('recoveryNodeSection');
+        const updateNodeSection = document.getElementById('updateNodeSection');
 
         const xuiVersionBlock = document.getElementById('xuiVersionBlock');
         const singlePanelSection = document.getElementById('singlePanelSection');
         const cascadePanelSection = document.getElementById('cascadePanelSection');
         const subServerPanelSection = document.getElementById('subServerPanelSection');
+        const backupPanelSection = document.getElementById('backupPanelSection');
+        const recoveryPanelSection = document.getElementById('recoveryPanelSection');
+        const updatePanelSection = document.getElementById('updatePanelSection');
         const subOnlyTargetGroup = document.getElementById('subOnlyTargetGroup');
         const subWarningBanner = document.getElementById('subWarningBanner');
+        const devModeWarning = document.getElementById('devModeWarning');
+        const devModeWarningStep1 = document.getElementById('devModeWarningStep1');
+        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui';
 
         if (subWarningBanner) {
-            if (mode === 'cascade_sub' || mode === 'sub_only' || mode === 'proxy_only' || mode === 'freedom_only') {
-                subWarningBanner.classList.remove('hidden');
-            } else {
-                subWarningBanner.classList.add('hidden');
-            }
+            subWarningBanner.classList[isDevMode ? 'remove' : 'add']('hidden');
+        }
+
+        if (devModeWarning) {
+            devModeWarning.classList[isDevMode ? 'remove' : 'add']('hidden');
+        }
+        if (devModeWarningStep1) {
+            devModeWarningStep1.classList[isDevMode ? 'remove' : 'add']('hidden');
         }
 
         renderTopologyDiagram(mode);
+
+        if (backupNodeSection) backupNodeSection.classList.add('hidden');
+        if (recoveryNodeSection) recoveryNodeSection.classList.add('hidden');
+        if (updateNodeSection) updateNodeSection.classList.add('hidden');
+        if (backupPanelSection) backupPanelSection.classList.add('hidden');
+        if (recoveryPanelSection) recoveryPanelSection.classList.add('hidden');
+        if (updatePanelSection) updatePanelSection.classList.add('hidden');
 
         if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
             singleNodeSection.classList.remove('hidden');
@@ -525,11 +596,46 @@ document.addEventListener('DOMContentLoaded', () => {
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.remove('hidden');
 
+
             if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
             if (subOnlyTargetGroup) subOnlyTargetGroup.classList.remove('hidden');
+        } else if (mode === 'backup') {
+            singleNodeSection.classList.add('hidden');
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.add('hidden');
+
+            if (backupNodeSection) backupNodeSection.classList.remove('hidden');
+            if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
+            if (singlePanelSection) singlePanelSection.classList.add('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+            if (backupPanelSection) backupPanelSection.classList.remove('hidden');
+        } else if (mode === 'recovery') {
+            singleNodeSection.classList.add('hidden');
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.add('hidden');
+
+            if (recoveryNodeSection) recoveryNodeSection.classList.remove('hidden');
+            if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
+            if (singlePanelSection) singlePanelSection.classList.add('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+            if (recoveryPanelSection) recoveryPanelSection.classList.remove('hidden');
+            fetchBackupList();
+        } else if (mode === 'update_3xui') {
+            singleNodeSection.classList.add('hidden');
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.add('hidden');
+
+            if (updateNodeSection) updateNodeSection.classList.remove('hidden');
+            if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
+            if (singlePanelSection) singlePanelSection.classList.add('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+            if (updatePanelSection) updatePanelSection.classList.remove('hidden');
         }
         resetSSHValidation();
     };
@@ -697,6 +803,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_freedom_clients: document.getElementById('sub_freedom_clients').value.trim(),
                 sub_same_as_proxy: subSameAsProxy ? subSameAsProxy.checked : true,
 
+                backup_vps_host: document.getElementById('backup_vps_host') ? document.getElementById('backup_vps_host').value.trim() : '',
+                backup_vps_port: document.getElementById('backup_vps_port') ? parseInt(document.getElementById('backup_vps_port').value) || 22 : 22,
+                backup_vps_user: document.getElementById('backup_vps_user') ? document.getElementById('backup_vps_user').value.trim() || 'root' : 'root',
+                backup_vps_password: document.getElementById('backup_vps_password') ? document.getElementById('backup_vps_password').value : '',
+                backup_vps_key: document.getElementById('backup_vps_key') ? document.getElementById('backup_vps_key').value : '',
+                backup_auth_type: document.getElementById('backup_auth_type') ? document.getElementById('backup_auth_type').value : 'password',
+                backup_name: document.getElementById('backup_name') ? document.getElementById('backup_name').value.trim() : '',
+
+                recovery_vps_host: document.getElementById('recovery_vps_host') ? document.getElementById('recovery_vps_host').value.trim() : '',
+                recovery_vps_port: document.getElementById('recovery_vps_port') ? parseInt(document.getElementById('recovery_vps_port').value) || 22 : 22,
+                recovery_vps_user: document.getElementById('recovery_vps_user') ? document.getElementById('recovery_vps_user').value.trim() || 'root' : 'root',
+                recovery_vps_password: document.getElementById('recovery_vps_password') ? document.getElementById('recovery_vps_password').value : '',
+                recovery_vps_key: document.getElementById('recovery_vps_key') ? document.getElementById('recovery_vps_key').value : '',
+                recovery_auth_type: document.getElementById('recovery_auth_type') ? document.getElementById('recovery_auth_type').value : 'password',
+                recovery_backup_file: document.getElementById('recovery_backup_file') ? document.getElementById('recovery_backup_file').value : '',
+
+                update_vps_host: document.getElementById('update_vps_host') ? document.getElementById('update_vps_host').value.trim() : '',
+                update_vps_port: document.getElementById('update_vps_port') ? parseInt(document.getElementById('update_vps_port').value) || 22 : 22,
+                update_vps_user: document.getElementById('update_vps_user') ? document.getElementById('update_vps_user').value.trim() || 'root' : 'root',
+                update_vps_password: document.getElementById('update_vps_password') ? document.getElementById('update_vps_password').value : '',
+                update_vps_key: document.getElementById('update_vps_key') ? document.getElementById('update_vps_key').value : '',
+                update_auth_type: document.getElementById('update_auth_type') ? document.getElementById('update_auth_type').value : 'password',
+                update_xui_version: document.getElementById('update_xui_version') ? document.getElementById('update_xui_version').value.trim() : '3.6.0',
+
                 xui_username: document.getElementById('xui_username').value.trim(),
                 xui_password: document.getElementById('xui_password').value.trim(),
                 sub_secret: document.getElementById('sub_secret').value.trim(),
@@ -794,6 +924,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cfg.sub_proxy_clients) document.getElementById('sub_proxy_clients').value = cfg.sub_proxy_clients;
                 if (cfg.sub_freedom_clients) document.getElementById('sub_freedom_clients').value = cfg.sub_freedom_clients;
                 if (cfg.sub_same_as_proxy !== undefined && subSameAsProxy) subSameAsProxy.checked = cfg.sub_same_as_proxy;
+
+                if (cfg.backup_vps_host && document.getElementById('backup_vps_host')) document.getElementById('backup_vps_host').value = cfg.backup_vps_host;
+                if (cfg.backup_vps_port && document.getElementById('backup_vps_port')) document.getElementById('backup_vps_port').value = cfg.backup_vps_port;
+                if (cfg.backup_vps_user && document.getElementById('backup_vps_user')) document.getElementById('backup_vps_user').value = cfg.backup_vps_user;
+                if (cfg.backup_vps_password && document.getElementById('backup_vps_password')) document.getElementById('backup_vps_password').value = cfg.backup_vps_password;
+                if (cfg.backup_vps_key && document.getElementById('backup_vps_key')) document.getElementById('backup_vps_key').value = cfg.backup_vps_key;
+                setAuthSelect('backup_auth_type', 'backupPassGroup', 'backupKeyGroup', cfg.backup_auth_type, cfg.backup_vps_key);
+                if (cfg.backup_name && document.getElementById('backup_name')) document.getElementById('backup_name').value = cfg.backup_name;
+
+                if (cfg.recovery_vps_host && document.getElementById('recovery_vps_host')) document.getElementById('recovery_vps_host').value = cfg.recovery_vps_host;
+                if (cfg.recovery_vps_port && document.getElementById('recovery_vps_port')) document.getElementById('recovery_vps_port').value = cfg.recovery_vps_port;
+                if (cfg.recovery_vps_user && document.getElementById('recovery_vps_user')) document.getElementById('recovery_vps_user').value = cfg.recovery_vps_user;
+                if (cfg.recovery_vps_password && document.getElementById('recovery_vps_password')) document.getElementById('recovery_vps_password').value = cfg.recovery_vps_password;
+                if (cfg.recovery_vps_key && document.getElementById('recovery_vps_key')) document.getElementById('recovery_vps_key').value = cfg.recovery_vps_key;
+                setAuthSelect('recovery_auth_type', 'recoveryPassGroup', 'recoveryKeyGroup', cfg.recovery_auth_type, cfg.recovery_vps_key);
+
+                if (cfg.update_vps_host && document.getElementById('update_vps_host')) document.getElementById('update_vps_host').value = cfg.update_vps_host;
+                if (cfg.update_vps_port && document.getElementById('update_vps_port')) document.getElementById('update_vps_port').value = cfg.update_vps_port;
+                if (cfg.update_vps_user && document.getElementById('update_vps_user')) document.getElementById('update_vps_user').value = cfg.update_vps_user;
+                if (cfg.update_vps_password && document.getElementById('update_vps_password')) document.getElementById('update_vps_password').value = cfg.update_vps_password;
+                if (cfg.update_vps_key && document.getElementById('update_vps_key')) document.getElementById('update_vps_key').value = cfg.update_vps_key;
+                setAuthSelect('update_auth_type', 'updatePassGroup', 'updateKeyGroup', cfg.update_auth_type, cfg.update_vps_key);
+                if (cfg.update_xui_version && document.getElementById('update_xui_version')) document.getElementById('update_xui_version').value = cfg.update_xui_version;
 
                 if (cfg.xui_username) document.getElementById('xui_username').value = cfg.xui_username;
                 if (cfg.xui_password) document.getElementById('xui_password').value = cfg.xui_password;
@@ -1030,6 +1183,66 @@ document.addEventListener('DOMContentLoaded', () => {
                         testResult.className = 'test-result error';
                         testResult.textContent = `❌ ${res.message}`;
                     }
+                } else if (mode === 'backup') {
+                    const host = document.getElementById('backup_vps_host').value.trim();
+                    const port = parseInt(document.getElementById('backup_vps_port').value) || 22;
+                    const user = document.getElementById('backup_vps_user').value.trim() || 'root';
+                    const password = document.getElementById('backup_vps_password').value;
+                    const key_data = document.getElementById('backup_vps_key').value;
+
+                    if (!host) {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = '❌ Укажите домен / IP адрес сервера для бэкапа';
+                        return;
+                    }
+
+                    const resp = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ backup_vps_host: host, backup_vps_port: port, backup_vps_user: user, backup_vps_password: password, backup_vps_key: key_data })
+                    });
+                    const res = await resp.json();
+                    if (res.ok) {
+                        testResult.className = 'test-result success';
+                        testResult.textContent = `✅ Успешное подключение к серверу (${host}:${port})`;
+                        btnNext1.classList.remove('hidden');
+                    } else {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = `❌ ${res.message}`;
+                    }
+                } else if (mode === 'recovery') {
+                    const host = document.getElementById('recovery_vps_host').value.trim();
+                    const port = parseInt(document.getElementById('recovery_vps_port').value) || 22;
+                    const user = document.getElementById('recovery_vps_user').value.trim() || 'root';
+                    const password = document.getElementById('recovery_vps_password').value;
+                    const key_data = document.getElementById('recovery_vps_key').value;
+                    const backup_file = document.getElementById('recovery_backup_file').value;
+
+                    if (!host) {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = '❌ Укажите домен / IP адрес нового сервера';
+                        return;
+                    }
+                    if (!backup_file) {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = '❌ Выберите архив бэкапа из списка';
+                        return;
+                    }
+
+                    const resp = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ recovery_vps_host: host, recovery_vps_port: port, recovery_vps_user: user, recovery_vps_password: password, recovery_vps_key: key_data })
+                    });
+                    const res = await resp.json();
+                    if (res.ok) {
+                        testResult.className = 'test-result success';
+                        testResult.textContent = `✅ Успешное подключение к целевому серверу (${host}:${port})`;
+                        btnNext1.classList.remove('hidden');
+                    } else {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = `❌ ${res.message}`;
+                    }
                 } else {
                     const fHost = document.getElementById('freedom_host').value.trim();
                     const fPort = parseInt(document.getElementById('freedom_port').value) || 22;
@@ -1114,20 +1327,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const btnStartDeploy = document.getElementById('btnStartDeploy');
+    const btnStopDeploy = document.getElementById('btnStopDeploy');
     const terminalLogs = document.getElementById('terminalLogs');
     const btnCopyLogs = document.getElementById('btnCopyLogs');
 
-    btnCopyLogs.addEventListener('click', () => {
-        const text = terminalLogs.innerText;
-        copyToClipboard(text, btnCopyLogs);
-    });
+    if (btnCopyLogs) {
+        btnCopyLogs.addEventListener('click', () => {
+            const text = terminalLogs.innerText;
+            copyToClipboard(text, btnCopyLogs);
+        });
+    }
 
     let isUserScrolledUp = false;
 
-    terminalLogs.addEventListener('scroll', () => {
-        const distanceFromBottom = terminalLogs.scrollHeight - terminalLogs.clientHeight - terminalLogs.scrollTop;
-        isUserScrolledUp = distanceFromBottom > 30;
-    });
+    if (terminalLogs) {
+        terminalLogs.addEventListener('scroll', () => {
+            const distanceFromBottom = terminalLogs.scrollHeight - terminalLogs.clientHeight - terminalLogs.scrollTop;
+            isUserScrolledUp = distanceFromBottom > 30;
+        });
+    }
 
     const appendLog = (message, level = 'info') => {
         const line = document.createElement('div');
@@ -1164,6 +1382,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (timerInterval) clearInterval(timerInterval);
     };
 
+    if (btnStopDeploy) {
+        btnStopDeploy.addEventListener('click', async () => {
+            if (!confirm('Вы уверены, что хотите остановить процесс развертывания?')) return;
+            btnStopDeploy.disabled = true;
+            btnStopDeploy.textContent = '⏳ Остановка...';
+            appendLog('[CANCEL] Запрос остановки процесса пользователем...', 'warning');
+
+            try {
+                const res = await fetch('/api/deploy/stop', { method: 'POST' });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert('Не удалось остановить процесс: ' + (data.message || 'Ошибка'));
+                    btnStopDeploy.disabled = false;
+                    btnStopDeploy.textContent = '🛑 Остановить развертывание';
+                }
+            } catch (e) {
+                alert('Ошибка отправки запроса на остановку: ' + e.message);
+                btnStopDeploy.disabled = false;
+                btnStopDeploy.textContent = '🛑 Остановить развертывание';
+            }
+        });
+    }
+
     btnStartDeploy.addEventListener('click', async () => {
         showStep(4);
         updateBadgeStatus('Развертывание...', '#f59e0b', true);
@@ -1171,6 +1412,12 @@ document.addEventListener('DOMContentLoaded', () => {
         isUserScrolledUp = false;
         terminalLogs.innerHTML = '';
         appendLog('[INIT] Starting deployment process...', 'info');
+
+        if (btnStopDeploy) {
+            btnStopDeploy.classList.remove('hidden');
+            btnStopDeploy.disabled = false;
+        }
+        btnStartDeploy.classList.add('hidden');
 
         const mode = getSelectedMode();
         const commonVersion = document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || '3.6.0' : '3.6.0';
@@ -1205,6 +1452,27 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_foreign_url = document.getElementById('sub_foreign_url').value.trim();
             payload.sub_proxy_clients = document.getElementById('sub_proxy_clients').value.trim();
             payload.sub_freedom_clients = document.getElementById('sub_freedom_clients').value.trim();
+        } else if (mode === 'backup') {
+            payload.backup_vps_host = document.getElementById('backup_vps_host').value.trim();
+            payload.backup_vps_port = parseInt(document.getElementById('backup_vps_port').value) || 22;
+            payload.backup_vps_user = document.getElementById('backup_vps_user').value.trim() || 'root';
+            payload.backup_vps_password = document.getElementById('backup_vps_password').value;
+            payload.backup_vps_key = document.getElementById('backup_vps_key').value;
+            payload.backup_name = document.getElementById('backup_name').value.trim();
+        } else if (mode === 'recovery') {
+            payload.recovery_vps_host = document.getElementById('recovery_vps_host').value.trim();
+            payload.recovery_vps_port = parseInt(document.getElementById('recovery_vps_port').value) || 22;
+            payload.recovery_vps_user = document.getElementById('recovery_vps_user').value.trim() || 'root';
+            payload.recovery_vps_password = document.getElementById('recovery_vps_password').value;
+            payload.recovery_vps_key = document.getElementById('recovery_vps_key').value;
+            payload.recovery_backup_file = document.getElementById('recovery_backup_file').value;
+        } else if (mode === 'update_3xui') {
+            payload.update_vps_host = document.getElementById('update_vps_host').value.trim();
+            payload.update_vps_port = parseInt(document.getElementById('update_vps_port').value) || 22;
+            payload.update_vps_user = document.getElementById('update_vps_user').value.trim() || 'root';
+            payload.update_vps_password = document.getElementById('update_vps_password').value;
+            payload.update_vps_key = document.getElementById('update_vps_key').value;
+            payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
         } else {
             payload.freedom_host = document.getElementById('freedom_host').value.trim();
             payload.freedom_port = parseInt(document.getElementById('freedom_port').value) || 22;
@@ -1243,15 +1511,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'single') {
             updateBadgeStatus(`Развертывание ${payload.vps_host || 'сервера'}...`, '#f59e0b', true);
         } else if (mode === 'proxy_only') {
-            updateBadgeStatus(`Развертывание Proxy Node на ${payload.vps_host || 'сервере'}...`, '#f59e0b', true);
+            updateBadgeStatus(`Развертывание Proxy Node...`, '#f59e0b', true);
         } else if (mode === 'freedom_only') {
-            updateBadgeStatus(`Развертывание Freedom Node на ${payload.vps_host || 'сервере'}...`, '#f59e0b', true);
+            updateBadgeStatus(`Развертывание Freedom Node...`, '#f59e0b', true);
         } else if (mode === 'sub_only') {
             updateBadgeStatus('Развертывание Сервера подписок...', '#f59e0b', true);
-        } else if (mode === 'cascade_sub') {
-            updateBadgeStatus('Развертывание Каскада и Подписок (1/3)...', '#f59e0b', true);
+        } else if (mode === 'backup') {
+            updateBadgeStatus('Создание бэкапа сервера...', '#f59e0b', true);
+        } else if (mode === 'recovery') {
+            updateBadgeStatus('Восстановление сервера...', '#f59e0b', true);
+        } else if (mode === 'update_3xui') {
+            updateBadgeStatus('Обновление 3X-UI панели...', '#f59e0b', true);
         } else {
-            updateBadgeStatus('Развертывание Freedom Node (1/2)...', '#f59e0b', true);
+            updateBadgeStatus('Каскадное развертывание...', '#f59e0b', true);
         }
 
         try {
@@ -1260,143 +1532,121 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await resp.json();
-
-            if (!data.ok) {
-                appendLog(`[ERROR] ${data.message}`, 'error');
-                updateBadgeStatus('Ошибка установки', '#ef4444');
+            const res = await resp.json();
+            if (!res.ok) {
+                appendLog(`[ERROR] ${res.message}`, 'error');
+                updateBadgeStatus('Ошибка запуска', '#ef4444');
                 stopDeployTimer();
+                btnStartDeploy.classList.remove('hidden');
+                if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
                 return;
             }
 
-            const evtSource = new EventSource('/api/deploy/logs');
-
-            const handleFinish = () => {
-                stopDeployTimer();
-                if (statusPollTimer) clearInterval(statusPollTimer);
-                try { evtSource.close(); } catch (e) { }
-                checkFinalStatus(payload);
-            };
-
-            evtSource.onmessage = (event) => {
-                try {
-                    const item = JSON.parse(event.data);
-                    if (item.message) {
-                        appendLog(item.message, item.level);
-
-                        if (item.message.includes('[STAGE 1/')) {
-                            updateBadgeStatus('Развертывание Freedom Node (1)...', '#f59e0b', true);
-                        } else if (item.message.includes('[STAGE 2/')) {
-                            updateBadgeStatus('Развертывание Proxy Node (2)...', '#f59e0b', true);
-                        } else if (item.message.includes('[STAGE 3/3]')) {
-                            updateBadgeStatus('Развертывание Сервера подписок (3/3)...', '#f59e0b', true);
-                        } else if (item.message.includes('Starting deployment') || item.message.includes('Запуск развертывания')) {
-                            updateBadgeStatus('Развертывание VPS...', '#f59e0b', true);
-                        }
-                    }
-                    if (item.event === 'done' || item.status === 'completed' || item.status === 'failed') {
-                        handleFinish();
-                    }
-                } catch (e) {
-                    appendLog(event.data, 'info');
+            const eventSource = new EventSource('/api/deploy/logs');
+            eventSource.onmessage = (event) => {
+                const item = JSON.parse(event.data);
+                if (item.event === 'done') {
+                    eventSource.close();
+                    checkFinalStatus(mode, payload);
+                } else {
+                    appendLog(item.message, item.level || 'info');
                 }
             };
-
-            evtSource.onerror = () => {
-                handleFinish();
+            eventSource.onerror = () => {
+                eventSource.close();
+                checkFinalStatus(mode, payload);
             };
 
-            statusPollTimer = setInterval(async () => {
-                try {
-                    const r = await fetch('/api/status');
-                    const d = await r.json();
-                    if (d.status === 'completed' || d.status === 'failed') {
-                        handleFinish();
-                    }
-                } catch (e) { }
-            }, 1500);
-
         } catch (err) {
-            appendLog(`[ERROR] Не удалось начать развертывание: ${err.message}`, 'error');
-            updateBadgeStatus('Ошибка установки', '#ef4444');
+            appendLog(`[ERROR] ${err.message}`, 'error');
+            updateBadgeStatus('Ошибка сети', '#ef4444');
             stopDeployTimer();
+            btnStartDeploy.classList.remove('hidden');
+            if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
         }
     });
 
-    const checkFinalStatus = async (cfg) => {
+    const checkFinalStatus = async (mode, cfg) => {
         try {
-            const res = await fetch('/api/status');
-            const data = await res.json();
+            const resp = await fetch('/api/status');
+            const data = await resp.json();
+
+            if (data.status === 'cancelled') {
+                stopDeployTimer();
+                updateBadgeStatus('Процесс отменен', '#ef4444');
+                if (btnStartDeploy) {
+                    btnStartDeploy.classList.remove('hidden');
+                    btnStartDeploy.disabled = false;
+                }
+                if (btnStopDeploy) {
+                    btnStopDeploy.classList.add('hidden');
+                    btnStopDeploy.disabled = false;
+                    btnStopDeploy.textContent = '🛑 Остановить развертывание';
+                }
+                appendLog('[CANCEL] Процесс остановлен пользователем.', 'warning');
+                return;
+            }
 
             if (data.status === 'completed') {
-                updateBadgeStatus('Установка завершена', '#10b981');
+                updateBadgeStatus('Успешно завершено!', '#10b981');
                 stopDeployTimer();
 
+                if (btnStartDeploy) btnStartDeploy.classList.remove('hidden');
+                if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
+
                 const summaryCard = document.getElementById('summaryCard');
+                const panelsContainer = document.getElementById('panelsContainer');
                 summaryCard.classList.remove('hidden');
+                panelsContainer.innerHTML = '';
 
                 const result = data.result || {};
-                const mode = result.deploy_mode || cfg.deploy_mode || (cfg.is_cascade ? 'cascade' : 'single');
-
-                const panelsContainer = document.getElementById('panelsContainer');
-                panelsContainer.innerHTML = '';
 
                 const renderPanelBlock = (title, icon, url, user, pass, secret) => {
                     const block = document.createElement('div');
-                    block.className = 'summary-section';
-                    let fieldsHtml = `
-                        <div class="summary-item full-width">
-                            <span class="label">Адрес:</span>
-                            <div class="summary-val-row">
-                                <a href="${url}" target="_blank" class="val-link">${url}</a>
-                                <button type="button" class="btn-copy-val" data-copy="${url}" title="Копировать адрес">📋</button>
-                            </div>
-                        </div>
-                    `;
-                    if (user) {
-                        fieldsHtml += `
-                            <div class="summary-item">
-                                <span class="label">Логин админа:</span>
-                                <div class="summary-val-row">
-                                    <span class="val-bold">${user}</span>
-                                    <button type="button" class="btn-copy-val" data-copy="${user}">📋</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (pass) {
-                        fieldsHtml += `
-                            <div class="summary-item">
-                                <span class="label">Пароль админа:</span>
-                                <div class="summary-val-row">
-                                    <span class="secret-val" data-secret="${pass}">••••••••</span>
-                                    <button type="button" class="btn-eye-secret" title="Показать/скрыть">👁️</button>
-                                    <button type="button" class="btn-copy-val" data-copy="${pass}">📋</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (secret) {
-                        fieldsHtml += `
-                            <div class="summary-item full-width">
-                                <span class="label">Секретная фраза:</span>
-                                <div class="summary-val-row">
-                                    <span class="secret-val" data-secret="${secret}">••••••••</span>
-                                    <button type="button" class="btn-eye-secret" title="Показать/скрыть">👁️</button>
-                                    <button type="button" class="btn-copy-val" data-copy="${secret}">📋</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-
+                    block.className = 'panel-info-block';
                     block.innerHTML = `
-                        <div class="summary-section-title">${icon} ${title}</div>
+                        <div class="panel-info-header">
+                            <span class="panel-icon">${icon}</span>
+                            <span class="panel-title-text">${title}</span>
+                        </div>
                         <div class="summary-grid">
-                            ${fieldsHtml}
+                            <div class="summary-item full-width">
+                                <span class="summary-label">Адрес панели (URL)</span>
+                                <div class="val-code-wrapper">
+                                    <a href="${url}" target="_blank" class="val-code link">${url}</a>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${url}">📋 Copy</button>
+                                </div>
+                            </div>
+                            ${user ? `
+                            <div class="summary-item">
+                                <span class="summary-label">Логин администратора</span>
+                                <div class="val-code-wrapper">
+                                    <span class="val-code">${user}</span>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${user}">📋 Copy</button>
+                                </div>
+                            </div>` : ''}
+                            ${pass ? `
+                            <div class="summary-item">
+                                <span class="summary-label">Пароль администратора</span>
+                                <div class="val-code-wrapper">
+                                    <span class="val-code secret-val" data-secret="${pass}">••••••••</span>
+                                    <button type="button" class="btn-sm btn-eye-secret">👁️</button>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${pass}">📋 Copy</button>
+                                </div>
+                            </div>` : ''}
+                            ${secret ? `
+                            <div class="summary-item full-width">
+                                <span class="summary-label">Секретная фраза</span>
+                                <div class="val-code-wrapper">
+                                    <span class="val-code secret-val" data-secret="${secret}">••••••••</span>
+                                    <button type="button" class="btn-sm btn-eye-secret">👁️</button>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${secret}">📋 Copy</button>
+                                </div>
+                            </div>` : ''}
                         </div>
                     `;
 
-                    block.querySelectorAll('.btn-copy-val').forEach(btn => {
+                    block.querySelectorAll('.btn-copy').forEach(btn => {
                         btn.onclick = (e) => copyToClipboard(btn.getAttribute('data-copy'), e.target);
                     });
 
@@ -1417,33 +1667,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     return block;
                 };
 
+                if (mode === 'backup') {
+                    const bHost = result.backup_host || cfg.backup_vps_host || '';
+                    const bName = result.backup_name || cfg.backup_name || '';
+                    const bSize = result.file_size || '';
+                    panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '📦', `Локальный архив: ./backups/${bName}`, `Сервер: ${bHost}`, `Размер архива: ${bSize}`, ''));
+                    return;
+                }
+
+                if (mode === 'recovery') {
+                    const rHost = result.recovery_host || cfg.recovery_vps_host || '';
+                    const bFile = result.backup_file || cfg.recovery_backup_file || '';
+                    const xuiUrl = result.xui_url || `https://${rHost}/`;
+                    panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '🔄', xuiUrl, `Новый домен: ${rHost}`, `Архив: ${bFile}`, ''));
+                    return;
+                }
+
+                if (mode === 'update_3xui') {
+                    const uHost = result.update_host || cfg.update_vps_host || '';
+                    const ver = result.xui_version || cfg.update_xui_version || '3.6.0';
+                    const xuiUrl = result.xui_url || `https://${uHost}/`;
+                    panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '⬆️', xuiUrl, `Сервер: ${uHost}`, `Версия 3X-UI: ${ver}`, ''));
+                    return;
+                }
+
                 if (mode === 'sub_only') {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                     panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', ''));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
-                    const freedomUser = result.freedom_username || cfg.freedom_xui_username || cfg.xui_username || 'admin';
-                    const freedomPass = result.freedom_password || cfg.freedom_xui_password || cfg.xui_password || 'admin';
-                    const freedomSecret = result.freedom_sub_secret || cfg.freedom_sub_secret || cfg.sub_secret || '';
+                    const freedomUser = result.freedom_username || cfg.freedom_xui_username || 'admin';
+                    const freedomPass = result.freedom_password || cfg.freedom_xui_password || 'admin';
+                    const freedomSecret = result.freedom_sub_secret || cfg.freedom_sub_secret || '';
 
-                    panelsContainer.appendChild(renderPanelBlock('1. Зарубежная панель (Freedom Node)', '🌐', freedomUrl, freedomUser, freedomPass, freedomSecret));
+                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '🕊️', freedomUrl, freedomUser, freedomPass, freedomSecret));
 
                     const proxyHost = result.domain || cfg.proxy_host || 'Proxy Node';
                     const proxyUrl = result.xui_url || `https://${proxyHost}/`;
-                    const proxyUser = result.xui_username || cfg.proxy_xui_username || cfg.xui_username || 'admin';
-                    const proxyPass = result.xui_password || cfg.proxy_xui_password || cfg.xui_password || 'admin';
-                    const proxySecret = result.sub_secret || cfg.proxy_sub_secret || cfg.sub_secret || '';
+                    const proxyUser = result.xui_username || cfg.proxy_xui_username || 'admin';
+                    const proxyPass = result.xui_password || cfg.proxy_xui_password || 'admin';
+                    const proxySecret = result.sub_secret || cfg.proxy_sub_secret || '';
 
-                    panelsContainer.appendChild(renderPanelBlock('2. Местная панель (Proxy Node)', '🛡️', proxyUrl, proxyUser, proxyPass, proxySecret));
+                    panelsContainer.appendChild(renderPanelBlock('2. Панель управления Proxy Node (Входной сервер)', '🛡️', proxyUrl, proxyUser, proxyPass, proxySecret));
 
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', ''));
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', ''));
                     }
                 } else {
-                    const targetHost = result.domain || cfg.vps_host || cfg.domain;
-                    const xuiUrl = result.xui_url || `https://${targetHost}/`;
+                    const host = result.domain || cfg.vps_host || 'Server';
+                    const xuiUrl = result.xui_url || `https://${host}/`;
                     const xuiUser = result.xui_username || cfg.xui_username || 'admin';
                     const xuiPass = result.xui_password || cfg.xui_password || 'admin';
                     const subSecret = result.sub_secret || cfg.sub_secret || '';
@@ -1560,9 +1834,147 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (data.status === 'failed') {
                 updateBadgeStatus('Ошибка развертывания', '#ef4444');
                 stopDeployTimer();
+                if (btnStartDeploy) btnStartDeploy.classList.remove('hidden');
+                if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
             }
         } catch (e) {
             updateBadgeStatus('Ошибка развертывания', '#ef4444');
         }
     };
+
+    const btnUpdateSources = document.getElementById('btnUpdateSources');
+    if (btnUpdateSources) {
+        btnUpdateSources.addEventListener('click', async () => {
+            if (!confirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.')) {
+                return;
+            }
+
+            btnUpdateSources.disabled = true;
+            btnUpdateSources.textContent = '⏳ Обновление...';
+            updateBadgeStatus('Обновление исходников...', '#f59e0b', true);
+
+            try {
+                const res = await fetch('/api/update_sources', { method: 'POST' });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert('Ошибка запуска обновления: ' + (data.message || 'Неизвестная ошибка'));
+                    btnUpdateSources.disabled = false;
+                    btnUpdateSources.textContent = '🔄 Обновить скрипт';
+                    updateBadgeStatus('Готов к настройке', '#3b82f6');
+                    return;
+                }
+
+                alert('Процесс обновления запущен! Сервер сейчас перезапустится. Страница автоматически обновится через несколько секунд.');
+
+                let attempts = 0;
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const statusRes = await fetch('/api/status');
+                        if (statusRes.ok && attempts > 2) {
+                            clearInterval(pollInterval);
+                            window.location.reload();
+                        }
+                    } catch (e) {
+                        // Server is restarting
+                    }
+                    if (attempts > 30) {
+                        clearInterval(pollInterval);
+                        window.location.reload();
+                    }
+                }, 1000);
+            } catch (e) {
+                alert('Запрос на обновление отправлен. Ожидаем перезапуск сервера...');
+                setTimeout(() => window.location.reload(), 4000);
+            }
+        });
+    }
+
+    const btnRestart = document.getElementById('btnRestart');
+    if (btnRestart) {
+        btnRestart.addEventListener('click', async () => {
+            if (!confirm('Перезапустить процесс локального сервера деплоера?')) {
+                return;
+            }
+
+            btnRestart.disabled = true;
+            btnRestart.textContent = '⏳ Перезапуск...';
+            updateBadgeStatus('Перезапуск сервера...', '#f59e0b', true);
+
+            try {
+                const res = await fetch('/api/restart', { method: 'POST' });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert('Ошибка перезапуска: ' + (data.message || 'Ошибка'));
+                    btnRestart.disabled = false;
+                    btnRestart.textContent = '⚡ Перезапустить';
+                    updateBadgeStatus('Готов к настройке', '#3b82f6');
+                    return;
+                }
+
+                let attempts = 0;
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const statusRes = await fetch('/api/status');
+                        if (statusRes.ok && attempts > 2) {
+                            clearInterval(pollInterval);
+                            window.location.reload();
+                        }
+                    } catch (e) {
+                        // Server is restarting
+                    }
+                    if (attempts > 30) {
+                        clearInterval(pollInterval);
+                        window.location.reload();
+                    }
+                }, 1000);
+            } catch (e) {
+                setTimeout(() => window.location.reload(), 3000);
+            }
+        });
+    }
+
+    const btnShutdown = document.getElementById('btnShutdown');
+    if (btnShutdown) {
+        btnShutdown.addEventListener('click', async () => {
+            if (!confirm('Вы действительно хотите выключить локальный сервер деплоера?')) {
+                return;
+            }
+
+            btnShutdown.disabled = true;
+            btnShutdown.textContent = '⏳ Выключение...';
+            updateBadgeStatus('Сервер остановлен', '#ef4444');
+
+            const startShutdownReconnectPolling = () => {
+                const checkInterval = setInterval(async () => {
+                    try {
+                        const statusRes = await fetch('/api/status');
+                        if (statusRes.ok) {
+                            clearInterval(checkInterval);
+                            window.location.reload();
+                        }
+                    } catch (e) {
+                        // Server is still down
+                    }
+                }, 2000);
+            };
+
+            try {
+                const res = await fetch('/api/shutdown', { method: 'POST' });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert('Ошибка остановки: ' + (data.message || 'Ошибка'));
+                    btnShutdown.disabled = false;
+                    btnShutdown.textContent = '🛑 Выключить';
+                    updateBadgeStatus('Готов к настройке', '#3b82f6');
+                    return;
+                }
+                startShutdownReconnectPolling();
+            } catch (e) {
+                startShutdownReconnectPolling();
+            }
+        });
+    }
 });
+

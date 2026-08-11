@@ -25,9 +25,25 @@
                         3x-ui</p>
                 </div>
             </div>
-            <div class="status-badge" id="statusBadge">
-                <span class="dot"></span> <span id="statusText">Готов к настройке</span>
-                <span id="statusTimer" class="status-timer hidden">⏱️ 00:00</span>
+            <div class="header-right">
+                <div class="header-tools-group">
+                    <button type="button" class="btn-tool btn-tool-blue" id="btnUpdateSources"
+                        title="Обновить файлы деплоера до актуальной версии из GitHub">
+                        <span>🔄</span> <span>Обновить скрипты UI</span>
+                    </button>
+                    <button type="button" class="btn-tool btn-tool-amber" id="btnRestart"
+                        title="Перезапустить локальный сервер деплоера">
+                        <span>⚡</span> <span>Перезапустить UI</span>
+                    </button>
+                    <button type="button" class="btn-tool btn-tool-red" id="btnShutdown"
+                        title="Завершить работу локального сервера деплоера">
+                        <span>🛑</span> <span>Выключить UI</span>
+                    </button>
+                </div>
+                <div class="status-badge" id="statusBadge">
+                    <span class="dot"></span> <span id="statusText">Готов к настройке</span>
+                    <span id="statusTimer" class="status-timer hidden">⏱️ 00:00</span>
+                </div>
             </div>
         </header>
         <!-- Stepper Navigation -->
@@ -107,6 +123,28 @@
                                         <span class="card-desc">Отдельный сервер подписок</span>
                                     </div>
                                 </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="deploy_mode" value="backup" id="mode_backup">
+                                    <div class="card-content">
+                                        <span class="card-title">📦 Бэкап</span>
+                                        <span class="card-desc">Создание бэкапа конфигурации панели</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="deploy_mode" value="recovery" id="mode_recovery">
+                                    <div class="card-content">
+                                        <span class="card-title">🔄 Восстановление</span>
+                                        <span class="card-desc">Восстановление из бэкапа</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="deploy_mode" value="update_3xui" id="mode_update_3xui">
+                                    <div class="card-content">
+                                        <span class="card-title">⬆️ Обновить 3X-UI панель</span>
+                                        <span class="card-desc">Обновление Docker-образа 3x-ui на сервере</span>
+                                    </div>
+                                </label>
+                                
                             </div>
                             <div id="subWarningBanner" class="warning-banner hidden">
                                 <span class="warning-icon">⚠️</span>
@@ -328,6 +366,171 @@
                     </div>
                 </div>
 
+                <!-- Backup Remote Node Form -->
+                <div id="backupNodeSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Сервер для создания бэкапа</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width domain-port-row">
+                                <div class="form-group domain-field">
+                                    <label for="backup_vps_host">Домен существующего сервера</label>
+                                    <input type="text" id="backup_vps_host" placeholder="vps.duckdns.org"
+                                        class="ssh-input">
+                                </div>
+                                <div class="form-group port-field">
+                                    <label for="backup_vps_port">SSH Порт</label>
+                                    <input type="number" id="backup_vps_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="backup_vps_user">SSH Пользователь</label>
+                                <input type="text" id="backup_vps_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="backupPassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="backup_vps_password" placeholder="password"
+                                                class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye"
+                                                data-target="backup_vps_password"
+                                                title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="backupKeyGroup">
+                                        <textarea id="backup_vps_key" rows="1"
+                                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                                            class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="backup_auth_type" class="ssh-input auth-type-select"
+                                        data-pass="backupPassGroup" data-key="backupKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="backup_name">Имя файла бэкапа (опционально, по умолчанию имя домена +
+                                    дата)</label>
+                                <input type="text" id="backup_name" placeholder="my_backup_2026.tar.gz"
+                                    class="ssh-input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recovery Target Node Form -->
+                <div id="recoveryNodeSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Целевой сервер для восстановления бэкапа</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width domain-port-row">
+                                <div class="form-group domain-field">
+                                    <label for="recovery_vps_host">Домен нового целевого сервера</label>
+                                    <input type="text" id="recovery_vps_host" placeholder="new-server.duckdns.org"
+                                        class="ssh-input">
+                                </div>
+                                <div class="form-group port-field">
+                                    <label for="recovery_vps_port">SSH Порт</label>
+                                    <input type="number" id="recovery_vps_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="recovery_vps_user">SSH Пользователь</label>
+                                <input type="text" id="recovery_vps_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="recoveryPassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="recovery_vps_password" placeholder="password"
+                                                class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye"
+                                                data-target="recovery_vps_password"
+                                                title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="recoveryKeyGroup">
+                                        <textarea id="recovery_vps_key" rows="1"
+                                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                                            class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="recovery_auth_type" class="ssh-input auth-type-select"
+                                        data-pass="recoveryPassGroup" data-key="recoveryKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="recovery_backup_file">Выберите архив бэкапа из папки ./backups/</label>
+                                <div class="custom-select-wrapper" id="recoveryBackupWrapper">
+                                    <div class="custom-select-trigger" id="recoveryBackupTrigger">
+                                        <span id="recoveryBackupSelected">-- Выберите архив --</span>
+                                        <span class="arrow">▼</span>
+                                    </div>
+                                    <div class="custom-select-dropdown hidden" id="recoveryBackupDropdown">
+                                        <!-- Rendered via JS -->
+                                    </div>
+                                    <select id="recovery_backup_file" class="hidden">
+                                        <option value="">-- Выберите архив --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Update 3X-UI Target Node Form -->
+                <div id="updateNodeSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Сервер для обновления 3X-UI панели</div>
+                        <div class="form-grid">
+                            <div class="form-group full-width domain-port-row">
+                                <div class="form-group domain-field">
+                                    <label for="update_vps_host">Домен или IP сервера</label>
+                                    <input type="text" id="update_vps_host" placeholder="xui.duckdns.org"
+                                        class="ssh-input">
+                                </div>
+                                <div class="form-group port-field">
+                                    <label for="update_vps_port">SSH Порт</label>
+                                    <input type="number" id="update_vps_port" value="22" class="ssh-input">
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="update_vps_user">SSH Пользователь</label>
+                                <input type="text" id="update_vps_user" value="root" class="ssh-input">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>SSH Авторизация</label>
+                                <div class="auth-input-group">
+                                    <div class="auth-field-wrapper" id="updatePassGroup">
+                                        <div class="input-password-wrapper">
+                                            <input type="password" id="update_vps_password" placeholder="password"
+                                                class="ssh-input">
+                                            <button type="button" class="btn-toggle-eye"
+                                                data-target="update_vps_password"
+                                                title="Показать/Скрыть пароль">👁️</button>
+                                        </div>
+                                    </div>
+                                    <div class="auth-field-wrapper hidden" id="updateKeyGroup">
+                                        <textarea id="update_vps_key" rows="1"
+                                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                                            class="ssh-input ssh-key-input"></textarea>
+                                    </div>
+                                    <select id="update_auth_type" class="ssh-input auth-type-select"
+                                        data-pass="updatePassGroup" data-key="updateKeyGroup">
+                                        <option value="password" selected>Пароль</option>
+                                        <option value="key">SSH Ключ</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="actions-row">
                     <button type="button" class="btn btn-secondary" id="btnBackToStep1">← Назад</button>
                     <button type="button" class="btn btn-primary" id="btnTestSSH">⚡ Проверить SSH подключение</button>
@@ -492,6 +695,45 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Backup Mode Panel Section -->
+                <div id="backupPanelSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Параметры создания бэкапа</div>
+                        <p class="step-desc" style="margin-bottom: 12px;">При запуске будет подключен удаленный VPS и
+                            создан сжатый архив рабочих конфигураций и БД (3x-ui, caddy, nginx, docker-compose). Архив
+                            будет скачан в локальную папку <code>./backups/</code>.</p>
+                    </div>
+                </div>
+
+                <!-- Recovery Mode Panel Section -->
+                <div id="recoveryPanelSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Параметры восстановления сервера из бэкапа</div>
+                        <p class="step-desc" style="margin-bottom: 12px;">Архив бэкапа будет загружен на целевой сервер,
+                            распакован и запущен через Docker Compose. В случае изменения доменного имени автоматически
+                            обновится конфигурация Caddy и 3x-ui.</p>
+                    </div>
+                </div>
+
+                <!-- Update 3X-UI Mode Panel Section -->
+                <div id="updatePanelSection" class="hidden">
+                    <div class="section-block">
+                        <div class="section-title">Параметры обновления 3X-UI панели</div>
+                        <p class="step-desc" style="margin-bottom: 12px;">При запуске на удаленном сервере будет
+                            автоматически выполнен бэкап (<code>backup.sh</code>), обновлен тег образа Docker в
+                            <code>working/docker-compose/docker-compose.yml</code> и перезапущен контейнер
+                            <code>3xui</code>.
+                        </p>
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="update_xui_version">Новая версия 3X-UI панели (тег Docker-образа)</label>
+                                <input type="text" id="update_xui_version" value="3.6.0" placeholder="3.6.0 или latest">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="actions-row">
                     <button type="button" class="btn btn-secondary" id="btnBackToStep2">← Назад</button>
                     <button type="button" class="btn btn-success" id="btnNextStep3">Далее к развертыванию →</button>
@@ -505,6 +747,8 @@
                 <div class="actions-row" style="margin-bottom: 20px;">
                     <button type="button" class="btn btn-secondary" id="btnBackToStep3">← Назад</button>
                     <button type="button" class="btn btn-success" id="btnStartDeploy">🚀 Запустить
+                        развертывание</button>
+                    <button type="button" class="btn btn-danger hidden" id="btnStopDeploy">🛑 Остановить
                         развертывание</button>
                 </div>
 

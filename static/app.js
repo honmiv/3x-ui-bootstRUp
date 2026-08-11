@@ -1,11 +1,188 @@
+// ==========================================
+// Custom UI Toast & Dialog System
+// ==========================================
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function showToast(message, type = 'info', duration = 3500) {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    const icons = {
+        success: '✓',
+        error: '✕',
+        danger: '✕',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+
+    const iconStr = icons[type] || 'ℹ️';
+
+    toast.innerHTML = `
+        <div class="toast-icon">${iconStr}</div>
+        <div class="toast-message">${escapeHtml(message)}</div>
+        <button type="button" class="toast-close">&times;</button>
+    `;
+
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.classList.add('toast-show');
+    });
+
+    const removeToast = () => {
+        toast.classList.remove('toast-show');
+        toast.classList.add('toast-hide');
+        toast.addEventListener('transitionend', () => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        });
+    };
+
+    const timer = setTimeout(removeToast, duration);
+
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        clearTimeout(timer);
+        removeToast();
+    });
+}
+
+let activeModalResolve = null;
+
+function showConfirm(message, title = 'Подтверждение', options = {}) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('customConfirmModal');
+        const titleEl = document.getElementById('customModalTitle');
+        const msgEl = document.getElementById('customModalMessage');
+        const iconWrapper = document.getElementById('customModalIconWrapper');
+        const iconEl = document.getElementById('customModalIcon');
+        const confirmBtn = document.getElementById('customModalConfirmBtn');
+        const cancelBtn = document.getElementById('customModalCancelBtn');
+
+        if (!modal || !confirmBtn || !cancelBtn) {
+            resolve(window.nativeConfirm ? window.nativeConfirm(message) : true);
+            return;
+        }
+
+        if (activeModalResolve) {
+            activeModalResolve(false);
+            activeModalResolve = null;
+        }
+
+        activeModalResolve = resolve;
+
+        const {
+            confirmText = 'Подтвердить',
+            cancelText = 'Отмена',
+            danger = false,
+            type = danger ? 'danger' : 'info',
+            icon = danger ? '⚠️' : (options.icon || '❓'),
+            hideCancel = false
+        } = options;
+
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+        iconEl.textContent = icon;
+        confirmBtn.textContent = confirmText;
+        cancelBtn.textContent = cancelText;
+
+        cancelBtn.style.display = hideCancel ? 'none' : 'inline-flex';
+
+        iconWrapper.className = `custom-modal-icon-wrapper ${type}`;
+
+        if (danger) {
+            confirmBtn.className = 'btn btn-danger-action';
+        } else {
+            confirmBtn.className = 'btn btn-primary';
+        }
+
+        const cleanup = (result) => {
+            modal.classList.remove('active');
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKeyDown);
+            modal.removeEventListener('click', onOverlayClick);
+            if (activeModalResolve === resolve) {
+                activeModalResolve = null;
+                resolve(result);
+            }
+        };
+
+        const onConfirm = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onOverlayClick = (e) => {
+            if (e.target === modal) cleanup(false);
+        };
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                cleanup(true);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cleanup(false);
+            }
+        };
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onKeyDown);
+
+        modal.classList.add('active');
+        setTimeout(() => confirmBtn.focus(), 50);
+    });
+}
+
+function showAlert(message, title = 'Уведомление', type = 'info') {
+    return showConfirm(message, title, {
+        confirmText: 'ОК',
+        hideCancel: true,
+        type: type,
+        icon: type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ️')
+    });
+}
+
+window.nativeAlert = window.alert;
+window.nativeConfirm = window.confirm;
+
+window.showToast = showToast;
+window.showAlert = showAlert;
+window.showConfirm = showConfirm;
+
+window.alert = function(msg) {
+    if (typeof msg === 'string' && msg.length < 80 && !msg.includes('\n')) {
+        showToast(msg, 'info');
+    } else {
+        showAlert(msg);
+    }
+};
+
+window.confirm = function(msg) {
+    return showConfirm(msg);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     ['category-full', 'category-single', 'category-maintenance'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            const state = localStorage.getItem(id);
-            if (state === 'open') el.setAttribute('open', '');
-            else if (state === 'closed') el.removeAttribute('open');
-            el.addEventListener('toggle', () => localStorage.setItem(id, el.open ? 'open' : 'closed'));
+            el.addEventListener('toggle', () => {
+                if (window.saveConfig) window.saveConfig();
+            });
         }
     });
 
@@ -286,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'freedom_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки (Прямо с нод)</div>
+                    <div class="topology-stage-title">1. Получение подписки (Прямо с Freedom Node)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -298,16 +475,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="arrow-label">подписки</span>
                             <span>➔</span>
                         </div>
-                        <div class="topology-node">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🕊️</span>
+                            <span class="node-title">Freedom Node</span>
+                            <span class="node-desc">Прямое подключение</span>
+                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
                         </div>
                     </div>
                 </div>
                 <div class="topology-stage">
-                    <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
+                    <div class="topology-stage-title">2. Прямое подключение через зарубежный сервер</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -319,10 +496,42 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="arrow-label">VLESS</span>
                             <span>➔</span>
                         </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">🕊️</span>
+                            <span class="node-title">Freedom Node</span>
+                            <span class="node-desc">Один сервер</span>
+                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Выход</span>
+                            <span class="arrow-label">в сеть</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon">🌍</span>
+                            <span class="node-title">Свободный Web</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'freedom_component') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Место в каскаде — выходной узел (Зарубежье)</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">📱</span>
+                            <span class="node-title">Клиент</span>
+                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span>➔</span>
+                        </div>
                         <div class="topology-node">
                             <span class="node-icon">🖧</span>
                             <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
+                            <span class="node-desc">Уже установлен</span>
                             <span class="topology-badge topology-badge-ru">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
@@ -332,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node configurable">
                             <span class="node-icon">🕊️</span>
                             <span class="node-title">Freedom Node</span>
-                            <span class="node-desc">Выходной сервер</span>
+                            <span class="node-desc">Устанавливается сейчас</span>
                             <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
@@ -586,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
+        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
             singleNodeSection.classList.remove('hidden');
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.add('hidden');
@@ -865,7 +1074,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_secret: document.getElementById('sub_secret').value.trim(),
                 xui_version: document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() : '3.6.0',
                 client_tcp_list: document.getElementById('client_tcp_list').value.trim(),
-                client_xhttp_list: document.getElementById('client_xhttp_list').value.trim()
+                client_xhttp_list: document.getElementById('client_xhttp_list').value.trim(),
+                ui_open_categories: ['category-full', 'category-single', 'category-maintenance']
+                    .filter(id => { const el = document.getElementById(id); return el && el.open; })
+                    .join(',')
             };
             try {
                 await fetch('/api/config', {
@@ -885,10 +1097,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cfg && Object.keys(cfg).length > 0) {
                 let mode = cfg.deploy_mode;
                 if (!mode) {
-                    mode = cfg.is_cascade ? 'cascade' : 'single';
+                    mode = cfg.is_cascade ? 'cascade' : 'freedom_only';
                 }
                 const radioToSelect = document.querySelector(`input[name="deploy_mode"][value="${mode}"]`);
                 if (radioToSelect) radioToSelect.checked = true;
+                
+                if (cfg.ui_open_categories !== undefined) {
+                    const openIds = cfg.ui_open_categories.split(',').filter(x => x);
+                    ['category-full', 'category-single', 'category-maintenance'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            if (openIds.includes(id)) el.setAttribute('open', '');
+                            else el.removeAttribute('open');
+                        }
+                    });
+                }
 
                 const setAuthSelect = (selectId, passId, keyId, authType, keyVal) => {
                     const sel = document.getElementById(selectId);
@@ -1162,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnNext1.classList.add('hidden');
 
             try {
-                if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
+                if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
                     const host = document.getElementById('vps_host').value.trim();
                     const port = parseInt(document.getElementById('vps_port').value) || 22;
                     const user = document.getElementById('vps_user').value.trim() || 'root';
@@ -1417,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnStopDeploy) {
         btnStopDeploy.addEventListener('click', async () => {
-            if (!confirm('Вы уверены, что хотите остановить процесс развертывания?')) return;
+            if (!await showConfirm('Вы уверены, что хотите остановить процесс развертывания?', 'Остановка развертывания', { confirmText: 'Да, остановить', danger: true })) return;
             btnStopDeploy.disabled = true;
             btnStopDeploy.textContent = '⏳ Остановка...';
             appendLog('[CANCEL] Запрос остановки процесса пользователем...', 'warning');
@@ -1426,12 +1649,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/deploy/stop', { method: 'POST' });
                 const data = await res.json();
                 if (!data.ok) {
-                    alert('Не удалось остановить процесс: ' + (data.message || 'Ошибка'));
+                    showToast('Не удалось остановить процесс: ' + (data.message || 'Ошибка'), 'error');
                     btnStopDeploy.disabled = false;
                     btnStopDeploy.textContent = '🛑 Остановить развертывание';
                 }
             } catch (e) {
-                alert('Ошибка отправки запроса на остановку: ' + e.message);
+                showToast('Ошибка отправки запроса на остановку: ' + e.message, 'error');
                 btnStopDeploy.disabled = false;
                 btnStopDeploy.textContent = '🛑 Остановить развертывание';
             }
@@ -1461,7 +1684,7 @@ document.addEventListener('DOMContentLoaded', () => {
             xui_version: commonVersion
         };
 
-        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only') {
+        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
             payload.vps_host = document.getElementById('vps_host').value.trim();
             payload.domain = payload.vps_host;
             payload.vps_port = parseInt(document.getElementById('vps_port').value) || 22;
@@ -1545,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBadgeStatus(`Развертывание ${payload.vps_host || 'сервера'}...`, '#f59e0b', true);
         } else if (mode === 'proxy_only') {
             updateBadgeStatus(`Развертывание Proxy Node...`, '#f59e0b', true);
-        } else if (mode === 'freedom_only') {
+        } else if (mode === 'freedom_only' || mode === 'freedom_component') {
             updateBadgeStatus(`Развертывание Freedom Node...`, '#f59e0b', true);
         } else if (mode === 'sub_only') {
             updateBadgeStatus('Развертывание Сервера подписок...', '#f59e0b', true);
@@ -1760,7 +1983,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (mode === 'proxy_only') {
                         panelTitle = 'Панель управления Proxy Node';
                         panelIcon = '🛡️';
-                    } else if (mode === 'freedom_only') {
+                    } else if (mode === 'freedom_only' || mode === 'freedom_component') {
                         panelTitle = 'Панель управления Freedom Node';
                         panelIcon = '🕊️';
                     }
@@ -1878,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUpdateSources = document.getElementById('btnUpdateSources');
     if (btnUpdateSources) {
         btnUpdateSources.addEventListener('click', async () => {
-            if (!confirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.')) {
+            if (!await showConfirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.', 'Обновление деплоера', { confirmText: 'Обновить', icon: '🔄' })) {
                 return;
             }
 
@@ -1890,14 +2113,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/update_sources', { method: 'POST' });
                 const data = await res.json();
                 if (!data.ok) {
-                    alert('Ошибка запуска обновления: ' + (data.message || 'Неизвестная ошибка'));
+                    showToast('Ошибка запуска обновления: ' + (data.message || 'Неизвестная ошибка'), 'error');
                     btnUpdateSources.disabled = false;
                     btnUpdateSources.textContent = '🔄 Обновить скрипт';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
 
-                alert('Процесс обновления запущен! Сервер сейчас перезапустится. Страница автоматически обновится через несколько секунд.');
+                showAlert('Процесс обновления запущен! Сервер сейчас перезапустится. Страница автоматически обновится через несколько секунд.', 'Обновление деплоера', 'success');
 
                 let attempts = 0;
                 const pollInterval = setInterval(async () => {
@@ -1917,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 1000);
             } catch (e) {
-                alert('Запрос на обновление отправлен. Ожидаем перезапуск сервера...');
+                showToast('Запрос на обновление отправлен. Ожидаем перезапуск сервера...', 'info');
                 setTimeout(() => window.location.reload(), 4000);
             }
         });
@@ -1926,7 +2149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRestart = document.getElementById('btnRestart');
     if (btnRestart) {
         btnRestart.addEventListener('click', async () => {
-            if (!confirm('Перезапустить процесс локального сервера деплоера?')) {
+            if (!await showConfirm('Перезапустить процесс локального сервера деплоера?', 'Перезапуск сервера', { confirmText: 'Перезапустить', icon: '⚡' })) {
                 return;
             }
 
@@ -1938,7 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/restart', { method: 'POST' });
                 const data = await res.json();
                 if (!data.ok) {
-                    alert('Ошибка перезапуска: ' + (data.message || 'Ошибка'));
+                    showToast('Ошибка перезапуска: ' + (data.message || 'Ошибка'), 'error');
                     btnRestart.disabled = false;
                     btnRestart.textContent = '⚡ Перезапустить';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
@@ -1971,7 +2194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnShutdown = document.getElementById('btnShutdown');
     if (btnShutdown) {
         btnShutdown.addEventListener('click', async () => {
-            if (!confirm('Вы действительно хотите выключить локальный сервер деплоера?')) {
+            if (!await showConfirm('Вы действительно хотите выключить локальный сервер деплоера?', 'Выключение сервера', { confirmText: 'Выключить', danger: true, icon: '🛑' })) {
                 return;
             }
 
@@ -1997,7 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/shutdown', { method: 'POST' });
                 const data = await res.json();
                 if (!data.ok) {
-                    alert('Ошибка остановки: ' + (data.message || 'Ошибка'));
+                    showToast('Ошибка остановки: ' + (data.message || 'Ошибка'), 'error');
                     btnShutdown.disabled = false;
                     btnShutdown.textContent = '🛑 Выключить';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
@@ -2009,5 +2232,464 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ==========================================
+    // Server Manager Sidebar Logic (Encrypted)
+    // ==========================================
+    const smTargetType = document.getElementById('sm_target_type');
+    const smHost = document.getElementById('sm_host');
+    const smUser = document.getElementById('sm_user');
+    const smPort = document.getElementById('sm_port');
+    const smPass = document.getElementById('sm_pass');
+    const btnSaveServer = document.getElementById('btnSaveServer');
+    const savedServersList = document.getElementById('savedServersList');
+    const btnResetServers = document.getElementById('btnResetServers');
+
+    const masterPasswordModal = document.getElementById('masterPasswordModal');
+    const btnCancelMasterPassword = document.getElementById('btnCancelMasterPassword');
+    const pinInputs = document.querySelectorAll('.pin-digit');
+
+    if (pinInputs.length > 0) {
+        const checkAutoSubmit = () => {
+            const pass = Array.from(pinInputs).map(i => i.value).join('');
+            if (/^\d{5}$/.test(pass)) {
+                submitMasterPassword();
+            }
+        };
+
+        pinInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length > 1) {
+                    e.target.value = e.target.value.slice(0, 1);
+                }
+                if (e.target.value && !/^\d$/.test(e.target.value)) {
+                    e.target.value = '';
+                    return;
+                }
+                if (e.target.value && index < pinInputs.length - 1) {
+                    pinInputs[index + 1].focus();
+                }
+                checkAutoSubmit();
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    pinInputs[index - 1].focus();
+                    pinInputs[index - 1].value = '';
+                } else if (e.key === 'Enter') {
+                    submitMasterPassword();
+                }
+            });
+            
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+                if (/^\d{5}$/.test(text)) {
+                    pinInputs.forEach((inp, i) => inp.value = text[i]);
+                    checkAutoSubmit();
+                }
+            });
+        });
+    }
+
+    let cryptoKey = null;
+    let serversList = [];
+
+    // Crypto functions
+    const deriveKey = async (password) => {
+        const enc = new TextEncoder();
+        const keyMaterial = await window.crypto.subtle.importKey(
+            "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+        );
+        return window.crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: enc.encode("3x-ui-salt-v1"), iterations: 100000, hash: "SHA-256" },
+            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+    };
+
+    const encryptData = async (text, key) => {
+        if (!text) return "";
+        const enc = new TextEncoder();
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await window.crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv }, key, enc.encode(text)
+        );
+        return btoa(JSON.stringify({ iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) }));
+    };
+
+    const decryptData = async (encryptedBase64, key) => {
+        if (!encryptedBase64) return "";
+        try {
+            const { iv, data } = JSON.parse(atob(encryptedBase64));
+            const decrypted = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: new Uint8Array(iv) }, key, new Uint8Array(data)
+            );
+            return new TextDecoder().decode(decrypted);
+        } catch (e) {
+            return "[Ошибка расшифровки]";
+        }
+    };
+
+    const fetchServers = async () => {
+        try {
+            const res = await fetch('/api/servers');
+            serversList = await res.json();
+            renderSavedServers();
+        } catch(e) {
+            console.error('Failed to fetch servers');
+        }
+    };
+
+    const saveServersToBackend = async () => {
+        try {
+            await fetch('/api/servers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(serversList)
+            });
+        } catch(e) {
+            showToast('Ошибка сохранения на сервер', 'error');
+        }
+    };
+
+    let pendingSaveAfterPin = false;
+
+    const promptMasterPassword = (saveAfterUnlock = false) => {
+        pendingSaveAfterPin = saveAfterUnlock;
+        masterPasswordModal.classList.add('active');
+        if (pinInputs.length > 0) {
+            pinInputs.forEach(inp => inp.value = '');
+            setTimeout(() => pinInputs[0].focus(), 100);
+        }
+    };
+
+    const renderSavedServers = async () => {
+        if (!savedServersList) return;
+        
+        if (serversList.length === 0) {
+            savedServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; margin-top: 10px;">Нет сохраненных серверов</div>';
+            return;
+        }
+
+        if (!cryptoKey) {
+            savedServersList.innerHTML = `
+                <div style="text-align: center; padding: 20px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px; border: 1px dashed var(--border-color);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <div style="margin-bottom: 15px; font-size: 0.95rem; color: var(--text-secondary);">Хранилище серверов защищено PIN-кодом</div>
+                    <button type="button" class="btn btn-primary" id="btnUnlockStorage" style="width: 100%;">
+                        Разблокировать
+                    </button>
+                </div>
+            `;
+            document.getElementById('btnUnlockStorage').addEventListener('click', (e) => {
+                e.preventDefault();
+                promptMasterPassword();
+            });
+            return;
+        }
+
+        savedServersList.innerHTML = '';
+
+        const typeNames = {
+            'proxy_host': 'Proxy (Вход)',
+            'freedom_host': 'Freedom (Выход)',
+            'sub_vps_host': 'Подписки',
+            'vps_host': 'Одиночный',
+            'backup_vps_host': 'Бэкап',
+            'recovery_vps_host': 'Восстановление',
+            'update_vps_host': 'Обновление'
+        };
+
+        for (let index = 0; index < serversList.length; index++) {
+            const srv = serversList[index];
+            const badge = srv.target_type && typeNames[srv.target_type] 
+                ? `<span style="display: inline-block; font-size: 0.72rem; background: var(--primary-color); color: #fff; padding: 2px 7px; border-radius: 4px; margin-bottom: 5px; font-weight: 600;">${typeNames[srv.target_type]}</span>` 
+                : '';
+            const card = document.createElement('div');
+            card.className = 'server-card';
+            card.innerHTML = `
+                <div class="server-card-header">
+                    <div class="server-card-host">
+                        ${badge}
+                        <div style="font-weight: 600; color: var(--text-primary); font-size: 0.95rem;">${srv.host || 'Без IP'}</div>
+                    </div>
+                </div>
+                <div class="server-card-details">
+                    <span>👤 ${srv.user || 'root'}</span>
+                    <span>🔌 ${srv.port || 22}</span>
+                </div>
+                <div class="server-card-actions">
+                    <button type="button" class="btn-icon-sm primary" title="Заполнить поля" onclick="window.fillServerData(${index})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+                    </button>
+                    <button type="button" class="btn-icon-sm" title="Копировать пароль" onclick="window.copyServerPass(${index})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button type="button" class="btn-icon-sm danger" title="Удалить" onclick="window.deleteServer(${index})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                </div>
+            `;
+            savedServersList.appendChild(card);
+        }
+    };
+
+    window.applyServerData = async (index, hostId) => {
+        const srv = serversList[index];
+        if (!srv) return;
+        
+        let prefix = hostId.replace('_host', '');
+        
+        const elHost = document.getElementById(hostId);
+        if (elHost) elHost.value = srv.host || '';
+        
+        const elPort = document.getElementById(`${prefix}_port`);
+        if (elPort) elPort.value = srv.port || 22;
+        
+        const elUser = document.getElementById(`${prefix}_user`);
+        if (elUser) elUser.value = srv.user || 'root';
+        
+        const pass = await decryptData(srv.enc_pass, cryptoKey);
+        
+        const elPass = document.getElementById(`${prefix}_password`);
+        if (elPass) elPass.value = pass || '';
+        
+        const elKey = document.getElementById(`${prefix}_key`);
+        if (elKey) elKey.value = pass || '';
+        
+        showToast('Данные сервера успешно подставлены!', 'success');
+    };
+
+    window.fillServerData = async (index) => {
+        if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
+        const srv = serversList[index];
+        if (!srv) return;
+
+        // Auto-match if target_type is defined and visible
+        if (srv.target_type) {
+            const targetEl = document.getElementById(srv.target_type);
+            if (targetEl && targetEl.offsetParent !== null) {
+                applyServerData(index, srv.target_type);
+                return;
+            }
+            // Fallback: if target field is hidden (e.g. freedom_host in single mode),
+            // try vps_host if it's visible
+            const vpsHost = document.getElementById('vps_host');
+            if (vpsHost && vpsHost.offsetParent !== null) {
+                applyServerData(index, 'vps_host');
+                return;
+            }
+        }
+
+        const hostsInfo = [
+            { id: 'vps_host', name: 'Одиночный сервер' },
+            { id: 'proxy_host', name: 'Proxy сервер (Вход)' },
+            { id: 'freedom_host', name: 'Freedom сервер (Выход)' },
+            { id: 'sub_vps_host', name: 'Сервер подписок' },
+            { id: 'backup_vps_host', name: 'Сервер для бэкапа' },
+            { id: 'recovery_vps_host', name: 'Сервер для восстановления' },
+            { id: 'update_vps_host', name: 'Сервер для обновления' }
+        ];
+
+        const visibleHosts = hostsInfo.filter(h => {
+            const el = document.getElementById(h.id);
+            return el && el.offsetParent !== null;
+        }).sort((a, b) => {
+            const rectA = document.getElementById(a.id).getBoundingClientRect();
+            const rectB = document.getElementById(b.id).getBoundingClientRect();
+            return rectA.top - rectB.top;
+        });
+        
+        if (visibleHosts.length === 0) {
+            showToast('Сначала выберите режим и перейдите на шаг 2, чтобы было куда подставить данные.', 'warning');
+            return;
+        }
+        
+        if (visibleHosts.length === 1) {
+            applyServerData(index, visibleHosts[0].id);
+        } else {
+            const container = document.getElementById('fillServerButtons');
+            if (!container) return;
+            container.innerHTML = '';
+            visibleHosts.forEach(h => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-primary';
+                btn.style.width = '100%';
+                btn.textContent = h.name;
+                btn.onclick = () => {
+                    applyServerData(index, h.id);
+                    document.getElementById('fillServerModal').classList.remove('active');
+                };
+                container.appendChild(btn);
+            });
+            document.getElementById('fillServerModal').classList.add('active');
+        }
+    };
+    
+    const btnCancelFillServer = document.getElementById('btnCancelFillServer');
+    if (btnCancelFillServer) {
+        btnCancelFillServer.addEventListener('click', () => {
+            document.getElementById('fillServerModal').classList.remove('active');
+        });
+    }
+
+    window.copyServerPass = async (index) => {
+        if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
+        const srv = serversList[index];
+        if (srv && srv.enc_pass) {
+            const pass = await decryptData(srv.enc_pass, cryptoKey);
+            if (pass === "[Ошибка расшифровки]") {
+                showToast('Неверный PIN-код. Невозможно расшифровать.', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(pass)
+                .then(() => showToast('Пароль/Ключ скопирован в буфер обмена', 'success'))
+                .catch(() => showToast('Не удалось скопировать. Разрешите доступ к буферу обмена.', 'error'));
+        } else {
+            showToast('Пароль/Ключ не задан для этого сервера.', 'warning');
+        }
+    };
+
+    window.deleteServer = async (index) => {
+        if (!await showConfirm('Удалить этот сервер из сохраненных?', 'Удаление сервера', { confirmText: 'Удалить', danger: true, icon: '🗑️' })) return;
+        serversList.splice(index, 1);
+        await saveServersToBackend();
+        renderSavedServers();
+    };
+
+    if (btnResetServers) {
+        btnResetServers.addEventListener('click', async () => {
+            if (!await showConfirm('ВНИМАНИЕ! Это действие удалит файл со всеми сохраненными серверами и сбросит PIN-код. Продолжить?', 'Сброс всех серверов', { confirmText: 'Сбросить все', danger: true, icon: '⚠️' })) return;
+            try {
+                await fetch('/api/servers/reset', { method: 'DELETE' });
+                serversList = [];
+                cryptoKey = null;
+                showToast('Все серверы удалены. PIN-код сброшен.', 'success');
+                renderSavedServers();
+            } catch(e) {
+                showToast('Ошибка сброса.', 'error');
+            }
+        });
+    }
+
+    const doSaveServer = async () => {
+            const host = smHost.value.trim();
+            if (!host) {
+                showToast('Укажите IP или Домен сервера', 'warning');
+                return;
+            }
+            
+            const plainPass = smPass.value;
+            const encPass = await encryptData(plainPass, cryptoKey);
+
+            serversList.push({
+                target_type: smTargetType ? smTargetType.value : '',
+                host: host,
+                user: smUser.value.trim() || 'root',
+                port: smPort.value || 22,
+                enc_pass: encPass
+            });
+            
+            await saveServersToBackend();
+            
+            if (smTargetType) smTargetType.value = '';
+            smHost.value = '';
+            smPass.value = '';
+            smUser.value = 'root';
+            smPort.value = '22';
+            
+            renderSavedServers();
+        };
+
+    if (btnSaveServer) {
+        btnSaveServer.addEventListener('click', async () => {
+            if (!cryptoKey) {
+                promptMasterPassword(true);
+                return;
+            }
+
+            const host = smHost.value.trim();
+            if (!host) {
+                showToast('Укажите IP или Домен сервера', 'warning');
+                return;
+            }
+            
+            const plainPass = smPass.value;
+            const encPass = await encryptData(plainPass, cryptoKey);
+
+            serversList.push({
+                target_type: smTargetType ? smTargetType.value : '',
+                host: host,
+                user: smUser.value.trim() || 'root',
+                port: smPort.value || 22,
+                enc_pass: encPass
+            });
+            
+            await saveServersToBackend();
+            
+            if (smTargetType) smTargetType.value = '';
+            smHost.value = '';
+            smPass.value = '';
+            smUser.value = 'root';
+            smPort.value = '22';
+            
+            renderSavedServers();
+        });
+    }
+
+    const submitMasterPassword = async () => {
+        const pass = Array.from(pinInputs).map(i => i.value).join('');
+        if (!/^\d{5}$/.test(pass)) {
+            showToast('PIN-код должен состоять ровно из 5 цифр!', 'warning');
+            return;
+        }
+        const tmpKey = await deriveKey(pass);
+        
+        if (serversList.length > 0) {
+            const testSrv = serversList.find(s => s.enc_pass);
+            if (testSrv) {
+                const testPass = await decryptData(testSrv.enc_pass, tmpKey);
+                if (testPass === "[Ошибка расшифровки]") {
+                    showToast('Неверный PIN-код!', 'error');
+                    pinInputs.forEach(inp => inp.value = '');
+                    if (pinInputs.length > 0) pinInputs[0].focus();
+                    return;
+                }
+            }
+        }
+        
+        cryptoKey = tmpKey;
+        masterPasswordModal.classList.remove('active');
+
+        if (pendingSaveAfterPin) {
+            pendingSaveAfterPin = false;
+            await doSaveServer();
+        } else {
+            renderSavedServers();
+        }
+    };
+    
+    if (btnCancelMasterPassword) {
+        btnCancelMasterPassword.addEventListener('click', () => {
+            masterPasswordModal.classList.remove('active');
+        });
+    }
+
+    // Global modal close events
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+            e.target.classList.remove('active');
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+                modal.classList.remove('active');
+            });
+        }
+    });
+
+    fetchServers();
 });
 

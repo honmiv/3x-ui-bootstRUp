@@ -4,6 +4,7 @@ working
 *.code-workspace
 backup
 setup_backup.yml
+servers.json
 __pycache__/
 *.pyc
 .python_env

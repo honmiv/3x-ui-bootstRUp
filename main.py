@@ -13,6 +13,7 @@ from ssh_deployer import SSHDeployer, run_deployment
 PORT = 8000
 HOST = "127.0.0.1"
 BACKUP_FILE = os.path.join(os.path.dirname(__file__), "setup_backup.yml")
+SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
 
 active_logs: List[Dict[str, str]] = []
 is_deploying = False
@@ -71,38 +72,44 @@ def save_backup_config(data: Dict[str, Any]):
         lines.append("\n")
 
         lines.append("freedom_node:\n")
-        for k in ["freedom_host", "freedom_port", "freedom_user", "freedom_password", "freedom_key", "freedom_auth_type", "freedom_xui_username", "freedom_xui_password", "freedom_sub_secret", "freedom_client_name", "freedom_xui_version"]:
+        for k in ["freedom_host", "freedom_port", "freedom_user", "freedom_auth_type", "freedom_xui_username", "freedom_client_name", "freedom_xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("proxy_node:\n")
-        for k in ["proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key", "proxy_auth_type", "proxy_xui_username", "proxy_xui_password", "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list", "proxy_xui_version"]:
+        for k in ["proxy_host", "proxy_port", "proxy_user", "proxy_auth_type", "proxy_xui_username", "proxy_client_tcp_list", "proxy_client_xhttp_list", "proxy_xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("standard_node:\n")
-        for k in ["vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"]:
+        for k in ["vps_host", "vps_port", "vps_user", "vps_auth_type"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("sub_server:\n")
-        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
+        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("panel_and_clients:\n")
-        for k in ["xui_username", "xui_password", "sub_secret", "client_tcp_list", "client_xhttp_list", "xui_version"]:
+        for k in ["xui_username", "client_tcp_list", "client_xhttp_list", "xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
         lines.append("update_node:\n")
-        for k in ["update_vps_host", "update_vps_port", "update_vps_user", "update_vps_password", "update_vps_key", "update_auth_type", "update_xui_version"]:
+        for k in ["update_vps_host", "update_vps_port", "update_vps_user", "update_auth_type", "update_xui_version"]:
             if k in data:
+                lines.append(f"  {k}: {fmt_val(data[k])}\n")
+        lines.append("\n")
+        
+        lines.append("ui_state:\n")
+        for k in data:
+            if k.startswith("ui_"):
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
 
@@ -169,6 +176,18 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 "logs_count": len(active_logs),
                 "result": deploy_result
             })
+            return
+
+        if url_path == "/api/servers":
+            if not os.path.exists(SERVERS_FILE):
+                self.send_json([])
+                return
+            try:
+                with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.send_json(data)
+            except Exception:
+                self.send_json([])
             return
 
         if url_path == "/api/deploy/logs":
@@ -248,8 +267,18 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
         try:
             payload = json.loads(post_body.decode('utf-8')) if post_body else {}
-        except Exception:
-            payload = {}
+        except json.JSONDecodeError:
+            self.send_json({"error": "Invalid JSON"}, 400)
+            return
+
+        if url_path == "/api/servers":
+            try:
+                with open(SERVERS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
 
         if url_path == "/api/config":
             save_backup_config(payload)
@@ -414,6 +443,19 @@ class WebUIHandler(BaseHTTPRequestHandler):
             t.start()
             return
 
+        self.send_json({"error": "Endpoint not found"}, 404)
+
+    def do_DELETE(self):
+        url_path = urllib.parse.urlparse(self.path).path
+        if url_path == "/api/servers/reset":
+            try:
+                if os.path.exists(SERVERS_FILE):
+                    os.remove(SERVERS_FILE)
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+        
         self.send_json({"error": "Endpoint not found"}, 404)
 
 def main():

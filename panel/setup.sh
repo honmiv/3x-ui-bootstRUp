@@ -563,7 +563,7 @@ generate_reality_keys() {
 
 process_templates() {
     section "$MSG_PROCESSING"
-    generate_config "./templates" "./working"
+    generate_config "./panel/templates" "./working"
 }
 
 wait_for_3xui_ready() {

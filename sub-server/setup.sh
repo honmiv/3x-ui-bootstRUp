@@ -8,7 +8,7 @@ readonly YELLOW='\033[0;33m'
 readonly RED='\033[0;31m'
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly DOCKER_COMPOSE_FILE="$SCRIPT_DIR/working/docker-compose/docker-compose.yml"
+readonly DOCKER_COMPOSE_FILE="./working/docker-compose/docker-compose.yml"
 
 die() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
@@ -32,7 +32,7 @@ warn() {
 }
 
 compose() {
-    docker compose -f "$DOCKER_COMPOSE_FILE" --project-directory "$SCRIPT_DIR" "$@"
+    docker compose -f "$DOCKER_COMPOSE_FILE" --project-directory . "$@"
 }
 
 is_valid_domain() {
@@ -98,7 +98,7 @@ reset_working_dir() {
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
         compose down
     fi
-    rm -rf "$SCRIPT_DIR/working" && mkdir -p "$SCRIPT_DIR/working"
+    rm -rf "./working" && mkdir -p "./working"
     success "Working directory ready."
 }
 
@@ -209,7 +209,7 @@ generate_config() {
 
 process_templates() {
     section "Generating configuration"
-    generate_config "$SCRIPT_DIR/templates" "$SCRIPT_DIR/working"
+    generate_config "./sub-server/templates" "./working"
 }
 
 start_containers() {

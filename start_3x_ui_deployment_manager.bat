@@ -33,5 +33,6 @@ if exist "%ENV_DIR%\python.exe" (
 )
 
 echo [OK] Starting local Web UI application...
+set "XUI_CLI_EXT=.bat"
 "%PYTHON_BIN%" "%~dp0main.py"
 pause

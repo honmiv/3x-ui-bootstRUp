@@ -29,7 +29,7 @@
             <div class="sidebar-form">
                 <div class="form-group">
                     <label>Назначение сервера</label>
-                    <select id="sm_target_type"
+                    <select id="sm_target_type" class="custom-select"
                         style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
                         <option value="">Любое (выбор при вставке)</option>
                         <option value="proxy_host">Proxy сервер (Вход)</option>
@@ -52,8 +52,23 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Пароль / Ключ</label>
-                    <input type="password" id="sm_pass" placeholder="••••••••">
+                    <label>Тип доступа</label>
+                    <select id="sm_auth_type" class="auth-type-select custom-select" data-pass="smPassGroup" data-key="smKeyGroup"
+                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                        <option value="password" selected>Пароль</option>
+                        <option value="key">SSH Ключ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div id="smPassGroup">
+                        <label>Пароль</label>
+                        <input type="password" id="sm_pass" placeholder="••••••••">
+                    </div>
+                    <div id="smKeyGroup" class="hidden">
+                        <label>SSH Ключ</label>
+                        <textarea id="sm_key" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                            style="width: 100%; resize: vertical; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; font-size: 0.85rem; font-family: monospace;"></textarea>
+                    </div>
                 </div>
                 <button type="button" class="btn btn-primary" id="btnSaveServer"
                     style="width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">

@@ -904,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const initCustomSelects = () => {
-        document.querySelectorAll('.auth-type-select').forEach(select => {
+        document.querySelectorAll('.auth-type-select, .custom-select').forEach(select => {
             if (select.dataset.customInitialized) return;
             select.dataset.customInitialized = 'true';
 
@@ -2240,7 +2240,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const smHost = document.getElementById('sm_host');
     const smUser = document.getElementById('sm_user');
     const smPort = document.getElementById('sm_port');
+    const smAuthType = document.getElementById('sm_auth_type');
     const smPass = document.getElementById('sm_pass');
+    const smKey = document.getElementById('sm_key');
     const btnSaveServer = document.getElementById('btnSaveServer');
     const savedServersList = document.getElementById('savedServersList');
     const btnResetServers = document.getElementById('btnResetServers');
@@ -2449,13 +2451,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const elUser = document.getElementById(`${prefix}_user`);
         if (elUser) elUser.value = srv.user || 'root';
         
-        const pass = await decryptData(srv.enc_pass, cryptoKey);
+        const authType = srv.auth_type === 'key' ? 'key' : 'password';
+        const elAuthType = document.getElementById(`${prefix}_auth_type`);
+        if (elAuthType) {
+            elAuthType.value = authType;
+            elAuthType.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         
+        const pass = await decryptData(srv.enc_pass, cryptoKey);
         const elPass = document.getElementById(`${prefix}_password`);
         if (elPass) elPass.value = pass || '';
         
+        const key = srv.enc_key ? await decryptData(srv.enc_key, cryptoKey) : '';
         const elKey = document.getElementById(`${prefix}_key`);
-        if (elKey) elKey.value = pass || '';
+        if (elKey) elKey.value = key || '';
         
         showToast('Данные сервера успешно подставлены!', 'success');
     };
@@ -2536,13 +2545,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyServerPass = async (index) => {
         if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
         const srv = serversList[index];
-        if (srv && srv.enc_pass) {
-            const pass = await decryptData(srv.enc_pass, cryptoKey);
-            if (pass === "[Ошибка расшифровки]") {
+        const secret = srv && (srv.enc_pass || srv.enc_key);
+        if (secret) {
+            const value = await decryptData(secret, cryptoKey);
+            if (value === "[Ошибка расшифровки]") {
                 showToast('Неверный PIN-код. Невозможно расшифровать.', 'error');
                 return;
             }
-            navigator.clipboard.writeText(pass)
+            navigator.clipboard.writeText(value)
                 .then(() => showToast('Пароль/Ключ скопирован в буфер обмена', 'success'))
                 .catch(() => showToast('Не удалось скопировать. Разрешите доступ к буферу обмена.', 'error'));
         } else {
@@ -2579,24 +2589,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            const plainPass = smPass.value;
+            const authType = smAuthType ? smAuthType.value : 'password';
+            const plainPass = authType === 'key' ? '' : smPass.value;
+            const plainKey = authType === 'key' ? smKey.value : '';
             const encPass = await encryptData(plainPass, cryptoKey);
+            const encKey = await encryptData(plainKey, cryptoKey);
 
             serversList.push({
                 target_type: smTargetType ? smTargetType.value : '',
+                auth_type: authType,
                 host: host,
                 user: smUser.value.trim() || 'root',
                 port: smPort.value || 22,
-                enc_pass: encPass
+                enc_pass: encPass,
+                enc_key: encKey
             });
             
             await saveServersToBackend();
             
-            if (smTargetType) smTargetType.value = '';
+            if (smTargetType) {
+                smTargetType.value = '';
+                smTargetType.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             smHost.value = '';
             smPass.value = '';
+            smKey.value = '';
             smUser.value = 'root';
             smPort.value = '22';
+            if (smAuthType) {
+                smAuthType.value = 'password';
+                smAuthType.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             
             renderSavedServers();
         };
@@ -2607,33 +2630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 promptMasterPassword(true);
                 return;
             }
-
-            const host = smHost.value.trim();
-            if (!host) {
-                showToast('Укажите IP или Домен сервера', 'warning');
-                return;
-            }
-            
-            const plainPass = smPass.value;
-            const encPass = await encryptData(plainPass, cryptoKey);
-
-            serversList.push({
-                target_type: smTargetType ? smTargetType.value : '',
-                host: host,
-                user: smUser.value.trim() || 'root',
-                port: smPort.value || 22,
-                enc_pass: encPass
-            });
-            
-            await saveServersToBackend();
-            
-            if (smTargetType) smTargetType.value = '';
-            smHost.value = '';
-            smPass.value = '';
-            smUser.value = 'root';
-            smPort.value = '22';
-            
-            renderSavedServers();
+            await doSaveServer();
         });
     }
 
@@ -2646,10 +2643,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tmpKey = await deriveKey(pass);
         
         if (serversList.length > 0) {
-            const testSrv = serversList.find(s => s.enc_pass);
+            const testSrv = serversList.find(s => s.enc_pass || s.enc_key);
             if (testSrv) {
-                const testPass = await decryptData(testSrv.enc_pass, tmpKey);
-                if (testPass === "[Ошибка расшифровки]") {
+                const testSecret = await decryptData(testSrv.enc_pass || testSrv.enc_key, tmpKey);
+                if (testSecret === "[Ошибка расшифровки]") {
                     showToast('Неверный PIN-код!', 'error');
                     pinInputs.forEach(inp => inp.value = '');
                     if (pinInputs.length > 0) pinInputs[0].focus();

@@ -433,7 +433,7 @@ def main():
     url = f"http://{HOST}:{PORT}"
 
     print(f"==================================================")
-    print(f"  3x-ui-bootstRUp Web UI running at: {url}")
+    print(f"  3X UI Deployment Manager Web UI running at: {url}")
     print(f"  Open {url} in browser")
     print(f"  Press Ctrl+C to stop local server")
     print(f"==================================================")

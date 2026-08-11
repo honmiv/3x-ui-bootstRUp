@@ -583,6 +583,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "    sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"$CADDY_FILE\"\n"
                 "    [ -f \"working/nginx-decoy/default.conf\" ] && sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"working/nginx-decoy/default.conf\" || true\n"
                 "    find working/3x-ui/ -type f -name \"*.json\" -exec sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" {} + 2>/dev/null || true\n"
+                "    rm -rf working/.caddy_data 2>/dev/null || true\n"
+                "    docker volume rm caddy_data 2>/dev/null || true\n"
                 "  fi\n"
                 "  WEB_PATH=$(grep -oE '@web_base_path path /[^ /]+' \"$CADDY_FILE\" | head -n 1 | awk '{print $3}' | tr -d '/' || true)\n"
                 "  if [ -n \"$WEB_PATH\" ]; then\n"
@@ -728,6 +730,52 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "backup_path": f"./backups/{backup_name}",
                 "backup_size": f"{file_size_mb} MB"
             }
+
+    # Maintenance Modes: Restart Panel / Server
+    if deploy_mode in ["restart_panel", "restart_server"]:
+        host = (config.get("update_vps_host") or config.get("vps_host") or "").strip()
+        port = int(config.get("update_vps_port") or config.get("vps_port") or 22)
+        user = (config.get("update_vps_user") or config.get("vps_user") or "root").strip()
+        password = config.get("update_vps_password") if config.get("update_vps_password") is not None else config.get("vps_password", "")
+        key_data = config.get("update_vps_key") if config.get("update_vps_key") is not None else config.get("vps_key", "")
+
+        if not host:
+            log(f"[ERROR] Remote host is required for {deploy_mode}.", "error")
+            return False, {}
+
+        log(f"Starting {deploy_mode} process for server {host}:{port}...", "info")
+        async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+            log(f"Connecting to {host}:{port}...", "info")
+            ok, msg = await deployer.test_connection()
+            if not ok:
+                log(f"[ERROR] SSH connection failed: {msg}", "error")
+                return False, {}
+
+            if deploy_mode == "restart_panel":
+                log("Restarting 3x-ui panel via docker compose...", "info")
+                remote_script = (
+                    "set -e\n"
+                    "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+                    "if [ ! -d \"$WORK_DIR\" ]; then\n"
+                    "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+                    "fi\n"
+                    "cd \"$WORK_DIR\"\n"
+                    "docker compose -f working/docker-compose/docker-compose.yml down\n"
+                    "docker compose -f working/docker-compose/docker-compose.yml up -d\n"
+                )
+                rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+                if rc != 0:
+                    log(f"[ERROR] Panel restart failed: {out}", "error")
+                    return False, {}
+                
+                log("✅ Panel restarted successfully!", "success")
+                return True, {"deploy_mode": deploy_mode, "host": host}
+            
+            elif deploy_mode == "restart_server":
+                log("Restarting server...", "info")
+                rc, out = await deployer.exec_command("sudo reboot || reboot")
+                log("✅ Reboot command sent!", "success")
+                return True, {"deploy_mode": deploy_mode, "host": host}
 
     # Standalone Subscription Server Mode
     if deploy_mode == "sub_only":

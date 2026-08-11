@@ -9,15 +9,15 @@
 
 ### 🐧 🍎 Linux / macOS (Bash / Zsh)
 ```bash
-curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz | tar -xz && cd 3x-ui-bootstRUp-master && ./install.sh
+curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz | tar -xz && cd 3x-ui-bootstRUp-master && ./start_3x_ui_deployment_manager.sh
 ```
 
 ### 💻 Windows CMD (cmd.exe)
 ```cmd
-curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -o 3x-ui.zip && powershell -Command "Expand-Archive -Path '3x-ui.zip' -DestinationPath '.' -Force" && cd 3x-ui-bootstRUp-master && install.bat
+curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -o 3x-ui.zip && powershell -Command "Expand-Archive -Path '3x-ui.zip' -DestinationPath '.' -Force" && cd 3x-ui-bootstRUp-master && start_3x_ui_deployment_manager.bat
 ```
 
 ### ⚡ Windows PowerShell
 ```powershell
-iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; .\install.ps1
+iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; .\start_3x_ui_deployment_manager.ps1
 ```

@@ -27,7 +27,7 @@ def get_bundle_bytes() -> bytes:
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for root, dirs, files in os.walk(repo_dir):
-            if '.git' in root or '.python_env' in root or '__pycache__' in root or 'static' in root:
+            if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root:
                 continue
             for file in files:
                 if file.endswith('.pyc') or file == 'setup_backup.yml':
@@ -327,8 +327,8 @@ async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: C
         "fi\n"
         "cd \"$WORK_DIR\"\n"
         "rm -rf /tmp/remote_server_backup /tmp/server_backup.tar.gz\n"
-        "if [ -f \"backup.sh\" ]; then\n"
-        "  bash backup.sh /tmp/remote_server_backup\n"
+        "if [ -f \"panel_backup.sh\" ]; then\n"
+        "  bash panel_backup.sh /tmp/remote_server_backup\n"
         "else\n"
         "  mkdir -p /tmp/remote_server_backup\n"
         "  [ -d \"working/3x-ui\" ] && cp -r working/3x-ui /tmp/remote_server_backup/3x-ui || true\n"
@@ -392,7 +392,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             if v:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)
-        remote_cmd = f"cd {shlex.quote(remote_dir)} && {env_str} bash setup.sh"
+        remote_cmd = f"cd {shlex.quote(remote_dir)} && {env_str} bash panel/setup.sh"
         rc, out = await deployer.exec_command(remote_cmd, lambda m: log(m, "info"))
         if rc == 0:
             return True, out
@@ -427,7 +427,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             if v:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)
-        remote_cmd = f"cd {shlex.quote(remote_dir + '/sub-server')} && {env_str} bash setup.sh"
+        remote_cmd = f"cd {shlex.quote(remote_dir)} && {env_str} bash sub-server/setup.sh"
         rc, out = await deployer.exec_command(remote_cmd, lambda m: log(m, "info"))
         if rc == 0:
             return True, out
@@ -685,7 +685,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log(f"✅ Pre-update backup saved: ./backups/{backup_name} ({file_size_mb} MB)", "success")
             # --- End of pre-update backup ---
 
-            log(f"Executing remote update.sh {target_version}...", "info")
+            log(f"Executing remote panel_update.sh {target_version}...", "info")
             version_str = shlex.quote(target_version)
             remote_script = (
                 "set -e\n"
@@ -694,8 +694,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
                 "fi\n"
                 "cd \"$WORK_DIR\"\n"
-                "chmod +x update.sh backup.sh 2>/dev/null || true\n"
-                "bash update.sh " + version_str + "\n"
+                "chmod +x panel_update.sh panel_backup.sh 2>/dev/null || true\n"
+                "bash panel_update.sh " + version_str + "\n"
             )
 
             rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))

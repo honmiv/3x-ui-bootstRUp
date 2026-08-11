@@ -14,7 +14,7 @@ if [[ ! -f "$compose_file" ]]; then
   exit 1
 fi
 
-./backup.sh
+./panel_backup.sh
 
 tmp_file=$(mktemp)
 trap 'rm -f "$tmp_file"' EXIT

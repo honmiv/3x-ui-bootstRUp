@@ -473,7 +473,14 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
         bundle_bytes = get_bundle_bytes()
-        sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
+        sync_cmd = (
+            f"mkdir -p {remote_dir} && "
+            f"if [ -f {remote_dir}/sub-server/force-subs.yml ]; then "
+            f"cp {remote_dir}/sub-server/force-subs.yml /tmp/force-subs.yml.bak; fi && "
+            f"tar -xzf - -C {remote_dir} && "
+            f"if [ -f /tmp/force-subs.yml.bak ]; then "
+            f"cp /tmp/force-subs.yml.bak {remote_dir}/sub-server/force-subs.yml && rm -f /tmp/force-subs.yml.bak; fi"
+        )
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
             log(f"[ERROR] Failed to transfer files to Subscription Server {host}: {sync_out}", "error")
@@ -1020,13 +1027,17 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         freedom_clients = [n.strip() for n in re.split(r'[\s,]+', freedom_raw) if n.strip()]
 
         log(f"Starting deployment of Subscription Server on {sub_host}...", "info")
+        sub_admin_user = config.get("sub_admin_user", "").strip() or "admin"
+        sub_admin_password = config.get("sub_admin_password", "").strip() or generate_random_string(12)
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
             "RUSSIAN_SUB_URL": sub_russian_url,
             "FOREIGN_SUB_URL": sub_foreign_url,
             "PROXY_CLIENTS": " ".join(proxy_clients),
-            "FREEDOM_CLIENTS": " ".join(freedom_clients)
+            "FREEDOM_CLIENTS": " ".join(freedom_clients),
+            "ADMIN_USER": sub_admin_user,
+            "ADMIN_PASSWORD": sub_admin_password
         }
 
         ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
@@ -1052,6 +1063,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log("=========================================", "success")
         log("🎉 SUBSCRIPTION SERVER DEPLOYED SUCCESSFULLY!", "success")
         log(f"Subscription URL Base: {base_sub_url}/<username>", "success")
+        log(f"Panel: {base_sub_url}  (admin: {sub_admin_user} / password: ••••••••)", "success")
         log("=========================================", "success")
 
         result_data = {
@@ -1059,6 +1071,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "sub_domain": sub_domain,
             "sub_secret_path": sub_secret_path,
             "sub_base_url": base_sub_url,
+            "sub_admin_user": sub_admin_user,
             "clients": sub_clients
         }
         return True, result_data
@@ -1260,13 +1273,18 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         proxy_client_names = [n.strip() for n in re.split(r'[\s,]+', f"{proxy_clients_tcp_str} {proxy_clients_xhttp_str}") if n.strip()]
         freedom_client_names = [freedom_client]
 
+        sub_admin_user = config.get("sub_admin_user", "").strip() or "admin"
+        sub_admin_password = config.get("sub_admin_password", "").strip() or generate_random_string(12)
+
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
             "RUSSIAN_SUB_URL": proxy_node_sub_base,
             "FOREIGN_SUB_URL": freedom_node_sub_base,
             "PROXY_CLIENTS": " ".join(proxy_client_names),
-            "FREEDOM_CLIENTS": " ".join(freedom_client_names)
+            "FREEDOM_CLIENTS": " ".join(freedom_client_names),
+            "ADMIN_USER": sub_admin_user,
+            "ADMIN_PASSWORD": sub_admin_password
         }
 
         ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
@@ -1278,6 +1296,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         result_data["sub_domain"] = sub_domain
         result_data["sub_secret_path"] = sub_secret_path
         result_data["sub_base_url"] = base_sub_url
+        result_data["sub_admin_user"] = sub_admin_user
 
         # Attach sub_url to client objects if available
         for cl in parsed_clients:
@@ -1293,5 +1312,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     log(f"  - Admin Password: ••••••••", "success")
     if deploy_mode == "cascade_sub":
         log(f"Subscription Server: https://{result_data['sub_domain']}/{result_data['sub_secret_path']}/<username>", "success")
+        log(f"  - Admin: {result_data.get('sub_admin_user', 'admin')} / password: ••••••••", "success")
     log("=========================================", "success")
     return True, result_data

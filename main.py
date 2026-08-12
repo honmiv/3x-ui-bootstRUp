@@ -168,7 +168,7 @@ def save_backup_config(data: Dict[str, Any]):
         lines.append("\n")
 
         lines.append("sub_server:\n")
-        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
+        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients", "sub_admin_user"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
@@ -342,6 +342,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:

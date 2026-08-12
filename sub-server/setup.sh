@@ -172,6 +172,21 @@ EOF
     fi
 }
 
+prompt_admin() {
+    if [[ -n "${ADMIN_USER:-}" && -n "${ADMIN_PASSWORD:-}" ]]; then
+        info "Using panel admin credentials from environment."
+        return
+    fi
+    ADMIN_USER="${ADMIN_USER:-admin}"
+    read -r -p "$(echo -e "${CYAN}[..]${NC} Panel admin login [default: $ADMIN_USER]: ")" ADMIN_USER
+    ADMIN_USER="${ADMIN_USER:-admin}"
+    if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
+        ADMIN_PASSWORD="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)"
+        read -r -p "$(echo -e "${CYAN}[..]${NC} Panel admin password [default: auto-generated]: ")" ADMIN_PASSWORD
+        ADMIN_PASSWORD="${ADMIN_PASSWORD:-$ADMIN_PASSWORD}"
+    fi
+}
+
 apply_template_values() {
     local target_path="$1"
     sed -i \
@@ -179,6 +194,8 @@ apply_template_values() {
        -e "s|{{SECRET_SUB_PATH}}|${SECRET_SUB_PATH}|g" \
        -e "s|{{RUSSIAN_SUB_URL}}|${RUSSIAN_SUB_URL}|g" \
        -e "s|{{FOREIGN_SUB_URL}}|${FOREIGN_SUB_URL}|g" \
+       -e "s|{{ADMIN_USER}}|${ADMIN_USER}|g" \
+       -e "s|{{ADMIN_PASSWORD}}|${ADMIN_PASSWORD}|g" \
        "$target_path"
 }
 
@@ -246,6 +263,10 @@ print_results() {
     echo "  https://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
     echo "  http://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
     echo
+    echo "Panel: https://${DOMAIN}/${SECRET_SUB_PATH}"
+    echo "  Admin login: ${ADMIN_USER}"
+    echo "  Admin password: ${ADMIN_PASSWORD}"
+    echo
     echo "Client list (proxy/freedom): $SCRIPT_DIR/subs.yml"
     echo "After editing subs.yml restart: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"
 }
@@ -258,6 +279,7 @@ main() {
     prompt_domain
     prompt_sub_path
     prompt_subscription_urls
+    prompt_admin
     create_subs_yml
 
     process_templates

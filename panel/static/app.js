@@ -207,6 +207,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyGroup = document.getElementById('keyGroup');
     const subSameAsProxy = document.getElementById('sub_same_as_proxy');
 
+    const ensureSubAdminFields = () => {
+        if (document.getElementById('sub_admin_user') && document.getElementById('sub_admin_password')) return;
+
+        const formGrid = document.querySelector('#subServerPanelSection .form-grid');
+        const targetGroup = document.getElementById('subOnlyTargetGroup');
+        if (!formGrid) return;
+
+        const userGroup = document.createElement('div');
+        userGroup.className = 'form-group';
+        userGroup.innerHTML = `
+            <label for="sub_admin_user">Логин админа Сервера подписок</label>
+            <input type="text" id="sub_admin_user" value="admin" placeholder="admin">
+        `;
+
+        const passGroupEl = document.createElement('div');
+        passGroupEl.className = 'form-group';
+        passGroupEl.innerHTML = `
+            <label for="sub_admin_password">Пароль админа Сервера подписок</label>
+            <input type="password" id="sub_admin_password" placeholder="admin">
+        `;
+
+        if (targetGroup && targetGroup.parentNode === formGrid) {
+            formGrid.insertBefore(userGroup, targetGroup);
+            formGrid.insertBefore(passGroupEl, targetGroup);
+        } else {
+            formGrid.appendChild(userGroup);
+            formGrid.appendChild(passGroupEl);
+        }
+    };
+
+    ensureSubAdminFields();
+
     const qrModal = document.getElementById('qrModal');
     const qrModalImg = document.getElementById('qrModalImg');
     const qrModalTitle = document.getElementById('qrModalTitle');
@@ -1280,6 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_foreign_url: document.getElementById('sub_foreign_url').value.trim(),
                 sub_proxy_clients: document.getElementById('sub_proxy_clients').value.trim(),
                 sub_freedom_clients: document.getElementById('sub_freedom_clients').value.trim(),
+                sub_admin_user: (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin',
                 sub_same_as_proxy: subSameAsProxy ? subSameAsProxy.checked : true,
 
                 backup_vps_host: document.getElementById('backup_vps_host') ? document.getElementById('backup_vps_host').value.trim() : '',
@@ -1416,6 +1449,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cfg.sub_foreign_url) document.getElementById('sub_foreign_url').value = cfg.sub_foreign_url;
                 if (cfg.sub_proxy_clients) document.getElementById('sub_proxy_clients').value = cfg.sub_proxy_clients;
                 if (cfg.sub_freedom_clients) document.getElementById('sub_freedom_clients').value = cfg.sub_freedom_clients;
+                if (cfg.sub_admin_user && document.getElementById('sub_admin_user')) document.getElementById('sub_admin_user').value = cfg.sub_admin_user;
+                if (document.getElementById('sub_admin_password')) document.getElementById('sub_admin_password').value = '';
                 if (cfg.sub_same_as_proxy !== undefined && subSameAsProxy) subSameAsProxy.checked = cfg.sub_same_as_proxy;
 
                 if (cfg.backup_vps_host && document.getElementById('backup_vps_host')) document.getElementById('backup_vps_host').value = cfg.backup_vps_host;
@@ -1998,6 +2033,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnStartDeploy.addEventListener('click', async () => {
+        const mode = getSelectedMode();
+        if (mode === 'sub_only' || mode === 'cascade_sub') {
+            const subAdminPasswordInput = document.getElementById('sub_admin_password');
+            if (!subAdminPasswordInput) {
+                showToast('Не найдены поля логина/пароля Сервера подписок. Обновите страницу.', 'error');
+                showStep(3);
+                return;
+            }
+            const subAdminPassword = subAdminPasswordInput.value.trim();
+            if (!subAdminPassword) {
+                showToast('Для Сервера подписок обязательно укажите пароль админа перед запуском.', 'warning');
+                showStep(3);
+                return;
+            }
+        }
+
         showStep(4);
         updateBadgeStatus('Развертывание...', '#f59e0b', true);
         startDeployTimer();
@@ -2013,7 +2064,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btnStartDeploy.classList.add('hidden');
 
-        const mode = getSelectedMode();
         const commonVersion = document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || '3.6.0' : '3.6.0';
 
         let payload = {
@@ -2049,6 +2099,8 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_foreign_url = document.getElementById('sub_foreign_url').value.trim();
             payload.sub_proxy_clients = document.getElementById('sub_proxy_clients').value.trim();
             payload.sub_freedom_clients = document.getElementById('sub_freedom_clients').value.trim();
+            payload.sub_admin_user = (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin';
+            payload.sub_admin_password = document.getElementById('sub_admin_password') ? document.getElementById('sub_admin_password').value.trim() : '';
         } else if (mode === 'backup') {
             payload.backup_vps_host = document.getElementById('backup_vps_host').value.trim();
             payload.backup_vps_port = parseInt(document.getElementById('backup_vps_port').value) || 22;
@@ -2113,6 +2165,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.sub_vps_key = document.getElementById('sub_vps_key').value;
                 payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
                 payload.sub_secret_path = document.getElementById('sub_secret_path').value.trim() || 'subs';
+                payload.sub_admin_user = (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin';
+                payload.sub_admin_password = document.getElementById('sub_admin_password') ? document.getElementById('sub_admin_password').value.trim() : '';
             }
         }
 
@@ -2215,7 +2269,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const result = data.result || {};
 
-                const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true, urlLabel = 'Адрес панели (URL)') => {
+                const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true, urlLabel = 'Адрес панели (URL)', linkUrl = '') => {
+                    const realLink = linkUrl || url;
                     const block = document.createElement('div');
                     block.className = 'panel-info-block';
                     block.innerHTML = `
@@ -2228,7 +2283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="summary-item full-width">
                                 <span class="summary-label">${urlLabel}</span>
                                 <div class="val-code-wrapper">
-                                    <a href="${url}" target="_blank" class="val-code link">${url}</a>
+                                    <a href="${realLink}" target="_blank" class="val-code link">${url}</a>
                                     <button type="button" class="btn-sm btn-copy" data-copy="${url}">📋 Copy</button>
                                 </div>
                             </div>` : ''}
@@ -2349,7 +2404,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (mode === 'sub_only') {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', 'Логин администратора', 'Пароль администратора', true, 'Адрес подписок (URL)'));
+                    const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, 'Скрыт', 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
@@ -2367,7 +2423,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', 'Логин администратора', 'Пароль администратора', true, 'Адрес подписок (URL)'));
+                        const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, 'Скрыт', 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';

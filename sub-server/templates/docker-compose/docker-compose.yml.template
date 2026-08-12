@@ -11,10 +11,12 @@ services:
       FORCE_FILE: "/data/force-subs.yml"
       RUSSIAN_SUB_URL: "{{RUSSIAN_SUB_URL}}"
       FOREIGN_SUB_URL: "{{FOREIGN_SUB_URL}}"
+      ADMIN_USER: "{{ADMIN_USER}}"
+      ADMIN_PASSWORD: "{{ADMIN_PASSWORD}}"
       PORT: "8000"
     volumes:
       - ./sub-server/subs.yml:/data/subs.yml:ro
-      - ./sub-server/force-subs.yml:/data/force-subs.yml:ro
+      - ./sub-server/force-subs.yml:/data/force-subs.yml
     networks:
       - sub-caddy-net
 

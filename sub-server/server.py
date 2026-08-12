@@ -37,6 +37,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
 
@@ -49,6 +50,7 @@ log = logging.getLogger("sub-server")
 
 DATABASE_FILE = os.environ.get("DATABASE_FILE", "subs.yml")
 FORCE_FILE = os.environ.get("FORCE_FILE", "force-subs.yml")
+NODES_FILE = os.environ.get("NODES_FILE", "nodes.json")
 SECRET_SUB_PATH = os.environ.get("SECRET_SUB_PATH", "subs").strip("/")
 RUSSIAN_SUB_URL = os.environ.get("RUSSIAN_SUB_URL", "")
 FOREIGN_SUB_URL = os.environ.get("FOREIGN_SUB_URL", "")
@@ -65,6 +67,8 @@ GROUP_LABELS = {
     "freedom": "Freedom (зарубежье)",
     "force": "Кастом (force-subs.yml)",
 }
+
+NODES = []
 
 PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="ru">
@@ -110,6 +114,10 @@ body {
 .subtitle a { color: var(--primary-color); text-decoration: none; }
 .subtitle a:hover { text-decoration: underline; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
+.header-search { width: min(300px, 35vw); margin: 0; }
+.header-search { height: 38px; padding: 8px 13px; border: 1px solid var(--border-color); border-radius: 999px; outline: none; background: rgba(30, 41, 59, .72); color: var(--text-primary); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(2, 6, 23, .18); font: inherit; font-size: .82rem; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+.header-search::placeholder { color: var(--text-secondary); opacity: 1; }
+.header-search:focus { border-color: rgba(59, 130, 246, .72); background: rgba(30, 41, 59, .94); box-shadow: 0 0 0 3px var(--accent-glow), 0 8px 24px rgba(2, 6, 23, .24); }
 .status-badge {
     display: flex; align-items: center; gap: 8px; font-size: 0.8rem;
     background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color);
@@ -151,6 +159,27 @@ body {
     transition: all 0.2s ease;
 }
 .btn-sm:hover { background: rgba(255, 255, 255, 0.12); }
+.management-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 24px; }
+.management-panel { padding: 16px; background: rgba(30, 41, 59, 0.55); border: 1px solid var(--border-color); border-radius: 14px; }
+.management-title { font-weight: 600; margin-bottom: 10px; }
+.management-row { display: flex; gap: 8px; margin-top: 8px; }
+.management-row input, .management-row select { flex: 1; min-width: 0; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(15, 23, 42, 0.8); color: var(--text-primary); padding: 8px 10px; font: inherit; font-size: .82rem; }
+.management-row select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+.node-select { position: relative; flex: 1; min-width: 0; }
+.node-select-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 8px 10px; background: rgba(15, 23, 42, .9); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font: inherit; font-size: .82rem; cursor: pointer; }
+.node-select-trigger:hover, .node-select.open .node-select-trigger { border-color: rgba(59, 130, 246, .6); background: rgba(30, 41, 59, .95); }
+.node-select-arrow { color: var(--text-secondary); transition: transform .2s ease; }
+.node-select.open .node-select-arrow { transform: rotate(180deg); color: var(--primary-color); }
+.node-select-options { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; padding: 5px; background: rgba(30, 41, 59, .97); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,.5); opacity: 0; visibility: hidden; transform: translateY(-4px) scale(.98); transition: all .18s ease; }
+.node-select.open .node-select-options { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.node-select-option { padding: 8px 10px; color: var(--text-secondary); border-radius: 6px; cursor: pointer; font-size: .82rem; }
+.node-select-option:hover, .node-select-option.selected { background: rgba(59,130,246,.2); color: var(--text-primary); }
+.management-row .btn-sm { flex-shrink: 0; }
+.btn-client-delete, .btn-node-delete { color: #fecaca; border-color: rgba(239, 68, 68, .35); padding: 5px 7px; line-height: 1; }
+.btn-client-delete svg, .btn-node-delete svg { width: 16px; height: 16px; display: block; }
+.node-management { position: relative; }
+.management-error { position: absolute; right: 16px; bottom: 58px; z-index: 100; max-width: calc(100% - 32px); color: #fecaca; border: 1px solid rgba(239, 68, 68, .5); background: rgba(127, 29, 29, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 8px; padding: 8px 10px; font-size: .78rem; box-shadow: 0 8px 24px rgba(127, 29, 29, .25); }
+@media (max-width: 700px) { .management-grid { grid-template-columns: 1fr; } .management-row { flex-wrap: wrap; } .management-row .btn-sm { width: 100%; } .header-search { width: 100%; order: 3; } }
 .btn-sm.active { background: var(--primary-color); border-color: var(--primary-color); }
 .client-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
 @media (max-width: 900px) { .client-link-grid { grid-template-columns: 1fr; } }
@@ -200,10 +229,12 @@ body {
             </div>
         </div>
         <div class="header-actions">
+            __SEARCH__
             __AUTH_ACTIONS__
             <div class="status-badge"><span class="dot"></span><span>__STATUS__</span></div>
         </div>
     </div>
+__MANAGEMENT__
     <div class="section-header"><span class="chevron">▾</span>🌐 Подписочные ссылки нод<span class="line"></span></div>
     <div class="cards-grid">
 __NODES__
@@ -256,6 +287,32 @@ function submitOverride(client, value, btn) {
             setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2500);
         });
 }
+function submitManagement(url, payload) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(r => r.json()).then(d => { if (!d.ok) throw new Error(d.error || 'Ошибка'); return d; });
+}
+function showManagementError(error) {
+    const box = document.getElementById('management-message');
+    if (box) {
+        box.hidden = false;
+        box.textContent = error.message || String(error);
+        clearTimeout(window.managementErrorTimer);
+        window.managementErrorTimer = setTimeout(() => { box.hidden = true; }, 6000);
+    }
+}
+function filterCards() {
+    const query = (document.getElementById('client-search')?.value || '').trim().toLocaleLowerCase();
+    document.querySelectorAll('.card').forEach(card => {
+        const text = (card.dataset.search || '').toLocaleLowerCase();
+        card.style.display = !query || text.includes(query) ? '' : 'none';
+    });
+    document.querySelectorAll('.section-header').forEach(header => {
+        const grid = header.nextElementSibling;
+        if (!grid || !grid.classList.contains('cards-grid')) return;
+        const visible = [...grid.querySelectorAll('.card')].some(card => card.style.display !== 'none');
+        header.style.display = visible ? '' : 'none';
+    });
+}
 document.addEventListener('click', function (e) {
     const header = e.target.closest('.section-header');
     if (header) {
@@ -295,6 +352,20 @@ document.addEventListener('click', function (e) {
         cancel.closest('.override-editor').classList.remove('open');
         return;
     }
+    const deleteClient = e.target.closest('.btn-client-delete');
+    if (deleteClient) {
+        if (!confirm('Удалить клиента и его кастомную подписку?')) return;
+        submitManagement('__API_CLIENT__', { action: 'delete', client: deleteClient.dataset.client })
+            .then(() => location.reload()).catch(showManagementError);
+        return;
+    }
+    const deleteNode = e.target.closest('.btn-node-delete');
+    if (deleteNode) {
+        if (!confirm('Удалить ноду? Сначала должны быть удалены все её клиенты.')) return;
+        submitManagement('__API_NODE__', { action: 'delete', node: deleteNode.dataset.node })
+            .then(() => location.reload()).catch(showManagementError);
+        return;
+    }
     const copy = e.target.closest('.btn-copy');
     if (copy) { copyText(copy.getAttribute('data-url'), copy); return; }
     const qr = e.target.closest('.btn-qr');
@@ -303,10 +374,34 @@ document.addEventListener('click', function (e) {
         const el = document.querySelector(sel);
         const open = el.classList.toggle('open');
         document.querySelectorAll('.btn-qr[data-target="' + sel + '"]').forEach(b => {
-            b.textContent = open ? 'Скрыть QR' : 'QR';
+            b.textContent = 'QR';
             b.classList.toggle('active', open);
         });
     }
+});
+document.getElementById('client-search')?.addEventListener('input', filterCards);
+document.querySelector('.node-select-trigger')?.addEventListener('click', function () {
+    document.getElementById('node-select').classList.toggle('open');
+});
+document.querySelectorAll('.node-select-option').forEach(option => option.addEventListener('click', function () {
+    document.getElementById('client-node').value = this.dataset.value;
+    document.getElementById('client-node-label').textContent = this.textContent;
+    document.querySelectorAll('.node-select-option').forEach(item => item.classList.toggle('selected', item === this));
+    document.getElementById('node-select').classList.remove('open');
+}));
+document.addEventListener('click', function (e) {
+    const picker = document.getElementById('node-select');
+    if (picker && !picker.contains(e.target)) picker.classList.remove('open');
+});
+document.getElementById('add-client-form')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    submitManagement('__API_CLIENT__', { action: 'add', node: document.getElementById('client-node').value, client: document.getElementById('new-client').value.trim() })
+        .then(() => location.reload()).catch(showManagementError);
+});
+document.getElementById('add-node-form')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    submitManagement('__API_NODE__', { action: 'add', name: document.getElementById('new-node-name').value.trim(), url: document.getElementById('new-node-url').value.trim() })
+        .then(() => location.reload()).catch(showManagementError);
 });
 </script>
 </body>
@@ -521,6 +616,63 @@ def load_subs(path):
                 if name:
                     subs[section].append(name)
     return subs
+
+
+def default_nodes(subs):
+    nodes = []
+    for node_id, name, url, group in (
+        ("proxy", GROUP_LABELS["proxy"], RUSSIAN_SUB_URL, "proxy"),
+        ("freedom", GROUP_LABELS["freedom"], FOREIGN_SUB_URL, "freedom"),
+    ):
+        if url or subs[group]:
+            nodes.append({"id": node_id, "name": name, "url": url.rstrip("/"), "clients": list(subs[group])})
+    return nodes
+
+
+def load_nodes(path, subs):
+    if not os.path.exists(path):
+        return default_nodes(subs)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as exc:
+        log.warning("failed to load %s: %s; using legacy node configuration", path, exc)
+        return default_nodes(subs)
+    if not isinstance(data, list):
+        return default_nodes(subs)
+    result = []
+    for item in data:
+        if not isinstance(item, dict) or not item.get("id") or not item.get("name") or not item.get("url"):
+            continue
+        clients = item.get("clients", [])
+        if not isinstance(clients, list):
+            clients = []
+        result.append({
+            "id": str(item["id"]),
+            "name": str(item["name"]).strip(),
+            "url": str(item["url"]).strip().rstrip("/"),
+            "clients": [str(client).strip() for client in clients if str(client).strip()],
+        })
+    return result or default_nodes(subs)
+
+
+def save_nodes(nodes=None):
+    nodes = NODES if nodes is None else nodes
+    directory = os.path.dirname(os.path.abspath(NODES_FILE))
+    os.makedirs(directory, exist_ok=True)
+    # NODES_FILE is bind-mounted by Docker, so replace() would fail on the
+    # mount point itself. The file is tiny and is protected by the admin API.
+    with open(NODES_FILE, "w", encoding="utf-8") as f:
+        json.dump(nodes, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def all_clients():
+    return {client for node in NODES for client in node["clients"]}
+
+
+def find_client_node(client):
+    return next((node for node in NODES if client in node["clients"]), None)
 
 
 def load_force_subs(path):
@@ -760,16 +912,13 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if client in SUBS["proxy"]:
-            base_url = RUSSIAN_SUB_URL
-            group = "proxy"
-        elif client in SUBS["freedom"]:
-            base_url = FOREIGN_SUB_URL
-            group = "freedom"
-        else:
+        node = find_client_node(client)
+        if not node:
             log.warning("404 unknown client: %s", client)
             self.send_error(404)
             return
+        base_url = node["url"]
+        group = node["id"]
         if not base_url:
             log.error("502 no subscription URL configured for group '%s' (client %s)", group, client)
             self.send_error(502)
@@ -801,7 +950,7 @@ class Handler(BaseHTTPRequestHandler):
         return set(p.split("=")[0].strip() for p in query.split("&") if p.strip())
 
     def do_POST(self):
-        global FORCE_SUBS
+        global FORCE_SUBS, NODES
         path = unquote(self.path.split("?", 1)[0]).strip("/")
         if path == f"{SECRET_SUB_PATH}/login":
             self._handle_login_post()
@@ -810,7 +959,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_logout()
             return
 
-        if path != f"{SECRET_SUB_PATH}/api/override":
+        api_paths = {
+            f"{SECRET_SUB_PATH}/api/override",
+            f"{SECRET_SUB_PATH}/api/client",
+            f"{SECRET_SUB_PATH}/api/node",
+        }
+        if path not in api_paths:
             log.warning("404 unknown POST path: %s", self.path)
             self.send_error(404)
             return
@@ -823,9 +977,84 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             self._send_json(400, {"ok": False, "error": "невалидный JSON"})
             return
+
+        if path == f"{SECRET_SUB_PATH}/api/client":
+            action = (data.get("action") or "").strip()
+            client = (data.get("client") or "").strip()
+            if not client or any(char in client for char in "\r\n:/"):
+                self._send_json(400, {"ok": False, "error": "некорректное имя клиента"})
+                return
+            if action == "add":
+                node = next((item for item in NODES if item["id"] == (data.get("node") or "")), None)
+                if not node:
+                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                    return
+                if client in all_clients() or client in FORCE_SUBS:
+                    self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
+                    return
+                node["clients"].append(client)
+            elif action == "delete":
+                node = find_client_node(client)
+                if not node:
+                    self._send_json(400, {"ok": False, "error": "клиент не найден"})
+                    return
+                node["clients"].remove(client)
+                if client in FORCE_SUBS:
+                    new_force = dict(FORCE_SUBS)
+                    new_force.pop(client, None)
+                    try:
+                        save_force_subs(new_force)
+                    except OSError as exc:
+                        self._send_json(500, {"ok": False, "error": f"не удалось удалить override: {exc}"})
+                        return
+                    FORCE_SUBS = new_force
+            else:
+                self._send_json(400, {"ok": False, "error": "неизвестное действие"})
+                return
+            try:
+                save_nodes()
+            except OSError as exc:
+                self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
+        if path == f"{SECRET_SUB_PATH}/api/node":
+            action = (data.get("action") or "").strip()
+            if action == "add":
+                name = (data.get("name") or "").strip()
+                url = (data.get("url") or "").strip().rstrip("/")
+                if not name or not url.startswith(("http://", "https://")):
+                    self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (http:// или https://)"})
+                    return
+                if any(node["name"].casefold() == name.casefold() for node in NODES):
+                    self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                    return
+                NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": []})
+            elif action == "delete":
+                node_id = (data.get("node") or "").strip()
+                node = next((item for item in NODES if item["id"] == node_id), None)
+                if not node:
+                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                    return
+                if node["clients"]:
+                    self._send_json(400, {"ok": False, "error": "сначала удалите клиентов этой ноды"})
+                    return
+                NODES.remove(node)
+            else:
+                self._send_json(400, {"ok": False, "error": "неизвестное действие"})
+                return
+            try:
+                save_nodes()
+            except OSError as exc:
+                self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
+                return
+            self._send_json(200, {"ok": True})
+            return
+
         client = (data.get("client") or "").strip()
         value = (data.get("value") or "").strip()
-        if client not in SUBS["proxy"] and client not in SUBS["freedom"] and client not in FORCE_SUBS:
+        if client not in all_clients() and client not in FORCE_SUBS:
             self._send_json(400, {"ok": False, "error": f"неизвестный клиент: {client}"})
             return
         if value:
@@ -875,14 +1104,19 @@ class Handler(BaseHTTPRequestHandler):
     def _node_cards(self):
         esc = html.escape
         cards = []
-        for group, url in (("proxy", RUSSIAN_SUB_URL), ("freedom", FOREIGN_SUB_URL)):
+        for node in NODES:
+            group = node["id"]
+            url = node["url"]
             if not url:
                 continue
-            p = ['<div class="card">']
+            p = [f'<div class="card" data-search="{esc(node["name"])}">']
             p.append(
                 f'<div class="client-header">'
-                f'<span class="client-name-badge">🌐 {GROUP_LABELS[group]}</span>'
-                f'<span class="group-badge">база подписки</span></div>'
+                f'<span class="client-name-badge">🌐 {esc(node["name"])}</span>'
+                f'<span style="display:flex;gap:6px;align-items:center">'
+                f'<span class="group-badge">база подписки</span>'
+                f'<button type="button" class="btn-sm btn-node-delete" data-node="{esc(node["id"])}" title="Удалить ноду" aria-label="Удалить ноду">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></span></div>'
             )
             p.append('<div class="client-link-group">')
             p.append('<div class="client-link-label">🔗 Подписочная ссылка ноды</div>')
@@ -904,24 +1138,21 @@ class Handler(BaseHTTPRequestHandler):
         sections = []
         seen = set()
         idx = 0
-        for group, label in (
-            ("proxy", "👤 Карточки клиентов · Proxy node"),
-            ("freedom", "👤 Карточки клиентов · Freedom node"),
-        ):
-            clients = SUBS[group]
+        for node in NODES:
+            clients = node["clients"]
             if not clients:
                 continue
             cards = []
             for client in clients:
-                cards.append(self._card_html(client, group, base, idx))
+                cards.append(self._card_html(client, node, base, idx))
                 seen.add(client)
                 idx += 1
-            sections.append(self._section_html(label, "\n".join(cards)))
+            sections.append(self._section_html(f'👤 Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards)))
         force_clients = [c for c in sorted(FORCE_SUBS) if c not in seen]
         if force_clients:
             cards = []
             for client in force_clients:
-                cards.append(self._card_html(client, "force", base, idx))
+                cards.append(self._card_html(client, None, base, idx))
                 idx += 1
             sections.append(self._section_html("👤 Карточки клиентов · Кастом (force-subs.yml)", "\n".join(cards)))
         return "\n".join(sections)
@@ -933,26 +1164,25 @@ class Handler(BaseHTTPRequestHandler):
             f'<div class="cards-grid stacked">\n{cards}\n    </div>'
         )
 
-    def _card_html(self, client, group, base, idx):
+    def _card_html(self, client, node, base, idx):
         esc = html.escape
         force = client in FORCE_SUBS
         sub_url = f"{base}/{SECRET_SUB_PATH}/{client}" if base else f"/{SECRET_SUB_PATH}/{client}"
-        if group == "proxy":
-            direct_url = f"{RUSSIAN_SUB_URL.rstrip('/')}/{client}" if RUSSIAN_SUB_URL else None
-        elif group == "freedom":
-            direct_url = f"{FOREIGN_SUB_URL.rstrip('/')}/{client}" if FOREIGN_SUB_URL else None
-        else:
-            direct_url = None
+        direct_url = f'{node["url"]}/{client}' if node else None
 
         force_tag = '<span class="force-tag">⚡ override</span>' if force else ""
         qr_panel_id = f"qr-panel-{idx}"
 
-        p = ['<div class="card">']
+        search_text = f'{client} {node["name"]}' if node else client
+        p = [f'<div class="card" data-search="{esc(search_text)}">']
         p.append(
             f'<div class="client-header">'
             f'<span class="client-name-badge">👤 {esc(client)}</span>'
             f'<span style="display:flex;gap:6px;align-items:center">'
-            f'<span class="group-badge">{GROUP_LABELS[group]}</span>{force_tag}</span></div>'
+            f'<span class="group-badge">{esc(node["name"]) if node else GROUP_LABELS["force"]}</span>{force_tag}'
+            + (f'<button type="button" class="btn-sm btn-client-delete" data-client="{esc(client)}" title="Удалить клиента" aria-label="Удалить клиента">'
+               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>' if node else '')
+            + '</span></div>'
         )
         p.append('<div class="client-link-grid">')
 
@@ -978,7 +1208,7 @@ class Handler(BaseHTTPRequestHandler):
                 f'</div>'
             )
         else:
-            if group == "force":
+            if not node:
                 p.append('<div class="note">Кастомная подписка из force-subs.yml — прямого таргета нет.</div>')
             else:
                 p.append('<div class="note">Таргет-URL для группы не настроен.</div>')
@@ -1029,17 +1259,38 @@ class Handler(BaseHTTPRequestHandler):
     def _list_html(self):
         sections = self._client_sections() or '<div class="note">Клиенты не настроены.</div>'
         nodes = "\n".join(self._node_cards()) or '<div class="note">Подписочные URL нод не настроены.</div>'
-        total = len(SUBS["proxy"]) + len(SUBS["freedom"]) + len(
-            [c for c in FORCE_SUBS if c not in SUBS["proxy"] and c not in SUBS["freedom"]]
+        total = len(all_clients()) + len([c for c in FORCE_SUBS if c not in all_clients()])
+        options = "".join(
+            f'<div class="node-select-option" data-value="{html.escape(node["id"], quote=True)}">{html.escape(node["name"])}</div>'
+            for node in NODES
+        )
+        first_node = NODES[0] if NODES else None
+        node_picker = (
+            f'<div class="node-select" id="node-select">'
+            f'<input type="hidden" id="client-node" value="{html.escape(first_node["id"], quote=True) if first_node else ""}">'
+            f'<button type="button" class="node-select-trigger"><span id="client-node-label">{html.escape(first_node["name"]) if first_node else "Нет доступных нод"}</span><span class="node-select-arrow">⌄</span></button>'
+            f'<div class="node-select-options">{options}</div></div>'
+        )
+        management = (
+            '<div class="management-grid">'
+            '<div class="management-panel"><div class="management-title">Добавить клиента</div>'
+            f'<form class="management-row" id="add-client-form">{node_picker}<input id="new-client" placeholder="Имя нового клиента" required><button class="btn-sm" type="submit">Добавить</button></form></div>'
+            '<div class="management-panel node-management"><div class="management-title">Добавить ноду</div>'
+            '<form class="management-row" id="add-node-form"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="https://node.example/subs" required><button class="btn-sm" type="submit">Добавить</button></form>'
+            '<div id="management-message" class="management-error" hidden></div></div></div>'
         )
         status = f"Клиентов: {total}"
         body = (
             PAGE_TEMPLATE.replace("__SECTIONS__", sections)
             .replace("__NODES__", nodes)
+            .replace("__MANAGEMENT__", management)
+            .replace("__SEARCH__", '<input id="client-search" class="header-search" placeholder="поиск" aria-label="поиск">')
             .replace("__STATUS__", status)
             .replace("__RAW_URL__", f"/{SECRET_SUB_PATH}?raw=1")
             .replace("__AUTH_ACTIONS__", f'<a class="btn-logout" href="/{SECRET_SUB_PATH}/logout">Выйти</a>' if ADMIN_USER and ADMIN_PASSWORD else "")
             .replace("__API_OVERRIDE__", f"/{SECRET_SUB_PATH}/api/override")
+            .replace("__API_CLIENT__", f"/{SECRET_SUB_PATH}/api/client")
+            .replace("__API_NODE__", f"/{SECRET_SUB_PATH}/api/node")
             .encode("utf-8")
         )
         log.info("200 html interface (%d cards)", total)
@@ -1051,12 +1302,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _list_subscriptions(self):
         lines = []
-        for client in SUBS["proxy"]:
-            if RUSSIAN_SUB_URL:
-                lines.append(f"{RUSSIAN_SUB_URL}/{client}")
-        for client in SUBS["freedom"]:
-            if FOREIGN_SUB_URL:
-                lines.append(f"{FOREIGN_SUB_URL}/{client}")
+        for node in NODES:
+            for client in node["clients"]:
+                if node["url"]:
+                    lines.append(f"{node['url']}/{client}")
         body = ("\n".join(lines) + "\n").encode("utf-8")
         log.info("200 subscription list (%d urls)", len(lines))
         self.send_response(200)
@@ -1070,9 +1319,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global SUBS, FORCE_SUBS
+    global SUBS, FORCE_SUBS, NODES
     SUBS = load_subs(DATABASE_FILE)
     FORCE_SUBS = load_force_subs(FORCE_FILE)
+    NODES = load_nodes(NODES_FILE, SUBS)
+    if not os.path.exists(NODES_FILE):
+        try:
+            save_nodes()
+        except OSError as exc:
+            log.warning("could not persist initial node configuration: %s", exc)
     log.info("listening on %s:%s, path prefix /%s, db %s", HOST, PORT, SECRET_SUB_PATH, DATABASE_FILE)
     if ADMIN_USER and ADMIN_PASSWORD:
         log.info("admin auth enabled (user: %s)", ADMIN_USER)
@@ -1081,8 +1336,7 @@ def main():
     log.info("RUSSIAN_SUB_URL=%s", RUSSIAN_SUB_URL or "(not set)")
     log.info("FOREIGN_SUB_URL=%s", FOREIGN_SUB_URL or "(not set)")
     log.info("PUBLIC_URL=%s", PUBLIC_URL or "(not set, derived from request headers)")
-    log.info("proxy clients: %s", ", ".join(SUBS["proxy"]) or "(none)")
-    log.info("freedom clients: %s", ", ".join(SUBS["freedom"]) or "(none)")
+    log.info("nodes: %s", ", ".join(node["name"] for node in NODES) or "(none)")
     log.info("force overrides: %s", ", ".join(FORCE_SUBS) or "(none)")
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     try:

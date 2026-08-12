@@ -5,9 +5,7 @@ import io
 import json
 import os
 import re
-import secrets
 import shlex
-import string
 import sys
 import tarfile
 import tempfile
@@ -17,10 +15,6 @@ ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
-
-def generate_random_string(length: int = 16) -> str:
-    alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def get_bundle_bytes() -> bytes:
     buf = io.BytesIO()
@@ -507,12 +501,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         deploy_mode = "cascade" if config.get("is_cascade", False) else "single"
 
     email = config.get("email", "").strip()
-    xui_username = config.get("xui_username", "admin").strip()
-    xui_password = config.get("xui_password", "").strip() or generate_random_string(12)
+    xui_username = config.get("xui_username", "").strip()
+    xui_password = config.get("xui_password", "").strip()
     xui_version = config.get("xui_version", "").strip() or "3.6.0"
     xui_web_port = config.get("xui_web_port", "").strip()
     xui_sub_port = config.get("xui_sub_port", "").strip()
-    sub_secret = config.get("sub_secret", "").strip() or generate_random_string(16)
+    sub_secret = config.get("sub_secret", "").strip()
 
     # Remote Server Backup Mode
     if deploy_mode == "backup":
@@ -1015,7 +1009,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_password = config.get("sub_vps_password", config.get("vps_password", ""))
         sub_key = config.get("sub_vps_key", config.get("vps_key", ""))
         sub_domain = config.get("sub_domain", "").strip() or sub_host
-        sub_secret_path = config.get("sub_secret_path", "subs").strip() or "subs"
+        sub_secret_path = config.get("sub_secret_path", "").strip()
         sub_secret_path = sub_secret_path.strip("/")
 
         sub_russian_url = config.get("sub_russian_url", "").strip()
@@ -1027,8 +1021,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         freedom_clients = [n.strip() for n in re.split(r'[\s,]+', freedom_raw) if n.strip()]
 
         log(f"Starting deployment of Subscription Server on {sub_host}...", "info")
-        sub_admin_user = config.get("sub_admin_user", "").strip() or "admin"
-        sub_admin_password = config.get("sub_admin_password", "").strip() or generate_random_string(12)
+        sub_admin_user = config.get("sub_admin_user", "").strip()
+        sub_admin_password = config.get("sub_admin_password", "").strip()
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
@@ -1072,6 +1066,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "sub_secret_path": sub_secret_path,
             "sub_base_url": base_sub_url,
             "sub_admin_user": sub_admin_user,
+            "sub_admin_password": sub_admin_password,
             "clients": sub_clients
         }
         return True, result_data
@@ -1143,9 +1138,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     freedom_user = config.get("freedom_user", "root").strip()
     freedom_password = config.get("freedom_password", "")
     freedom_key = config.get("freedom_key", "")
-    freedom_xui_user = config.get("freedom_xui_username", "").strip() or xui_username
-    freedom_xui_pass = config.get("freedom_xui_password", "").strip() or xui_password
-    freedom_secret = config.get("freedom_sub_secret", "").strip() or sub_secret
+    freedom_xui_user = config.get("freedom_xui_username", "").strip()
+    freedom_xui_pass = config.get("freedom_xui_password", "").strip()
+    freedom_secret = config.get("freedom_sub_secret", "").strip()
     freedom_client = config.get("freedom_client_name", "").strip() or "local-proxy-node-client"
     freedom_xui_version = config.get("freedom_xui_version", "").strip() or xui_version
 
@@ -1154,9 +1149,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     proxy_user = config.get("proxy_user", "root").strip()
     proxy_password = config.get("proxy_password", "")
     proxy_key = config.get("proxy_key", "")
-    proxy_xui_user = config.get("proxy_xui_username", "").strip() or xui_username
-    proxy_xui_pass = config.get("proxy_xui_password", "").strip() or xui_password
-    proxy_secret = config.get("proxy_sub_secret", "").strip() or sub_secret
+    proxy_xui_user = config.get("proxy_xui_username", "").strip()
+    proxy_xui_pass = config.get("proxy_xui_password", "").strip()
+    proxy_secret = config.get("proxy_sub_secret", "").strip()
     proxy_xui_version = config.get("proxy_xui_version", "").strip() or xui_version
 
     proxy_tcp_raw = config.get("proxy_client_tcp_list", "").strip() or tcp_raw
@@ -1263,7 +1258,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_password = config.get("sub_vps_password", "")
         sub_key = config.get("sub_vps_key", "")
         sub_domain = config.get("sub_domain", "").strip() or sub_host
-        sub_secret_path = config.get("sub_secret_path", "subs").strip() or "subs"
+        sub_secret_path = config.get("sub_secret_path", "").strip()
         sub_secret_path = sub_secret_path.strip("/")
 
         if not sub_host:
@@ -1284,8 +1279,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         proxy_client_names = [n.strip() for n in re.split(r'[\s,]+', f"{proxy_clients_tcp_str} {proxy_clients_xhttp_str}") if n.strip()]
         freedom_client_names = [freedom_client]
 
-        sub_admin_user = config.get("sub_admin_user", "").strip() or "admin"
-        sub_admin_password = config.get("sub_admin_password", "").strip() or generate_random_string(12)
+        sub_admin_user = config.get("sub_admin_user", "").strip()
+        sub_admin_password = config.get("sub_admin_password", "").strip()
 
         sub_env = {
             "DOMAIN": sub_domain,
@@ -1312,6 +1307,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         result_data["sub_secret_path"] = sub_secret_path
         result_data["sub_base_url"] = base_sub_url
         result_data["sub_admin_user"] = sub_admin_user
+        result_data["sub_admin_password"] = sub_admin_password
 
         # Attach sub_url to client objects if available
         for cl in parsed_clients:

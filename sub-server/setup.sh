@@ -170,6 +170,7 @@ EOF
             echo "  - $client" >> "$SCRIPT_DIR/subs.yml"
         done
     fi
+    touch "$SCRIPT_DIR/nodes.json"
 }
 
 prompt_admin() {

@@ -186,12 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const randomDigits = (len = 16) => {
-        let res = '';
-        for (let i = 0; i < len; i++) res += Math.floor(Math.random() * 10);
-        return res;
-    };
-
     const btnTestSSH = document.getElementById('btnTestSSH');
     const btnNext1 = document.getElementById('btnNext1');
     const testResult = document.getElementById('testResult');
@@ -870,6 +864,47 @@ document.addEventListener('DOMContentLoaded', () => {
         diagramEl.innerHTML = html;
     };
 
+    const updateStep3Header = (mode) => {
+        const titleEl = document.getElementById('step3Title');
+        const descEl = document.getElementById('step3Desc');
+        if (!titleEl && !descEl) return;
+        let title = '3. Настройки панели и VPN-клиентов';
+        let desc = 'Учетные данные панели и список подключаемых пользователей (опционально).';
+        if (mode === 'cascade' || mode === 'cascade_sub') {
+            title = '3. Настройки панелей и VPN-клиентов';
+            desc = 'Учетные данные панелей (Freedom и Proxy) и список подключаемых пользователей (опционально).';
+        } else if (mode === 'sub_only') {
+            title = '3. Настройки Сервера подписок';
+            desc = 'Параметры Сервера подписок: путь подписки, ссылки на ноды и админ-доступ.';
+        } else if (mode === 'backup') {
+            title = '3. Параметры создания бэкапа';
+            desc = 'Задайте имя файла бэкапа (опционально).';
+        } else if (mode === 'recovery') {
+            title = '3. Параметры восстановления';
+            desc = 'Выберите архив бэкапа для восстановления на новом сервере.';
+        } else if (mode === 'update_3xui') {
+            title = '3. Параметры обновления 3X-UI';
+            desc = 'Укажите новую версию 3X-UI панели.';
+        } else if (mode === 'restart_panel') {
+            title = '3. Перезапуск панели 3X-UI';
+            desc = 'Проверьте параметры и запустите перезапуск панели.';
+        } else if (mode === 'restart_server') {
+            title = '3. Перезагрузка сервера';
+            desc = 'Проверьте параметры и запустите перезагрузку сервера.';
+        } else if (mode === 'restart_sub') {
+            title = '3. Перезапуск Сервера подписок';
+            desc = 'Проверьте параметры и запустите перезапуск Сервера подписок.';
+        } else if (mode === 'backup_sub') {
+            title = '3. Параметры бэкапа Сервера подписок';
+            desc = 'Задайте имя файла бэкапа (опционально).';
+        } else if (mode === 'rollback_sub') {
+            title = '3. Восстановление Сервера подписок';
+            desc = 'Выберите архив бэкапа для восстановления.';
+        }
+        if (titleEl) titleEl.textContent = title;
+        if (descEl) descEl.textContent = desc;
+    };
+
     const updateModeUI = () => {
         const mode = getSelectedMode();
         const singleNodeSection = document.getElementById('singleNodeSection');
@@ -906,6 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         renderTopologyDiagram(mode);
+        updateStep3Header(mode);
 
         if (backupNodeSection) backupNodeSection.classList.add('hidden');
         if (recoveryNodeSection) recoveryNodeSection.classList.add('hidden');
@@ -1030,12 +1066,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'rollback_sub') fetchBackupList('backups_sub_server');
         }
         resetSSHValidation();
+
+        if (glowRefresher) glowRefresher();
     };
 
     document.querySelectorAll('input[name="deploy_mode"]').forEach(radio => {
         radio.addEventListener('change', updateModeUI);
     });
-
     const padNum = (n) => String(n).padStart(2, '0');
 
     const updateBackupName = () => {
@@ -1043,23 +1080,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const nameEl = document.getElementById('backup_name');
         if (!nameEl) return;
         const domain = hostEl ? hostEl.value.trim().replace(/[^A-Za-z0-9._-]/g, '_') : '';
-        if (!domain) {
+        if (domain) {
+            const now = new Date();
+            const ts = `${now.getFullYear()}-${padNum(now.getMonth() + 1)}-${padNum(now.getDate())}_${padNum(now.getHours())}${padNum(now.getMinutes())}${padNum(now.getSeconds())}`;
+            nameEl.value = `${domain}_${ts}.tar.gz`;
+        } else {
             nameEl.value = '';
-            return;
         }
-        const now = new Date();
-        const ts = `${now.getFullYear()}-${padNum(now.getMonth() + 1)}-${padNum(now.getDate())}_${padNum(now.getHours())}${padNum(now.getMinutes())}${padNum(now.getSeconds())}`;
-        nameEl.value = `${domain}_${ts}.tar.gz`;
+        if (glowRefresher) glowRefresher();
     };
 
     const backupHostEl = document.getElementById('backup_vps_host');
     if (backupHostEl) {
-        let backupNameTimer = null;
-        backupHostEl.addEventListener('input', () => {
-            clearTimeout(backupNameTimer);
-            backupNameTimer = setTimeout(updateBackupName, 300);
-        });
+        backupHostEl.addEventListener('input', updateBackupName);
         backupHostEl.addEventListener('change', updateBackupName);
+    }
+
+    const updateSubBackupName = () => {
+        const hostEl = document.getElementById('sub_vps_host');
+        const nameEl = document.getElementById('sub_backup_name');
+        if (!nameEl) return;
+        const domain = hostEl ? hostEl.value.trim().replace(/[^A-Za-z0-9._-]/g, '_') : '';
+        if (domain) {
+            const now = new Date();
+            const ts = `${now.getFullYear()}-${padNum(now.getMonth() + 1)}-${padNum(now.getDate())}_${padNum(now.getHours())}${padNum(now.getMinutes())}${padNum(now.getSeconds())}`;
+            nameEl.value = `${domain}_${ts}.tar.gz`;
+        } else {
+            nameEl.value = '';
+        }
+        if (glowRefresher) glowRefresher();
+    };
+
+    const subHostEl = document.getElementById('sub_vps_host');
+    if (subHostEl) {
+        subHostEl.addEventListener('input', updateSubBackupName);
+        subHostEl.addEventListener('change', updateSubBackupName);
     }
 
     document.querySelectorAll('.auth-type-select').forEach(select => {
@@ -1076,6 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (kGroup) kGroup.classList.add('hidden');
             }
             resetSSHValidation();
+            if (glowRefresher) glowRefresher();
         });
     });
 
@@ -1273,75 +1329,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 vps_host: document.getElementById('vps_host').value.trim(),
                 vps_port: parseInt(document.getElementById('vps_port').value) || 22,
                 vps_user: document.getElementById('vps_user').value.trim() || 'root',
-                vps_password: document.getElementById('vps_password').value,
-                vps_key: document.getElementById('vps_key').value,
                 vps_auth_type: document.getElementById('vps_auth_type').value,
 
                 freedom_host: document.getElementById('freedom_host').value.trim(),
                 freedom_port: parseInt(document.getElementById('freedom_port').value) || 22,
                 freedom_user: document.getElementById('freedom_user').value.trim() || 'root',
-                freedom_password: document.getElementById('freedom_password').value,
-                freedom_key: document.getElementById('freedom_key').value,
                 freedom_auth_type: document.getElementById('freedom_auth_type').value,
-                freedom_xui_username: document.getElementById('freedom_xui_username').value.trim(),
-                freedom_xui_password: document.getElementById('freedom_xui_password').value.trim(),
-                freedom_sub_secret: document.getElementById('freedom_sub_secret').value.trim(),
+                freedom_xui_username: getFieldValueOrDefault('freedom_xui_username'),
+                freedom_sub_secret: getFieldValueOrDefault('freedom_sub_secret'),
                 freedom_client_name: document.getElementById('freedom_client_name').value.trim(),
 
                 proxy_host: document.getElementById('proxy_host').value.trim(),
                 proxy_port: parseInt(document.getElementById('proxy_port').value) || 22,
                 proxy_user: document.getElementById('proxy_user').value.trim() || 'root',
-                proxy_password: document.getElementById('proxy_password').value,
-                proxy_key: document.getElementById('proxy_key').value,
                 proxy_auth_type: document.getElementById('proxy_auth_type').value,
-                proxy_xui_username: document.getElementById('proxy_xui_username').value.trim(),
-                proxy_xui_password: document.getElementById('proxy_xui_password').value.trim(),
-                proxy_sub_secret: document.getElementById('proxy_sub_secret').value.trim(),
+                proxy_xui_username: getFieldValueOrDefault('proxy_xui_username'),
+                proxy_sub_secret: getFieldValueOrDefault('proxy_sub_secret'),
                 proxy_client_tcp_list: document.getElementById('proxy_client_tcp_list').value.trim(),
                 proxy_client_xhttp_list: document.getElementById('proxy_client_xhttp_list').value.trim(),
 
                 sub_vps_host: document.getElementById('sub_vps_host').value.trim(),
                 sub_vps_port: parseInt(document.getElementById('sub_vps_port').value) || 22,
                 sub_vps_user: document.getElementById('sub_vps_user').value.trim() || 'root',
-                sub_vps_password: document.getElementById('sub_vps_password').value,
-                sub_vps_key: document.getElementById('sub_vps_key').value,
                 sub_auth_type: document.getElementById('sub_auth_type').value,
                 sub_domain: document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : document.getElementById('sub_vps_host').value.trim(),
-                sub_secret_path: document.getElementById('sub_secret_path').value.trim(),
+                sub_secret_path: getFieldValueOrDefault('sub_secret_path'),
                 sub_russian_url: document.getElementById('sub_russian_url').value.trim(),
                 sub_foreign_url: document.getElementById('sub_foreign_url').value.trim(),
                 sub_proxy_clients: document.getElementById('sub_proxy_clients').value.trim(),
                 sub_freedom_clients: document.getElementById('sub_freedom_clients').value.trim(),
-                sub_admin_user: (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin',
+                sub_admin_user: getFieldValueOrDefault('sub_admin_user'),
                 sub_same_as_proxy: subSameAsProxy ? subSameAsProxy.checked : true,
 
                 backup_vps_host: document.getElementById('backup_vps_host') ? document.getElementById('backup_vps_host').value.trim() : '',
                 backup_vps_port: document.getElementById('backup_vps_port') ? parseInt(document.getElementById('backup_vps_port').value) || 22 : 22,
                 backup_vps_user: document.getElementById('backup_vps_user') ? document.getElementById('backup_vps_user').value.trim() || 'root' : 'root',
-                backup_vps_password: document.getElementById('backup_vps_password') ? document.getElementById('backup_vps_password').value : '',
-                backup_vps_key: document.getElementById('backup_vps_key') ? document.getElementById('backup_vps_key').value : '',
                 backup_auth_type: document.getElementById('backup_auth_type') ? document.getElementById('backup_auth_type').value : 'password',
                 backup_name: document.getElementById('backup_name') ? document.getElementById('backup_name').value.trim() : '',
+                sub_backup_name: document.getElementById('sub_backup_name') ? document.getElementById('sub_backup_name').value.trim() : '',
 
                 recovery_vps_host: document.getElementById('recovery_vps_host') ? document.getElementById('recovery_vps_host').value.trim() : '',
                 recovery_vps_port: document.getElementById('recovery_vps_port') ? parseInt(document.getElementById('recovery_vps_port').value) || 22 : 22,
                 recovery_vps_user: document.getElementById('recovery_vps_user') ? document.getElementById('recovery_vps_user').value.trim() || 'root' : 'root',
-                recovery_vps_password: document.getElementById('recovery_vps_password') ? document.getElementById('recovery_vps_password').value : '',
-                recovery_vps_key: document.getElementById('recovery_vps_key') ? document.getElementById('recovery_vps_key').value : '',
                 recovery_auth_type: document.getElementById('recovery_auth_type') ? document.getElementById('recovery_auth_type').value : 'password',
                 recovery_backup_file: document.getElementById('recovery_backup_file') ? document.getElementById('recovery_backup_file').value : '',
 
                 update_vps_host: document.getElementById('update_vps_host') ? document.getElementById('update_vps_host').value.trim() : '',
                 update_vps_port: document.getElementById('update_vps_port') ? parseInt(document.getElementById('update_vps_port').value) || 22 : 22,
                 update_vps_user: document.getElementById('update_vps_user') ? document.getElementById('update_vps_user').value.trim() || 'root' : 'root',
-                update_vps_password: document.getElementById('update_vps_password') ? document.getElementById('update_vps_password').value : '',
-                update_vps_key: document.getElementById('update_vps_key') ? document.getElementById('update_vps_key').value : '',
                 update_auth_type: document.getElementById('update_auth_type') ? document.getElementById('update_auth_type').value : 'password',
                 update_xui_version: document.getElementById('update_xui_version') ? document.getElementById('update_xui_version').value.trim() : '3.6.0',
 
-                xui_username: document.getElementById('xui_username').value.trim(),
-                xui_password: document.getElementById('xui_password').value.trim(),
-                sub_secret: document.getElementById('sub_secret').value.trim(),
+                xui_username: getFieldValueOrDefault('xui_username'),
+                sub_secret: getFieldValueOrDefault('sub_secret'),
                 xui_version: document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() : '3.6.0',
                 client_tcp_list: document.getElementById('client_tcp_list').value.trim(),
                 client_xhttp_list: document.getElementById('client_xhttp_list').value.trim(),
@@ -1365,6 +1405,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const cfg = await resp.json();
 
             if (cfg && Object.keys(cfg).length > 0) {
+                const has = (key) => Object.prototype.hasOwnProperty.call(cfg, key);
+                const setValue = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.value = value ?? '';
+                };
+
                 let mode = cfg.deploy_mode;
                 if (!mode) {
                     mode = cfg.is_cascade ? 'cascade' : 'freedom_only';
@@ -1399,108 +1446,106 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
 
-                if (cfg.vps_host) document.getElementById('vps_host').value = cfg.vps_host;
-                if (cfg.vps_port) document.getElementById('vps_port').value = cfg.vps_port;
-                if (cfg.vps_user) document.getElementById('vps_user').value = cfg.vps_user;
-                if (cfg.vps_password) document.getElementById('vps_password').value = cfg.vps_password;
-                if (cfg.vps_key) document.getElementById('vps_key').value = cfg.vps_key;
+                if (has('vps_host')) setValue('vps_host', cfg.vps_host);
+                if (has('vps_port')) setValue('vps_port', cfg.vps_port);
+                if (has('vps_user')) setValue('vps_user', cfg.vps_user);
+                if (has('vps_password')) setValue('vps_password', cfg.vps_password);
+                if (has('vps_key')) setValue('vps_key', cfg.vps_key);
                 setAuthSelect('vps_auth_type', 'vpsPassGroup', 'vpsKeyGroup', cfg.vps_auth_type, cfg.vps_key);
 
-                if (cfg.freedom_host) document.getElementById('freedom_host').value = cfg.freedom_host;
-                if (cfg.freedom_port) document.getElementById('freedom_port').value = cfg.freedom_port;
-                if (cfg.freedom_user) document.getElementById('freedom_user').value = cfg.freedom_user;
-                if (cfg.freedom_password) document.getElementById('freedom_password').value = cfg.freedom_password;
-                if (cfg.freedom_key) document.getElementById('freedom_key').value = cfg.freedom_key;
+                if (has('freedom_host')) setValue('freedom_host', cfg.freedom_host);
+                if (has('freedom_port')) setValue('freedom_port', cfg.freedom_port);
+                if (has('freedom_user')) setValue('freedom_user', cfg.freedom_user);
+                if (has('freedom_password')) setValue('freedom_password', cfg.freedom_password);
+                if (has('freedom_key')) setValue('freedom_key', cfg.freedom_key);
                 setAuthSelect('freedom_auth_type', 'freedomPassGroup', 'freedomKeyGroup', cfg.freedom_auth_type, cfg.freedom_key);
-                if (cfg.freedom_xui_username) document.getElementById('freedom_xui_username').value = cfg.freedom_xui_username;
-                if (cfg.freedom_xui_password) document.getElementById('freedom_xui_password').value = cfg.freedom_xui_password;
-                if (cfg.freedom_sub_secret) {
-                    document.getElementById('freedom_sub_secret').value = cfg.freedom_sub_secret;
-                } else if (document.getElementById('freedom_sub_secret') && !document.getElementById('freedom_sub_secret').value) {
-                    document.getElementById('freedom_sub_secret').value = randomDigits(16);
+                if (has('freedom_xui_username')) setValue('freedom_xui_username', cfg.freedom_xui_username);
+                if (has('freedom_xui_password')) setValue('freedom_xui_password', cfg.freedom_xui_password);
+                if (has('freedom_sub_secret')) {
+                    setValue('freedom_sub_secret', cfg.freedom_sub_secret);
                 }
-                if (cfg.freedom_client_name) document.getElementById('freedom_client_name').value = cfg.freedom_client_name;
+                if (has('freedom_client_name')) setValue('freedom_client_name', cfg.freedom_client_name);
 
-                if (cfg.proxy_host) document.getElementById('proxy_host').value = cfg.proxy_host;
-                if (cfg.proxy_port) document.getElementById('proxy_port').value = cfg.proxy_port;
-                if (cfg.proxy_user) document.getElementById('proxy_user').value = cfg.proxy_user;
-                if (cfg.proxy_password) document.getElementById('proxy_password').value = cfg.proxy_password;
-                if (cfg.proxy_key) document.getElementById('proxy_key').value = cfg.proxy_key;
+                if (has('proxy_host')) setValue('proxy_host', cfg.proxy_host);
+                if (has('proxy_port')) setValue('proxy_port', cfg.proxy_port);
+                if (has('proxy_user')) setValue('proxy_user', cfg.proxy_user);
+                if (has('proxy_password')) setValue('proxy_password', cfg.proxy_password);
+                if (has('proxy_key')) setValue('proxy_key', cfg.proxy_key);
                 setAuthSelect('proxy_auth_type', 'proxyPassGroup', 'proxyKeyGroup', cfg.proxy_auth_type, cfg.proxy_key);
-                if (cfg.proxy_xui_username) document.getElementById('proxy_xui_username').value = cfg.proxy_xui_username;
-                if (cfg.proxy_xui_password) document.getElementById('proxy_xui_password').value = cfg.proxy_xui_password;
-                if (cfg.proxy_sub_secret) {
-                    document.getElementById('proxy_sub_secret').value = cfg.proxy_sub_secret;
-                } else if (document.getElementById('proxy_sub_secret') && !document.getElementById('proxy_sub_secret').value) {
-                    document.getElementById('proxy_sub_secret').value = randomDigits(16);
+                if (has('proxy_xui_username')) setValue('proxy_xui_username', cfg.proxy_xui_username);
+                if (has('proxy_xui_password')) setValue('proxy_xui_password', cfg.proxy_xui_password);
+                if (has('proxy_sub_secret')) {
+                    setValue('proxy_sub_secret', cfg.proxy_sub_secret);
                 }
-                if (cfg.proxy_client_tcp_list) document.getElementById('proxy_client_tcp_list').value = cfg.proxy_client_tcp_list;
-                if (cfg.proxy_client_xhttp_list) document.getElementById('proxy_client_xhttp_list').value = cfg.proxy_client_xhttp_list;
+                if (has('proxy_client_tcp_list')) setValue('proxy_client_tcp_list', cfg.proxy_client_tcp_list);
+                if (has('proxy_client_xhttp_list')) setValue('proxy_client_xhttp_list', cfg.proxy_client_xhttp_list);
 
-                if (cfg.sub_vps_host) document.getElementById('sub_vps_host').value = cfg.sub_vps_host;
-                if (cfg.sub_vps_port) document.getElementById('sub_vps_port').value = cfg.sub_vps_port;
-                if (cfg.sub_vps_user) document.getElementById('sub_vps_user').value = cfg.sub_vps_user;
-                if (cfg.sub_vps_password) document.getElementById('sub_vps_password').value = cfg.sub_vps_password;
-                if (cfg.sub_vps_key) document.getElementById('sub_vps_key').value = cfg.sub_vps_key;
+                if (has('sub_vps_host')) setValue('sub_vps_host', cfg.sub_vps_host);
+                if (has('sub_vps_port')) setValue('sub_vps_port', cfg.sub_vps_port);
+                if (has('sub_vps_user')) setValue('sub_vps_user', cfg.sub_vps_user);
+                if (has('sub_vps_password')) setValue('sub_vps_password', cfg.sub_vps_password);
+                if (has('sub_vps_key')) setValue('sub_vps_key', cfg.sub_vps_key);
                 setAuthSelect('sub_auth_type', 'subPassGroup', 'subKeyGroup', cfg.sub_auth_type, cfg.sub_vps_key);
-                if (cfg.sub_domain && document.getElementById('sub_domain')) document.getElementById('sub_domain').value = cfg.sub_domain;
-                if (cfg.sub_secret_path) document.getElementById('sub_secret_path').value = cfg.sub_secret_path;
-                if (cfg.sub_russian_url) document.getElementById('sub_russian_url').value = cfg.sub_russian_url;
-                if (cfg.sub_foreign_url) document.getElementById('sub_foreign_url').value = cfg.sub_foreign_url;
-                if (cfg.sub_proxy_clients) document.getElementById('sub_proxy_clients').value = cfg.sub_proxy_clients;
-                if (cfg.sub_freedom_clients) document.getElementById('sub_freedom_clients').value = cfg.sub_freedom_clients;
-                if (cfg.sub_admin_user && document.getElementById('sub_admin_user')) document.getElementById('sub_admin_user').value = cfg.sub_admin_user;
+                if (has('sub_domain')) setValue('sub_domain', cfg.sub_domain);
+                if (has('sub_secret_path')) setValue('sub_secret_path', cfg.sub_secret_path);
+                if (has('sub_russian_url')) setValue('sub_russian_url', cfg.sub_russian_url);
+                if (has('sub_foreign_url')) setValue('sub_foreign_url', cfg.sub_foreign_url);
+                if (has('sub_proxy_clients')) setValue('sub_proxy_clients', cfg.sub_proxy_clients);
+                if (has('sub_freedom_clients')) setValue('sub_freedom_clients', cfg.sub_freedom_clients);
+                if (has('sub_admin_user')) setValue('sub_admin_user', cfg.sub_admin_user);
                 if (document.getElementById('sub_admin_password')) document.getElementById('sub_admin_password').value = '';
-                if (cfg.sub_same_as_proxy !== undefined && subSameAsProxy) subSameAsProxy.checked = cfg.sub_same_as_proxy;
+                if (has('sub_same_as_proxy') && subSameAsProxy) subSameAsProxy.checked = !!cfg.sub_same_as_proxy;
 
-                if (cfg.backup_vps_host && document.getElementById('backup_vps_host')) document.getElementById('backup_vps_host').value = cfg.backup_vps_host;
-                if (cfg.backup_vps_port && document.getElementById('backup_vps_port')) document.getElementById('backup_vps_port').value = cfg.backup_vps_port;
-                if (cfg.backup_vps_user && document.getElementById('backup_vps_user')) document.getElementById('backup_vps_user').value = cfg.backup_vps_user;
-                if (cfg.backup_vps_password && document.getElementById('backup_vps_password')) document.getElementById('backup_vps_password').value = cfg.backup_vps_password;
-                if (cfg.backup_vps_key && document.getElementById('backup_vps_key')) document.getElementById('backup_vps_key').value = cfg.backup_vps_key;
+                if (has('backup_vps_host')) setValue('backup_vps_host', cfg.backup_vps_host);
+                if (has('backup_vps_port')) setValue('backup_vps_port', cfg.backup_vps_port);
+                if (has('backup_vps_user')) setValue('backup_vps_user', cfg.backup_vps_user);
+                if (has('backup_vps_password')) setValue('backup_vps_password', cfg.backup_vps_password);
+                if (has('backup_vps_key')) setValue('backup_vps_key', cfg.backup_vps_key);
                 setAuthSelect('backup_auth_type', 'backupPassGroup', 'backupKeyGroup', cfg.backup_auth_type, cfg.backup_vps_key);
-                if (cfg.backup_name && document.getElementById('backup_name')) document.getElementById('backup_name').value = cfg.backup_name;
+                if (has('backup_name')) setValue('backup_name', cfg.backup_name);
+                if (has('sub_backup_name')) setValue('sub_backup_name', cfg.sub_backup_name);
 
-                if (cfg.recovery_vps_host && document.getElementById('recovery_vps_host')) document.getElementById('recovery_vps_host').value = cfg.recovery_vps_host;
-                if (cfg.recovery_vps_port && document.getElementById('recovery_vps_port')) document.getElementById('recovery_vps_port').value = cfg.recovery_vps_port;
-                if (cfg.recovery_vps_user && document.getElementById('recovery_vps_user')) document.getElementById('recovery_vps_user').value = cfg.recovery_vps_user;
-                if (cfg.recovery_vps_password && document.getElementById('recovery_vps_password')) document.getElementById('recovery_vps_password').value = cfg.recovery_vps_password;
-                if (cfg.recovery_vps_key && document.getElementById('recovery_vps_key')) document.getElementById('recovery_vps_key').value = cfg.recovery_vps_key;
+                if (has('recovery_vps_host')) setValue('recovery_vps_host', cfg.recovery_vps_host);
+                if (has('recovery_vps_port')) setValue('recovery_vps_port', cfg.recovery_vps_port);
+                if (has('recovery_vps_user')) setValue('recovery_vps_user', cfg.recovery_vps_user);
+                if (has('recovery_vps_password')) setValue('recovery_vps_password', cfg.recovery_vps_password);
+                if (has('recovery_vps_key')) setValue('recovery_vps_key', cfg.recovery_vps_key);
                 setAuthSelect('recovery_auth_type', 'recoveryPassGroup', 'recoveryKeyGroup', cfg.recovery_auth_type, cfg.recovery_vps_key);
 
-                if (cfg.update_vps_host && document.getElementById('update_vps_host')) document.getElementById('update_vps_host').value = cfg.update_vps_host;
-                if (cfg.update_vps_port && document.getElementById('update_vps_port')) document.getElementById('update_vps_port').value = cfg.update_vps_port;
-                if (cfg.update_vps_user && document.getElementById('update_vps_user')) document.getElementById('update_vps_user').value = cfg.update_vps_user;
-                if (cfg.update_vps_password && document.getElementById('update_vps_password')) document.getElementById('update_vps_password').value = cfg.update_vps_password;
-                if (cfg.update_vps_key && document.getElementById('update_vps_key')) document.getElementById('update_vps_key').value = cfg.update_vps_key;
+                if (has('update_vps_host')) setValue('update_vps_host', cfg.update_vps_host);
+                if (has('update_vps_port')) setValue('update_vps_port', cfg.update_vps_port);
+                if (has('update_vps_user')) setValue('update_vps_user', cfg.update_vps_user);
+                if (has('update_vps_password')) setValue('update_vps_password', cfg.update_vps_password);
+                if (has('update_vps_key')) setValue('update_vps_key', cfg.update_vps_key);
                 setAuthSelect('update_auth_type', 'updatePassGroup', 'updateKeyGroup', cfg.update_auth_type, cfg.update_vps_key);
-                if (cfg.update_xui_version && document.getElementById('update_xui_version')) {
+                if (has('update_xui_version') && document.getElementById('update_xui_version')) {
                     const sel = document.getElementById('update_xui_version');
                     sel.dataset.initialVersion = cfg.update_xui_version;
                     syncVersionSelect(sel);
                 }
 
-                if (cfg.xui_username) document.getElementById('xui_username').value = cfg.xui_username;
-                if (cfg.xui_password) document.getElementById('xui_password').value = cfg.xui_password;
-                if (cfg.sub_secret) {
-                    document.getElementById('sub_secret').value = cfg.sub_secret;
-                } else if (!document.getElementById('sub_secret').value) {
-                    document.getElementById('sub_secret').value = randomDigits(16);
+                if (has('xui_username')) setValue('xui_username', cfg.xui_username);
+                if (has('xui_password')) setValue('xui_password', cfg.xui_password);
+                if (has('sub_secret')) {
+                    setValue('sub_secret', cfg.sub_secret);
                 }
-                if (cfg.xui_version && document.getElementById('xui_version')) {
+                if (has('xui_version') && document.getElementById('xui_version')) {
                     const sel = document.getElementById('xui_version');
                     sel.dataset.initialVersion = cfg.xui_version;
                     syncVersionSelect(sel);
                 }
-                if (cfg.client_tcp_list) document.getElementById('client_tcp_list').value = cfg.client_tcp_list;
-                if (cfg.client_xhttp_list) document.getElementById('client_xhttp_list').value = cfg.client_xhttp_list;
-                if (cfg.foreign_sub_url) document.getElementById('foreign_sub_url').value = cfg.foreign_sub_url;
+                if (has('client_tcp_list')) setValue('client_tcp_list', cfg.client_tcp_list);
+                if (has('client_xhttp_list')) setValue('client_xhttp_list', cfg.client_xhttp_list);
+                if (has('foreign_sub_url')) setValue('foreign_sub_url', cfg.foreign_sub_url);
+
+                const subBkNameEl = document.getElementById('sub_backup_name');
+                if (subBkNameEl && !subBkNameEl.value.trim()) updateSubBackupName();
 
                 updateModeUI();
             } else {
-                if (!document.getElementById('sub_secret').value) document.getElementById('sub_secret').value = randomDigits(16);
-                if (document.getElementById('freedom_sub_secret') && !document.getElementById('freedom_sub_secret').value) document.getElementById('freedom_sub_secret').value = randomDigits(16);
-                if (document.getElementById('proxy_sub_secret') && !document.getElementById('proxy_sub_secret').value) document.getElementById('proxy_sub_secret').value = randomDigits(16);
+                if (!document.getElementById('sub_secret').value) document.getElementById('sub_secret').value = '';
+                if (document.getElementById('freedom_sub_secret') && !document.getElementById('freedom_sub_secret').value) document.getElementById('freedom_sub_secret').value = '';
+                if (document.getElementById('proxy_sub_secret') && !document.getElementById('proxy_sub_secret').value) document.getElementById('proxy_sub_secret').value = '';
                 updateModeUI();
             }
         } catch (e) { }
@@ -1617,6 +1662,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (currentStep === 4) {
             updateBadgeStatus('Готов к развертыванию', '#10b981');
         }
+
+        if (glowRefresher) glowRefresher();
     };
 
     document.querySelectorAll('.step').forEach(stepEl => {
@@ -2121,22 +2168,220 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    btnStartDeploy.addEventListener('click', async () => {
-        const mode = getSelectedMode();
-        if (mode === 'sub_only' || mode === 'cascade_sub') {
-            const subAdminPasswordInput = document.getElementById('sub_admin_password');
-            if (!subAdminPasswordInput) {
-                showToast('Не найдены поля логина/пароля Сервера подписок. Обновите страницу.', 'error');
-                showStep(3);
-                return;
-            }
-            const subAdminPassword = subAdminPasswordInput.value.trim();
-            if (!subAdminPassword) {
-                showToast('Для Сервера подписок обязательно укажите пароль админа перед запуском.', 'warning');
-                showStep(3);
-                return;
-            }
+    // ==========================================
+    // Password Field Validation & Yellow Glow
+    // ==========================================
+    
+    const clearPasswordGlow = () => {
+        document.querySelectorAll('.required-password-empty').forEach(input => {
+            input.classList.remove('required-password-empty');
+        });
+    };
+
+    let glowRefresher = null;
+
+    document.addEventListener('input', () => {
+        if (glowRefresher) glowRefresher();
+    });
+
+    const applyPasswordGlow = (fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.classList.add('required-password-empty');
         }
+    };
+
+    // ==========================================
+    // REQUIRED FIELDS
+    // Add a new required field here — no other code changes needed.
+    //
+    // Single field entry:
+    //   id      — HTML id of the input/textarea
+    //   step    — wizard step where the field lives (1-4), used to switch there
+    //   message — toast text shown when the field is empty
+    //   modes   — (optional) array of deploy modes this field applies to.
+    //             If omitted — applies to ALL modes.
+    //   when    — (optional) predicate () => bool; field is required only
+    //             when it returns true.
+    //
+    // Group entry (validate several fields together). Add `group` instead of `id`:
+    //   group: {
+    //     mode    — 'any'          | 'all'           | 'exactly_one'
+    //               at least one   | every field     | exactly one field
+    //               must be filled | must be filled  | must be filled
+    //     fields  — array of HTML ids in the group
+    //     step    — wizard step (same as for single fields)
+    //     message — toast text when the group rule is violated
+    //     modes   — (optional) same as above
+    //     when    — (optional) same as above
+    //   }
+    // ==========================================
+
+    const getFieldValue = (fieldId) => {
+        const field = document.getElementById(fieldId);
+        return field ? field.value.trim() : '';
+    };
+
+    const getFieldValueOrDefault = (fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (!field) return '';
+        const v = field.value.trim();
+        return v ? v : (field.placeholder || '').trim();
+    };
+
+    const REQUIRED_FIELDS = [
+        // --- Group: at least one subscription URL must be filled ---
+        {
+            group: {
+                mode: 'any',
+                fields: ['sub_russian_url', 'sub_foreign_url'],
+                step: 3,
+                modes: ['sub_only', 'cascade_sub'],
+                message: 'Укажите хотя бы одну ссылку подписки (RUSSIAN_SUB_URL или FOREIGN_SUB_URL)'
+            }
+        },
+
+        // --- Single node: host / port / user ---
+        { id: 'vps_host', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите домен VPS сервера' },
+        { id: 'vps_port', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите SSH порт VPS сервера' },
+        { id: 'vps_user', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите SSH пользователя VPS сервера' },
+
+        // --- Sub-server: host / port / user ---
+        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
+        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
+        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
+
+        // --- Backup: host / port / user ---
+        { id: 'backup_vps_host', step: 2, modes: ['backup'], message: 'Укажите домен сервера для бэкапа' },
+        { id: 'backup_vps_port', step: 2, modes: ['backup'], message: 'Укажите SSH порт сервера для бэкапа' },
+        { id: 'backup_vps_user', step: 2, modes: ['backup'], message: 'Укажите SSH пользователя сервера для бэкапа' },
+        { id: 'backup_name', step: 3, modes: ['backup'], message: 'Укажите имя файла бэкапа' },
+        { id: 'sub_backup_name', step: 3, modes: ['backup_sub'], message: 'Укажите имя файла бэкапа' },
+
+        // --- Recovery: host / port / user ---
+        { id: 'recovery_vps_host', step: 2, modes: ['recovery'], message: 'Укажите домен сервера для восстановления' },
+        { id: 'recovery_vps_port', step: 2, modes: ['recovery'], message: 'Укажите SSH порт сервера для восстановления' },
+        { id: 'recovery_vps_user', step: 2, modes: ['recovery'], message: 'Укажите SSH пользователя сервера для восстановления' },
+
+        // --- Update/restart: host / port / user ---
+        { id: 'update_vps_host', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите домен сервера для обновления/перезапуска' },
+        { id: 'update_vps_port', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH порт сервера для обновления/перезапуска' },
+        { id: 'update_vps_user', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH пользователя сервера для обновления/перезапуска' },
+
+        // --- Cascade: Freedom host / port / user ---
+        { id: 'freedom_host', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите домен Freedom Node' },
+        { id: 'freedom_port', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH порт Freedom Node' },
+        { id: 'freedom_user', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH пользователя Freedom Node' },
+
+        // --- Cascade: Proxy host / port / user ---
+        { id: 'proxy_host', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите домен Proxy Node' },
+        { id: 'proxy_port', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH порт Proxy Node' },
+        { id: 'proxy_user', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH пользователя Proxy Node' },
+
+        // --- Cascade: XHTTP client name for access to the target node ---
+        { id: 'freedom_client_name', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите имя XHTTP клиента для каскада' },
+    ];
+
+    const collectPasswordErrors = () => {
+        const mode = getSelectedMode();
+        const errors = [];
+
+        REQUIRED_FIELDS.forEach(entry => {
+            // Group-specific mode filters live inside `entry.group`.
+            // Without this branch, a group rule is accidentally applied to
+            // every deployment mode (including maintenance modes).
+            const modes = entry.group ? entry.group.modes : entry.modes;
+            if (modes && !modes.includes(mode)) return;
+            if (entry.when && !entry.when()) return;
+
+            if (entry.group) {
+                const filled = entry.group.fields.filter(id => getFieldValue(id) !== '').length;
+                const modeType = entry.group.mode;
+                const fail = modeType === 'any' ? filled === 0
+                    : modeType === 'all' ? filled < entry.group.fields.length
+                    : filled !== 1;
+                if (fail) {
+                    errors.push({ group: entry.group, message: entry.group.message, step: entry.group.step });
+                }
+            } else if (!getFieldValue(entry.id)) {
+                errors.push({ fieldId: entry.id, message: entry.message, step: entry.step });
+            }
+        });
+
+        // Sort by step so the toast/scroll point at the earliest step first
+        errors.sort((a, b) => a.step - b.step);
+        return errors;
+    };
+
+    const applyGroupGlow = (group) => {
+        const states = group.fields.map(id => ({ id, filled: getFieldValue(id) !== '' }));
+        let toGlow;
+        if (group.mode === 'all') {
+            toGlow = states.filter(s => !s.filled).map(s => s.id);
+        } else if (group.mode === 'any') {
+            toGlow = states.every(s => !s.filled) ? states.map(s => s.id) : [];
+        } else { // exactly_one
+            toGlow = states.every(s => !s.filled)
+                ? states.map(s => s.id)
+                : states.filter(s => s.filled).map(s => s.id);
+        }
+        toGlow.forEach(id => applyPasswordGlow(id));
+    };
+
+    const getErrorFieldIds = (error) => {
+        if (error.group) return error.group.fields;
+        return [error.fieldId];
+    };
+
+    const applyGlowForEmptyFields = () => {
+        clearPasswordGlow();
+        const errors = collectPasswordErrors();
+        errors.forEach(error => {
+            if (error.group) applyGroupGlow(error.group);
+            else applyPasswordGlow(error.fieldId);
+        });
+    };
+
+    const validateRequiredPasswords = () => {
+        clearPasswordGlow();
+        const errors = collectPasswordErrors();
+
+        // If there are errors, highlight them and show message
+        if (errors.length > 0) {
+            // Apply glow to all fields with errors
+            errors.forEach(error => {
+                if (error.group) applyGroupGlow(error.group);
+                else applyPasswordGlow(error.fieldId);
+            });
+
+            // Show toast with main error message
+            const mainError = errors[0];
+            showToast(mainError.message, 'warning');
+
+            // Switch to the step with the error
+            const lowestStep = Math.min(...errors.map(e => e.step));
+            showStep(lowestStep);
+
+            // Scroll to the first errored field
+            const firstField = document.getElementById(getErrorFieldIds(errors[0])[0]);
+            if (firstField) firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            return false;
+        }
+
+        return true;
+    };
+
+    glowRefresher = applyGlowForEmptyFields;
+    glowRefresher();
+
+    btnStartDeploy.addEventListener('click', async () => {
+        // First, validate all required passwords
+        if (!validateRequiredPasswords()) {
+            return;
+        }
+
+        const mode = getSelectedMode();
 
         showStep(4);
         updateBadgeStatus('Развертывание...', '#f59e0b', true);
@@ -2168,9 +2413,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.vps_user = document.getElementById('vps_user').value.trim() || 'root';
             payload.vps_password = document.getElementById('vps_password').value;
             payload.vps_key = document.getElementById('vps_key').value;
-            payload.xui_username = document.getElementById('xui_username').value.trim() || 'admin';
-            payload.xui_password = document.getElementById('xui_password').value.trim() || 'admin';
-            payload.sub_secret = document.getElementById('sub_secret').value.trim() || randomDigits(16);
+            payload.xui_username = getFieldValueOrDefault('xui_username');
+            payload.xui_password = getFieldValueOrDefault('xui_password');
+            payload.sub_secret = getFieldValueOrDefault('sub_secret');
             payload.client_tcp_list = document.getElementById('client_tcp_list').value.trim();
             payload.client_xhttp_list = document.getElementById('client_xhttp_list').value.trim();
             if (mode === 'proxy_only') {
@@ -2183,13 +2428,13 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_vps_password = document.getElementById('sub_vps_password').value;
             payload.sub_vps_key = document.getElementById('sub_vps_key').value;
             payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
-            payload.sub_secret_path = document.getElementById('sub_secret_path').value.trim() || 'subs';
+            payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
             payload.sub_russian_url = document.getElementById('sub_russian_url').value.trim();
             payload.sub_foreign_url = document.getElementById('sub_foreign_url').value.trim();
             payload.sub_proxy_clients = document.getElementById('sub_proxy_clients').value.trim();
             payload.sub_freedom_clients = document.getElementById('sub_freedom_clients').value.trim();
-            payload.sub_admin_user = (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin';
-            payload.sub_admin_password = document.getElementById('sub_admin_password') ? document.getElementById('sub_admin_password').value.trim() : '';
+            payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
+            payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
         } else if (mode === 'backup') {
             payload.backup_vps_host = document.getElementById('backup_vps_host').value.trim();
             payload.backup_vps_port = parseInt(document.getElementById('backup_vps_port').value) || 22;
@@ -2219,6 +2464,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_vps_user = document.getElementById('sub_vps_user').value.trim() || 'root';
             payload.sub_vps_password = document.getElementById('sub_vps_password').value;
             payload.sub_vps_key = document.getElementById('sub_vps_key').value;
+            if (mode === 'backup_sub') {
+                payload.backup_name = document.getElementById('sub_backup_name') ? document.getElementById('sub_backup_name').value.trim() : '';
+            }
             if (mode === 'rollback_sub') {
                 payload.rollback_sub_backup_file = document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '';
             }
@@ -2228,9 +2476,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.freedom_user = document.getElementById('freedom_user').value.trim() || 'root';
             payload.freedom_password = document.getElementById('freedom_password').value;
             payload.freedom_key = document.getElementById('freedom_key').value;
-            payload.freedom_xui_username = document.getElementById('freedom_xui_username').value.trim() || 'admin';
-            payload.freedom_xui_password = document.getElementById('freedom_xui_password').value.trim() || 'admin';
-            payload.freedom_sub_secret = document.getElementById('freedom_sub_secret').value.trim() || randomDigits(16);
+            payload.freedom_xui_username = getFieldValueOrDefault('freedom_xui_username');
+            payload.freedom_xui_password = getFieldValueOrDefault('freedom_xui_password');
+            payload.freedom_sub_secret = getFieldValueOrDefault('freedom_sub_secret');
             payload.freedom_xui_version = commonVersion;
             payload.freedom_client_name = document.getElementById('freedom_client_name').value.trim() || 'local-proxy-node-client';
 
@@ -2239,9 +2487,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.proxy_user = document.getElementById('proxy_user').value.trim() || 'root';
             payload.proxy_password = document.getElementById('proxy_password').value;
             payload.proxy_key = document.getElementById('proxy_key').value;
-            payload.proxy_xui_username = document.getElementById('proxy_xui_username').value.trim() || 'admin';
-            payload.proxy_xui_password = document.getElementById('proxy_xui_password').value.trim() || 'admin';
-            payload.proxy_sub_secret = document.getElementById('proxy_sub_secret').value.trim() || randomDigits(16);
+            payload.proxy_xui_username = getFieldValueOrDefault('proxy_xui_username');
+            payload.proxy_xui_password = getFieldValueOrDefault('proxy_xui_password');
+            payload.proxy_sub_secret = getFieldValueOrDefault('proxy_sub_secret');
             payload.proxy_xui_version = commonVersion;
             payload.proxy_client_tcp_list = document.getElementById('proxy_client_tcp_list').value.trim();
             payload.proxy_client_xhttp_list = document.getElementById('proxy_client_xhttp_list').value.trim();
@@ -2253,9 +2501,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.sub_vps_password = document.getElementById('sub_vps_password').value;
                 payload.sub_vps_key = document.getElementById('sub_vps_key').value;
                 payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
-                payload.sub_secret_path = document.getElementById('sub_secret_path').value.trim() || 'subs';
-                payload.sub_admin_user = (document.getElementById('sub_admin_user') ? document.getElementById('sub_admin_user').value.trim() : '') || 'admin';
-                payload.sub_admin_password = document.getElementById('sub_admin_password') ? document.getElementById('sub_admin_password').value.trim() : '';
+                payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
+                payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
+                payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
             }
         }
 
@@ -2514,7 +2762,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (mode === 'sub_only') {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                     const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, 'Скрыт', 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                    const subPass = result.sub_admin_password || 'admin';
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
@@ -2533,7 +2782,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                         const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, 'Скрыт', 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                        const subPass = result.sub_admin_password || 'admin';
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';
@@ -2859,6 +3109,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let cryptoKey = null;
     let serversList = [];
+    let serversLoaded = false;
+    let serversLoadError = '';
 
     // Crypto functions
     const deriveKey = async (password) => {
@@ -2895,13 +3147,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const fetchServers = async () => {
+    const fetchServers = async (attempt = 0) => {
+        if (attempt === 0 && !serversLoaded) {
+            renderSavedServers();
+        }
+
         try {
-            const res = await fetch('/api/servers');
-            serversList = await res.json();
+            const res = await fetch('/api/servers', { cache: 'no-store' });
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            serversList = Array.isArray(data) ? data : [];
+            serversLoaded = true;
+            serversLoadError = '';
             renderSavedServers();
         } catch(e) {
-            console.error('Failed to fetch servers');
+            console.error('Failed to fetch servers', e);
+
+            // The local server may need a few seconds to come back after
+            // "Перезапустить UI". Retry frequently so the unlock card does
+            // not remain hidden behind the initial placeholder for ~12 sec.
+            if (attempt < 20) {
+                const delay = 350;
+                setTimeout(() => fetchServers(attempt + 1), delay);
+                return;
+            }
+
+            serversLoaded = true;
+            serversLoadError = 'Список серверов временно недоступен';
+            renderSavedServers();
         }
     };
 
@@ -2930,7 +3206,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderSavedServers = async () => {
         if (!savedServersList) return;
-        
+
+        if (serversLoadError) {
+            savedServersList.innerHTML = `
+                <div style="text-align: center; padding: 20px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px; border: 1px dashed var(--border-color);">
+                    <div style="margin-bottom: 12px; font-size: 0.95rem; color: var(--text-secondary);">${serversLoadError}</div>
+                    <button type="button" class="btn btn-primary" id="btnRetryServers" style="width: 100%;">
+                        Повторить загрузку
+                    </button>
+                </div>
+            `;
+            document.getElementById('btnRetryServers')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                fetchServers(0);
+            });
+            return;
+        }
+
+        if (!serversLoaded) {
+            savedServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; margin-top: 10px;">Загрузка сохраненных серверов...</div>';
+            return;
+        }
+
         if (serversList.length === 0) {
             savedServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; margin-top: 10px;">Нет сохраненных серверов</div>';
             return;
@@ -3030,7 +3327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = srv.enc_key ? await decryptData(srv.enc_key, cryptoKey) : '';
         const elKey = document.getElementById(`${prefix}_key`);
         if (elKey) elKey.value = key || '';
-        
+
+        if (glowRefresher) glowRefresher();
+
         showToast('Данные сервера успешно подставлены!', 'success');
     };
 
@@ -3138,6 +3437,8 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await fetch('/api/servers/reset', { method: 'DELETE' });
                 serversList = [];
+                serversLoaded = true;
+                serversLoadError = '';
                 cryptoKey = null;
                 showToast('Все серверы удалены. PIN-код сброшен.', 'success');
                 renderSavedServers();
@@ -3254,4 +3555,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetchServers();
 });
-

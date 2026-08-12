@@ -7,8 +7,14 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
+from socketserver import ThreadingMixIn
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, List
+
+try:
+    import yaml
+except Exception:
+    yaml = None
 
 from ssh_deployer import SSHDeployer, run_deployment
 
@@ -110,6 +116,39 @@ def launch_script(script_path: str) -> None:
 def load_backup_config() -> Dict[str, Any]:
     if not os.path.exists(BACKUP_FILE):
         return {}
+
+    def _is_sensitive_key(key: Any) -> bool:
+        normalized = str(key).lower()
+        return "password" in normalized or normalized.endswith("_key")
+
+    def _strip_sensitive_values(data: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            key: value for key, value in data.items()
+            if not _is_sensitive_key(key)
+        }
+
+    def _flatten_loaded_config(raw: Any) -> Dict[str, Any]:
+        if not isinstance(raw, dict):
+            return {}
+        flat: Dict[str, Any] = {}
+        for key, value in raw.items():
+            if isinstance(value, dict):
+                flat.update(value)
+            else:
+                flat[key] = value
+        return flat
+
+    try:
+        with open(BACKUP_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+        if yaml is not None:
+            loaded = yaml.safe_load(content) or {}
+            data = _flatten_loaded_config(loaded)
+            if data:
+                return _strip_sensitive_values(data)
+    except Exception:
+        pass
+
     data = {}
     try:
         with open(BACKUP_FILE, "r", encoding="utf-8") as f:
@@ -131,68 +170,81 @@ def load_backup_config() -> Dict[str, Any]:
                 data[k] = v
     except Exception:
         pass
-    return data
+    return _strip_sensitive_values(data)
 
 def save_backup_config(data: Dict[str, Any]):
     try:
-        def fmt_val(v):
-            if isinstance(v, bool):
-                return "true" if v else "false"
-            return f'"{v}"' if isinstance(v, str) else str(v)
+        if yaml is None:
+            raise RuntimeError("PyYAML is unavailable")
 
-        lines = ["# Auto-generated setup backup\n\n"]
+        def pick(*keys):
+            result = {}
+            for k in keys:
+                if k in data:
+                    result[k] = data[k]
+            return result
 
-        lines.append("common:\n")
-        if "deploy_mode" in data:
-            lines.append(f"  deploy_mode: {fmt_val(data['deploy_mode'])}\n")
-        if "is_cascade" in data:
-            lines.append(f"  is_cascade: {fmt_val(data['is_cascade'])}\n")
-        lines.append("\n")
+        payload = {
+            "common": pick("deploy_mode", "is_cascade"),
+            "freedom_node": pick(
+                "freedom_host", "freedom_port", "freedom_user", "freedom_password",
+                "freedom_key", "freedom_auth_type", "freedom_xui_username",
+                "freedom_xui_password", "freedom_sub_secret", "freedom_client_name",
+                "freedom_xui_version"
+            ),
+            "proxy_node": pick(
+                "proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
+                "proxy_auth_type", "proxy_xui_username", "proxy_xui_password",
+                "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list",
+                "proxy_xui_version"
+            ),
+            "standard_node": pick("vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"),
+            "sub_server": pick(
+                "sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password",
+                "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path",
+                "sub_russian_url", "sub_foreign_url", "sub_proxy_clients",
+                "sub_freedom_clients", "sub_admin_user", "sub_same_as_proxy",
+                "sub_backup_name"
+            ),
+            "backup_node": pick(
+                "backup_vps_host", "backup_vps_port", "backup_vps_user",
+                "backup_vps_password", "backup_vps_key", "backup_auth_type", "backup_name"
+            ),
+            "recovery_node": pick(
+                "recovery_vps_host", "recovery_vps_port", "recovery_vps_user",
+                "recovery_vps_password", "recovery_vps_key", "recovery_auth_type",
+                "recovery_backup_file"
+            ),
+            "panel_and_clients": pick(
+                "xui_username", "xui_password", "sub_secret", "client_tcp_list",
+                "client_xhttp_list", "foreign_sub_url", "xui_version"
+            ),
+            "update_node": pick(
+                "update_vps_host", "update_vps_port", "update_vps_user",
+                "update_vps_password", "update_vps_key", "update_auth_type",
+                "update_xui_version"
+            ),
+            "ui_state": {k: data[k] for k in data if k.startswith("ui_")},
+        }
 
-        lines.append("freedom_node:\n")
-        for k in ["freedom_host", "freedom_port", "freedom_user", "freedom_auth_type", "freedom_xui_username", "freedom_client_name", "freedom_xui_version"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
+        # Drop empty groups to keep the file compact and readable.
+        payload = {k: v for k, v in payload.items() if v}
 
-        lines.append("proxy_node:\n")
-        for k in ["proxy_host", "proxy_port", "proxy_user", "proxy_auth_type", "proxy_xui_username", "proxy_client_tcp_list", "proxy_client_xhttp_list", "proxy_xui_version"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
-
-        lines.append("standard_node:\n")
-        for k in ["vps_host", "vps_port", "vps_user", "vps_auth_type"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
-
-        lines.append("sub_server:\n")
-        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
-
-        lines.append("panel_and_clients:\n")
-        for k in ["xui_username", "client_tcp_list", "client_xhttp_list", "foreign_sub_url", "xui_version"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
-
-        lines.append("update_node:\n")
-        for k in ["update_vps_host", "update_vps_port", "update_vps_user", "update_auth_type", "update_xui_version"]:
-            if k in data:
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
-        
-        lines.append("ui_state:\n")
-        for k in data:
-            if k.startswith("ui_"):
-                lines.append(f"  {k}: {fmt_val(data[k])}\n")
-        lines.append("\n")
+        # Passwords and private keys must never be persisted in
+        # setup_backup.yml, even if new fields are added to the frontend.
+        payload = {
+            section: {
+                key: value for key, value in values.items()
+                if "password" not in str(key).lower()
+                and not str(key).lower().endswith("_key")
+            }
+            for section, values in payload.items()
+        }
+        payload = {section: values for section, values in payload.items() if values}
 
         with open(BACKUP_FILE, "w", encoding="utf-8") as f:
-            f.writelines(lines)
+            f.write("# Auto-generated setup backup\n")
+            yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
     except Exception:
         pass
 
@@ -540,15 +592,21 @@ class WebUIHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
-        
+
         self.send_json({"error": "Endpoint not found"}, 404)
+
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """Serve long-lived SSE connections without blocking other UI requests."""
+
+    daemon_threads = True
 
 def main():
     server_address = (HOST, PORT)
     httpd = None
     for attempt in range(5):
         try:
-            httpd = HTTPServer(server_address, WebUIHandler)
+            httpd = ThreadingHTTPServer(server_address, WebUIHandler)
             break
         except OSError as e:
             if attempt < 4 and e.errno in (48, 98):

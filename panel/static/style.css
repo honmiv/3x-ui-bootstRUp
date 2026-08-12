@@ -269,6 +269,24 @@ input:focus, textarea:focus {
     background: rgba(15, 23, 42, 0.6);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), inset 0 0 10px rgba(59, 130, 246, 0.1);
 }
+
+/* Yellow glow for required empty password fields */
+input.required-password-empty,
+textarea.required-password-empty {
+    border-color: #facc15 !important;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25), 0 0 12px rgba(250, 204, 21, 0.4), inset 0 0 8px rgba(250, 204, 21, 0.1) !important;
+    animation: pulse-yellow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-yellow {
+    0%, 100% {
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25), 0 0 12px rgba(250, 204, 21, 0.4), inset 0 0 8px rgba(250, 204, 21, 0.1);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.35), 0 0 18px rgba(250, 204, 21, 0.6), inset 0 0 12px rgba(250, 204, 21, 0.15);
+    }
+}
+
 .input-password-wrapper {
     position: relative;
     display: flex;

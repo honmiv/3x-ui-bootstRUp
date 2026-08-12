@@ -68,6 +68,11 @@ def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]
         clients.append(current_client)
     return xui_url, clients
 
+
+def derive_sub_path(secret: str) -> str:
+    return hashlib.md5(f"{secret}-sub".encode('utf-8')).hexdigest()[:16]
+
+
 class SSHDeployer:
     def __init__(self, host: str, port: int = 22, user: str = "root", password: str = "", key_data: str = "", cancel_check: Optional[Callable[[], bool]] = None):
         self.host = host
@@ -317,7 +322,7 @@ async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: C
     import datetime as _dt
 
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    backups_dir = os.path.join(repo_root, "backups")
+    backups_dir = os.path.join(repo_root, "backups_panel")
     os.makedirs(backups_dir, exist_ok=True)
     local_backup_path = os.path.join(backups_dir, backup_name)
 
@@ -349,7 +354,7 @@ async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: C
         log(f"[ERROR] Remote backup creation failed: {out}", "error")
         return False, "", 0.0
 
-    log(f"⬇️ Downloading backup archive via SCP to ./backups/{backup_name}...", "info")
+    log(f"⬇️ Downloading backup archive via SCP to ./backups_panel/{backup_name}...", "info")
     rc_scp, scp_out = await deployer.download_file("/tmp/server_backup.tar.gz", local_backup_path, lambda m: log(m, "info"))
 
     # Cleanup remote archive
@@ -488,14 +493,14 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
             log("=========================================", "success")
             log("🎉 BACKUP CREATED AND DOWNLOADED SUCCESSFULLY!", "success")
-            log(f"Local backup location: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            log(f"Local backup location: ./backups_panel/{backup_name} ({file_size_mb} MB)", "success")
             log("=========================================", "success")
 
             return True, {
                 "deploy_mode": "backup",
                 "backup_host": host,
                 "backup_name": backup_name,
-                "backup_path": f"./backups/{backup_name}",
+                "backup_path": f"./backups_panel/{backup_name}",
                 "file_size": f"{file_size_mb} MB"
             }
 
@@ -517,10 +522,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             return False, {}
 
         repo_root = os.path.dirname(os.path.abspath(__file__))
-        local_backup_path = os.path.join(repo_root, "backups", os.path.basename(backup_filename))
+        local_backup_path = os.path.join(repo_root, "backups_panel", os.path.basename(backup_filename))
 
         if not os.path.isfile(local_backup_path):
-            log(f"[ERROR] Selected backup archive '{backup_filename}' not found in ./backups/", "error")
+            log(f"[ERROR] Selected backup archive '{backup_filename}' not found in ./backups_panel/", "error")
             return False, {}
 
         with open(local_backup_path, "rb") as f:
@@ -685,7 +690,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             if not bk_ok:
                 return False, {}
 
-            log(f"✅ Pre-update backup saved: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            log(f"✅ Pre-update backup saved: ./backups_panel/{backup_name} ({file_size_mb} MB)", "success")
             # --- End of pre-update backup ---
 
             log(f"Executing remote panel_update.sh {target_version}...", "info")
@@ -721,7 +726,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log(f"Server: {host}:{port}", "success")
             log(f"New 3x-ui version: {target_version}", "success")
             log(f"Panel URL: {xui_url}", "success")
-            log(f"Pre-update backup: ./backups/{backup_name} ({file_size_mb} MB)", "success")
+            log(f"Pre-update backup: ./backups_panel/{backup_name} ({file_size_mb} MB)", "success")
             log("=========================================", "success")
 
             return True, {
@@ -730,7 +735,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "xui_version": target_version,
                 "xui_url": xui_url,
                 "backup_name": backup_name,
-                "backup_path": f"./backups/{backup_name}",
+                "backup_path": f"./backups_panel/{backup_name}",
                 "backup_size": f"{file_size_mb} MB"
             }
 
@@ -763,8 +768,13 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
                     "fi\n"
                     "cd \"$WORK_DIR\"\n"
-                    "docker compose -f working/docker-compose/docker-compose.yml down\n"
-                    "docker compose -f working/docker-compose/docker-compose.yml up -d\n"
+                    "COMPOSE_FILE=\"working/docker-compose/docker-compose.yml\"\n"
+                    "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                    "  docker compose -f \"$COMPOSE_FILE\" --project-directory . down --remove-orphans 2>/dev/null || true\n"
+                    "fi\n"
+                    "docker stop 3xui caddy nginx-decoy 2>/dev/null || true\n"
+                    "docker rm 3xui caddy nginx-decoy 2>/dev/null || true\n"
+                    "docker compose -f \"$COMPOSE_FILE\" --project-directory . up -d\n"
                 )
                 rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
                 if rc != 0:
@@ -851,7 +861,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     web_base_path = hashlib.md5(f"{sub_secret}-panel".encode('utf-8')).hexdigest()[:16]
     log("Generated secure deployment configuration.", "info")
 
-    if deploy_mode in ["single", "proxy_only", "freedom_only"]:
+    if deploy_mode in ["single", "proxy_only", "freedom_only", "freedom_component"]:
         host = config.get("vps_host", "").strip()
         port = int(config.get("vps_port", 22))
         user = config.get("vps_user", "root").strip()
@@ -860,13 +870,20 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log(f"Starting deployment process on single server {host}...", "info")
         cascade_choice = "n"
         node_type_choice = "1"
-        if deploy_mode == "freedom_only":
+        if deploy_mode in ["freedom_only", "freedom_component"]:
             cascade_choice = "y"
             node_type_choice = "1"
+            default_freedom_client = config.get("freedom_client_name", "").strip() or "local-proxy-node-client"
+            xhttp_names = [n.strip() for n in re.split(r'[\s,]+', clients_xhttp_str) if n.strip()]
+            if default_freedom_client not in xhttp_names:
+                xhttp_names.append(default_freedom_client)
+            clients_xhttp_str = " ".join(xhttp_names)
         elif deploy_mode == "proxy_only":
             cascade_choice = "y"
             node_type_choice = "2"
-            
+
+        foreign_sub_url = config.get("foreign_sub_url", "").strip() if deploy_mode == "proxy_only" else ""
+
         env_vars = {
             "DOMAIN": host,
             "EMAIL": email,
@@ -880,7 +897,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "CLIENTS_XHTTP_LIST": clients_xhttp_str,
             "CASCADE_CHOICE": cascade_choice,
             "NODE_TYPE_CHOICE": node_type_choice,
-            "FOREIGN_SUB_URL": ""
+            "FOREIGN_SUB_URL": foreign_sub_url
         }
         ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
@@ -954,8 +971,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     if freedom_clients and len(freedom_clients) > 0:
         freedom_sub_url = freedom_clients[0].get("sub_url", "")
     if not freedom_sub_url:
-        freedom_sub_port_str = xui_sub_port if xui_sub_port else "2096"
-        freedom_sub_url = f"https://{freedom_host}:{freedom_sub_port_str}/{freedom_secret}/{freedom_client}"
+        freedom_sub_url = f"https://{freedom_host}/{derive_sub_path(freedom_secret)}/{freedom_client}"
     log(f"Cascade subscription URL generated for client '{freedom_client}'.", "info")
 
     log("=========================================", "info")
@@ -1020,9 +1036,16 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Stage 3 failed: Subscription Server host address is required.", "error")
             return False, {}
 
-        node_sub_port_str = xui_sub_port if xui_sub_port else "2096"
-        proxy_node_sub_base = f"https://{proxy_host}:{node_sub_port_str}/{proxy_secret}"
-        freedom_node_sub_base = f"https://{freedom_host}:{node_sub_port_str}/{freedom_secret}"
+        proxy_node_sub_base = ""
+        if parsed_clients and parsed_clients[0].get("sub_url"):
+            proxy_node_sub_base = parsed_clients[0]["sub_url"].rsplit("/", 1)[0]
+        if not proxy_node_sub_base:
+            proxy_node_sub_base = f"https://{proxy_host}/{derive_sub_path(proxy_secret)}"
+        freedom_node_sub_base = ""
+        if freedom_sub_url:
+            freedom_node_sub_base = freedom_sub_url.rsplit("/", 1)[0]
+        if not freedom_node_sub_base:
+            freedom_node_sub_base = f"https://{freedom_host}/{derive_sub_path(freedom_secret)}"
 
         proxy_client_names = [n.strip() for n in re.split(r'[\s,]+', f"{proxy_clients_tcp_str} {proxy_clients_xhttp_str}") if n.strip()]
         freedom_client_names = [freedom_client]

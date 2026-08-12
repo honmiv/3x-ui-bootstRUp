@@ -759,7 +759,7 @@
                                     </div>
                                 </div>
                                 <div class="form-group full-width">
-                                    <label for="recovery_backup_file">Выберите архив бэкапа из папки ./backups/</label>
+                                    <label for="recovery_backup_file">Выберите архив бэкапа из папки ./backups_panel/</label>
                                     <div class="custom-select-wrapper" id="recoveryBackupWrapper">
                                         <div class="custom-select-trigger" id="recoveryBackupTrigger">
                                             <span id="recoveryBackupSelected">-- Выберите архив --</span>
@@ -901,6 +901,12 @@
                                     строки)</label>
                                 <input type="text" id="client_xhttp_list"
                                     placeholder="Опционально (например: alex, mom, phone)">
+                            </div>
+                            <div class="form-group full-width hidden" id="foreignSubUrlGroup">
+                                <label for="foreign_sub_url">Ссылка подписки Freedom ноды (для outbound и
+                                    маршрутизации)</label>
+                                <input type="text" id="foreign_sub_url"
+                                    placeholder="https://freedom.example.com/1a2b3c4d5e6f7a8b">
                             </div>
                         </div>
                     </div>
@@ -1046,7 +1052,7 @@
                                 и
                                 создан сжатый архив рабочих конфигураций и БД (3x-ui, caddy, nginx, docker-compose).
                                 Архив
-                                будет скачан в локальную папку <code>./backups/</code>.</p>
+                                будет скачан в локальную папку <code>./backups_panel/</code>.</p>
                         </div>
                     </div>
 
@@ -1162,7 +1168,7 @@
         </div>
 
         <!-- QR Code Modal -->
-        <div class="modal-overlay hidden" id="qrModal">
+        <div class="modal-overlay" id="qrModal">
             <div class="modal-card">
                 <div class="modal-header">
                     <span id="qrModalTitle">QR Код для подключения</span>

@@ -3,9 +3,12 @@ working
 .idea
 *.code-workspace
 backup
+backups_panel
+backups_sub_server
 setup_backup.yml
 servers.json
 __pycache__/
 *.pyc
 .python_env
 venv
+.DS_Store

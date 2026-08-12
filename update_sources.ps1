@@ -26,9 +26,9 @@ try {
     }
 
     Write-Host "[..] Cleaning working directory at $TargetDir..."
-    Write-Host "[..] Preserving 'backups' folder, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+    Write-Host "[..] Preserving 'backups_panel' folder, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
 
-    $preserve = @('backups', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', 'panel')
+    $preserve = @('backups_panel', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', 'panel')
     Get-ChildItem -LiteralPath $TargetDir -Force | ForEach-Object {
         if ($preserve -contains $_.Name) {
             Write-Host "[KEEP] $($_.Name)"

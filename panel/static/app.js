@@ -227,8 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdown.innerHTML = '';
 
             if (!files || files.length === 0) {
-                selectedSpan.textContent = 'Архивы бэкапов не найдены в ./backups/';
-                dropdown.innerHTML = '<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./backups/</div>';
+                selectedSpan.textContent = 'Архивы бэкапов не найдены в ./backups_panel/';
+                dropdown.innerHTML = '<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./backups_panel/</div>';
                 return;
             }
 
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const hideQrModal = () => {
-        if (qrModal) qrModal.classList.add('hidden');
+        if (qrModal) qrModal.classList.remove('active');
     };
 
     if (btnCloseQr) btnCloseQr.addEventListener('click', hideQrModal);
@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !qrModal.classList.contains('hidden')) {
+        if (e.key === 'Escape' && qrModal.classList.contains('active')) {
             hideQrModal();
         }
     });
@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         qrModalTitle.textContent = title;
         qrModalUrl.textContent = url;
         qrModalImg.src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=250x250`;
-        qrModal.classList.remove('hidden');
+        qrModal.classList.add('active');
     };
 
     const copyToClipboard = (text, btnEl) => {
@@ -673,7 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node">
                             <span class="node-icon">💻</span>
                             <span class="node-title">Локальный ПК</span>
-                            <span class="node-desc">./backups/backup.tar.gz</span>
+                            <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Упаковка &</span>
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node">
                             <span class="node-icon">💻</span>
                             <span class="node-title">Локальный ПК</span>
-                            <span class="node-desc">./backups/backup.tar.gz</span>
+                            <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Загрузка &</span>
@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node">
                             <span class="node-icon">💻</span>
                             <span class="node-title">Локальный ПК</span>
-                            <span class="node-desc">./backups/backup.tar.gz</span>
+                            <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Бэкап и</span>
@@ -764,9 +764,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const devModeWarningStep1 = document.getElementById('devModeWarningStep1');
         const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server';
 
-        if (subWarningBanner) {
-            subWarningBanner.classList[isDevMode ? 'remove' : 'add']('hidden');
-        }
+        // Notification disabled. Code kept for future use.
+        // if (subWarningBanner) {
+        //     subWarningBanner.classList[isDevMode ? 'remove' : 'add']('hidden');
+        // }
 
         if (devModeWarning) {
             devModeWarning.classList[isDevMode ? 'remove' : 'add']('hidden');
@@ -804,6 +805,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (singlePanelSection) singlePanelSection.classList.remove('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+            const foreignSubUrlGroup = document.getElementById('foreignSubUrlGroup');
+            if (foreignSubUrlGroup) {
+                foreignSubUrlGroup.classList[mode === 'proxy_only' ? 'remove' : 'add']('hidden');
+            }
         } else if (mode === 'cascade') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.remove('hidden');
@@ -885,6 +890,32 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="deploy_mode"]').forEach(radio => {
         radio.addEventListener('change', updateModeUI);
     });
+
+    const padNum = (n) => String(n).padStart(2, '0');
+
+    const updateBackupName = () => {
+        const hostEl = document.getElementById('backup_vps_host');
+        const nameEl = document.getElementById('backup_name');
+        if (!nameEl) return;
+        const domain = hostEl ? hostEl.value.trim().replace(/[^A-Za-z0-9._-]/g, '_') : '';
+        if (!domain) {
+            nameEl.value = '';
+            return;
+        }
+        const now = new Date();
+        const ts = `${now.getFullYear()}-${padNum(now.getMonth() + 1)}-${padNum(now.getDate())}_${padNum(now.getHours())}${padNum(now.getMinutes())}${padNum(now.getSeconds())}`;
+        nameEl.value = `${domain}_${ts}.tar.gz`;
+    };
+
+    const backupHostEl = document.getElementById('backup_vps_host');
+    if (backupHostEl) {
+        let backupNameTimer = null;
+        backupHostEl.addEventListener('input', () => {
+            clearTimeout(backupNameTimer);
+            backupNameTimer = setTimeout(updateBackupName, 300);
+        });
+        backupHostEl.addEventListener('change', updateBackupName);
+    }
 
     document.querySelectorAll('.auth-type-select').forEach(select => {
         select.addEventListener('change', () => {
@@ -1214,6 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cfg.xui_version && document.getElementById('xui_version')) document.getElementById('xui_version').value = cfg.xui_version;
                 if (cfg.client_tcp_list) document.getElementById('client_tcp_list').value = cfg.client_tcp_list;
                 if (cfg.client_xhttp_list) document.getElementById('client_xhttp_list').value = cfg.client_xhttp_list;
+                if (cfg.foreign_sub_url) document.getElementById('foreign_sub_url').value = cfg.foreign_sub_url;
 
                 updateModeUI();
             } else {
@@ -1368,7 +1400,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const btnNextStep3 = document.getElementById('btnNextStep3');
     if (btnNextStep3) {
-        btnNextStep3.addEventListener('click', () => showStep(4));
+        btnNextStep3.addEventListener('click', () => {
+            if (getSelectedMode() === 'proxy_only') {
+                const fsu = document.getElementById('foreign_sub_url');
+                if (fsu && !fsu.value.trim()) {
+                    alert('Для Proxy Node укажите ссылку подписки Freedom ноды в настройках панели.');
+                    showStep(3);
+                    return;
+                }
+            }
+            showStep(4);
+        });
     }
 
     const btnBackToStep3 = document.getElementById('btnBackToStep3');
@@ -1398,6 +1440,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к ${host}:${port}...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1425,6 +1469,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1452,10 +1498,41 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к серверу бэкапа (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ backup_vps_host: host, backup_vps_port: port, backup_vps_user: user, backup_vps_password: password, backup_vps_key: key_data })
+                    });
+                    const res = await resp.json();
+                    if (res.ok) {
+                        testResult.className = 'test-result success';
+                        testResult.textContent = `✅ Успешное подключение к серверу (${host}:${port})`;
+                        btnNext1.classList.remove('hidden');
+                    } else {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = `❌ ${res.message}`;
+                    }
+                } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
+                    const host = document.getElementById('update_vps_host').value.trim();
+                    const port = parseInt(document.getElementById('update_vps_port').value) || 22;
+                    const user = document.getElementById('update_vps_user').value.trim() || 'root';
+                    const password = document.getElementById('update_vps_password').value;
+                    const key_data = document.getElementById('update_vps_key').value;
+
+                    if (!host) {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = '❌ Укажите домен / IP адрес сервера';
+                        return;
+                    }
+
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к серверу (${host}:${port})...`;
+                    const resp = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ update_vps_host: host, update_vps_port: port, update_vps_user: user, update_vps_password: password, update_vps_key: key_data })
                     });
                     const res = await resp.json();
                     if (res.ok) {
@@ -1485,6 +1562,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к целевому серверу (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1518,6 +1597,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к Freedom Node (${fHost}:${fPort})...`;
                     const r1 = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1531,6 +1612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к Proxy Node (${pHost}:${pPort})...`;
                     const r2 = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1555,6 +1638,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             testResult.textContent = '❌ Укажите домен Сервера подписок';
                             return;
                         }
+                        testResult.className = 'test-result info';
+                        testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${sHost}:${sPort})...`;
                         const r3 = await fetch('/api/ssh/test', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -1667,6 +1752,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startDeployTimer();
         isUserScrolledUp = false;
         terminalLogs.innerHTML = '';
+        const summaryCardReset = document.getElementById('summaryCard');
+        if (summaryCardReset) summaryCardReset.classList.add('hidden');
         appendLog('[INIT] Starting deployment process...', 'info');
 
         if (btnStopDeploy) {
@@ -1696,6 +1783,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_secret = document.getElementById('sub_secret').value.trim() || randomDigits(16);
             payload.client_tcp_list = document.getElementById('client_tcp_list').value.trim();
             payload.client_xhttp_list = document.getElementById('client_xhttp_list').value.trim();
+            if (mode === 'proxy_only') {
+                payload.foreign_sub_url = document.getElementById('foreign_sub_url').value.trim();
+            }
         } else if (mode === 'sub_only') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
             payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
@@ -1722,13 +1812,15 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.recovery_vps_password = document.getElementById('recovery_vps_password').value;
             payload.recovery_vps_key = document.getElementById('recovery_vps_key').value;
             payload.recovery_backup_file = document.getElementById('recovery_backup_file').value;
-        } else if (mode === 'update_3xui') {
+        } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
             payload.update_vps_host = document.getElementById('update_vps_host').value.trim();
             payload.update_vps_port = parseInt(document.getElementById('update_vps_port').value) || 22;
             payload.update_vps_user = document.getElementById('update_vps_user').value.trim() || 'root';
             payload.update_vps_password = document.getElementById('update_vps_password').value;
             payload.update_vps_key = document.getElementById('update_vps_key').value;
-            payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
+            if (mode === 'update_3xui') {
+                payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
+            }
         } else {
             payload.freedom_host = document.getElementById('freedom_host').value.trim();
             payload.freedom_port = parseInt(document.getElementById('freedom_port').value) || 22;
@@ -1857,7 +1949,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const result = data.result || {};
 
-                const renderPanelBlock = (title, icon, url, user, pass, secret) => {
+                const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true) => {
                     const block = document.createElement('div');
                     block.className = 'panel-info-block';
                     block.innerHTML = `
@@ -1875,7 +1967,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             ${user ? `
                             <div class="summary-item">
-                                <span class="summary-label">Логин администратора</span>
+                                <span class="summary-label">${userLabel}</span>
                                 <div class="val-code-wrapper">
                                     <span class="val-code">${user}</span>
                                     <button type="button" class="btn-sm btn-copy" data-copy="${user}">📋 Copy</button>
@@ -1883,20 +1975,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>` : ''}
                             ${pass ? `
                             <div class="summary-item">
-                                <span class="summary-label">Пароль администратора</span>
+                                <span class="summary-label">${passLabel}</span>
                                 <div class="val-code-wrapper">
-                                    <span class="val-code secret-val" data-secret="${pass}">••••••••</span>
-                                    <button type="button" class="btn-sm btn-eye-secret">👁️</button>
+                                    ${passSecret ? `<span class="val-code secret-val" data-secret="${pass}">••••••••</span>` : `<span class="val-code">${pass}</span>`}
+                                    ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret">👁️</button>` : ''}
                                     <button type="button" class="btn-sm btn-copy" data-copy="${pass}">📋 Copy</button>
-                                </div>
-                            </div>` : ''}
-                            ${secret ? `
-                            <div class="summary-item full-width">
-                                <span class="summary-label">Секретная фраза</span>
-                                <div class="val-code-wrapper">
-                                    <span class="val-code secret-val" data-secret="${secret}">••••••••</span>
-                                    <button type="button" class="btn-sm btn-eye-secret">👁️</button>
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${secret}">📋 Copy</button>
                                 </div>
                             </div>` : ''}
                         </div>
@@ -1927,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bHost = result.backup_host || cfg.backup_vps_host || '';
                     const bName = result.backup_name || cfg.backup_name || '';
                     const bSize = result.file_size || '';
-                    panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '📦', `Локальный архив: ./backups/${bName}`, `Сервер: ${bHost}`, `Размер архива: ${bSize}`, ''));
+                    panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '📦', `Локальный архив: ./backups_panel/${bName}`, bHost, bSize, 'Сервер', 'Размер архива', false));
                     return;
                 }
 
@@ -1935,7 +2018,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rHost = result.recovery_host || cfg.recovery_vps_host || '';
                     const bFile = result.backup_file || cfg.recovery_backup_file || '';
                     const xuiUrl = result.xui_url || `https://${rHost}/`;
-                    panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '🔄', xuiUrl, `Новый домен: ${rHost}`, `Архив: ${bFile}`, ''));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '🔄', xuiUrl, rHost, bFile, 'Новый домен', 'Архив', false));
+                    return;
+                }
+
+                if (mode === 'restart_panel') {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    const done = document.createElement('div');
+                    done.className = 'panel-info-block';
+                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Панель 3X-UI перезапущена, всё готово!</span></div>';
+                    panelsContainer.appendChild(done);
+                    return;
+                }
+
+                if (mode === 'restart_server') {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    const done = document.createElement('div');
+                    done.className = 'panel-info-block';
+                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Сервер перезагружается, всё готово!</span></div>';
+                    panelsContainer.appendChild(done);
                     return;
                 }
 
@@ -1943,40 +2046,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     const uHost = result.update_host || cfg.update_vps_host || '';
                     const ver = result.xui_version || cfg.update_xui_version || '3.6.0';
                     const xuiUrl = result.xui_url || `https://${uHost}/`;
-                    panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '⬆️', xuiUrl, `Сервер: ${uHost}`, `Версия 3X-UI: ${ver}`, ''));
+                    panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '⬆️', xuiUrl, uHost, ver, 'Сервер', 'Версия 3X-UI', false));
                     return;
                 }
 
                 if (mode === 'sub_only') {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', ''));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', ''));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
                     const freedomUser = result.freedom_username || cfg.freedom_xui_username || 'admin';
                     const freedomPass = result.freedom_password || cfg.freedom_xui_password || 'admin';
-                    const freedomSecret = result.freedom_sub_secret || cfg.freedom_sub_secret || '';
 
-                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '🕊️', freedomUrl, freedomUser, freedomPass, freedomSecret));
+                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '🕊️', freedomUrl, freedomUser, freedomPass));
 
                     const proxyHost = result.domain || cfg.proxy_host || 'Proxy Node';
                     const proxyUrl = result.xui_url || `https://${proxyHost}/`;
                     const proxyUser = result.xui_username || cfg.proxy_xui_username || 'admin';
                     const proxyPass = result.xui_password || cfg.proxy_xui_password || 'admin';
-                    const proxySecret = result.sub_secret || cfg.proxy_sub_secret || '';
 
-                    panelsContainer.appendChild(renderPanelBlock('2. Панель управления Proxy Node (Входной сервер)', '🛡️', proxyUrl, proxyUser, proxyPass, proxySecret));
+                    panelsContainer.appendChild(renderPanelBlock('2. Панель управления Proxy Node (Входной сервер)', '🛡️', proxyUrl, proxyUser, proxyPass));
 
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', ''));
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', ''));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';
                     const xuiUrl = result.xui_url || `https://${host}/`;
                     const xuiUser = result.xui_username || cfg.xui_username || 'admin';
                     const xuiPass = result.xui_password || cfg.xui_password || 'admin';
-                    const subSecret = result.sub_secret || cfg.sub_secret || '';
                     
                     let panelTitle = 'Панель управления 3X-UI';
                     let panelIcon = '🔑';
@@ -1988,14 +2088,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         panelIcon = '🕊️';
                     }
 
-                    panelsContainer.appendChild(renderPanelBlock(panelTitle, panelIcon, xuiUrl, xuiUser, xuiPass, subSecret));
+                    panelsContainer.appendChild(renderPanelBlock(panelTitle, panelIcon, xuiUrl, xuiUser, xuiPass));
                 }
 
                 const clientsContainer = document.getElementById('clientsContainer');
                 clientsContainer.innerHTML = '';
 
                 const clientsList = result.clients || [];
-                if (clientsList.length === 0 && mode !== 'sub_only') {
+                if (clientsList.length === 0 && mode !== 'sub_only' && mode !== 'restart_panel' && mode !== 'restart_server') {
                     const targetDomain = (mode === 'cascade' || mode === 'cascade_sub') ? cfg.proxy_host : (cfg.vps_host || cfg.domain);
                     const fallbackSub = `https://${targetDomain}:2096/${cfg.sub_secret}`;
                     clientsList.push({ name: cfg.xui_username, sub_url: fallbackSub, tcp_url: '', xhttp_url: '' });
@@ -2101,7 +2201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUpdateSources = document.getElementById('btnUpdateSources');
     if (btnUpdateSources) {
         btnUpdateSources.addEventListener('click', async () => {
-            if (!await showConfirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.', 'Обновление деплоера', { confirmText: 'Обновить', icon: '🔄' })) {
+            if (!await showConfirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups_panel/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.', 'Обновление деплоера', { confirmText: 'Обновить', icon: '🔄' })) {
                 return;
             }
 
@@ -2444,6 +2544,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const elHost = document.getElementById(hostId);
         if (elHost) elHost.value = srv.host || '';
+        
+        if (hostId === 'backup_vps_host') updateBackupName();
         
         const elPort = document.getElementById(`${prefix}_port`);
         if (elPort) elPort.value = srv.port || 22;

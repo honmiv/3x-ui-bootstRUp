@@ -1090,6 +1090,16 @@ details.mode-category:not([open]) .category-header::after {
     font-size: 0.88rem;
     flex-wrap: wrap;
 }
+.panel-info-block {
+    margin-bottom: 28px;
+}
+.panel-info-block:last-child {
+    margin-bottom: 0;
+}
+.panel-info-block + .panel-info-block {
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
 .val-link {
     color: #60a5fa;
     text-decoration: none;

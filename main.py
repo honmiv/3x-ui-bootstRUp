@@ -133,7 +133,7 @@ def save_backup_config(data: Dict[str, Any]):
         lines.append("\n")
 
         lines.append("panel_and_clients:\n")
-        for k in ["xui_username", "client_tcp_list", "client_xhttp_list", "xui_version"]:
+        for k in ["xui_username", "client_tcp_list", "client_xhttp_list", "foreign_sub_url", "xui_version"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")
@@ -156,7 +156,7 @@ def save_backup_config(data: Dict[str, Any]):
         pass
 
 def list_backup_files() -> List[Dict[str, Any]]:
-    backups_dir = os.path.join(os.path.dirname(__file__), "panel", "backups")
+    backups_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups_panel")
     if not os.path.exists(backups_dir):
         return []
     result = []

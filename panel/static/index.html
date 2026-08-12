@@ -329,8 +329,38 @@
                                                         d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
                                                     <path d="m3.3 7 8.7 5 8.7-5" />
                                                     <path d="M12 22V12" />
-                                                </svg> Бэкап</span>
+                                                </svg> Бэкап панели </span>
                                             <span class="card-desc">Архивация конфигурации</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-card">
+                                        <input type="radio" name="deploy_mode" value="backup_sub"
+                                            id="mode_backup_sub">
+                                        <div class="card-content">
+                                            <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                                    height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    style="color: #facc15">
+                                                    <path
+                                                        d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                                                    <path d="m3.3 7 8.7 5 8.7-5" />
+                                                    <path d="M12 22V12" />
+                                                </svg> Бэкап Sub Server</span>
+                                            <span class="card-desc">Архивация конфигурации</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-card">
+                                        <input type="radio" name="deploy_mode" value="restart_server"
+                                            id="mode_restart_server">
+                                        <div class="card-content">
+                                            <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                                    height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    style="color: #ef4444">
+                                                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                                                    <line x1="12" y1="2" x2="12" y2="12" />
+                                                </svg> Рестарт сервера</span>
+                                            <span class="card-desc">VPS reboot</span>
                                         </div>
                                     </label>
                                     <label class="radio-card">
@@ -342,24 +372,26 @@
                                                     style="color: #60a5fa">
                                                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                                                     <path d="M3 3v5h5" />
-                                                </svg> Восстановление</span>
+                                                </svg> Восстановление панели</span>
                                             <span class="card-desc">Восстановление из бэкапа</span>
                                         </div>
                                     </label>
                                     <label class="radio-card">
-                                        <input type="radio" name="deploy_mode" value="update_3xui"
-                                            id="mode_update_3xui">
+                                        <input type="radio" name="deploy_mode" value="rollback_sub"
+                                            id="mode_rollback_sub">
                                         <div class="card-content">
                                             <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                                     height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    style="color: #ef4444">
-                                                    <path d="m5 12 7-7 7 7" />
-                                                    <path d="M12 19V5" />
-                                                </svg> Обновить 3X-UI</span>
-                                            <span class="card-desc">Обновление Docker-образа</span>
+                                                    style="color: #a78bfa">
+                                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                    <path d="M3 3v5h5" />
+                                                    <path d="M12 8v4l3 3" />
+                                                </svg> Восстановление Sub Server</span>
+                                            <span class="card-desc">Восстановление из бэкапа</span>
                                         </div>
                                     </label>
+                                    <br/>
                                     <label class="radio-card">
                                         <input type="radio" name="deploy_mode" value="restart_panel"
                                             id="mode_restart_panel">
@@ -375,17 +407,32 @@
                                         </div>
                                     </label>
                                     <label class="radio-card">
-                                        <input type="radio" name="deploy_mode" value="restart_server"
-                                            id="mode_restart_server">
+                                        <input type="radio" name="deploy_mode" value="restart_sub"
+                                            id="mode_restart_sub">
+                                        <div class="card-content">
+                                            <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                                    height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    style="color: #3b82f6">
+                                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                    <path d="M3 3v5h5" />
+                                                </svg> Рестарт Sub Server</span>
+                                            <span class="card-desc">docker compose down/up</span>
+                                        </div>
+                                    </label>
+                                    <br/>
+                                    <label class="radio-card">
+                                        <input type="radio" name="deploy_mode" value="update_3xui"
+                                            id="mode_update_3xui">
                                         <div class="card-content">
                                             <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                                     height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                                     style="color: #ef4444">
-                                                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-                                                    <line x1="12" y1="2" x2="12" y2="12" />
-                                                </svg> Рестарт Сервера</span>
-                                            <span class="card-desc">reboot</span>
+                                                    <path d="m5 12 7-7 7 7" />
+                                                    <path d="M12 19V5" />
+                                                </svg> Обновить 3X-UI</span>
+                                            <span class="card-desc">Обновление Docker-образа</span>
                                         </div>
                                     </label>
                                 </div>
@@ -401,8 +448,8 @@
                                         <path d="M12 9v4" />
                                         <path d="M12 17h.01" />
                                     </svg></span>
-                                <span><strong>Внимание:</strong> Данный режим находится в разработке и еще не
-                                    протестирован в реальном развертывании.</span>
+                                <span><strong>Внимание:</strong> <span id="subWarningText">Данный режим находится в
+                                        разработке и еще не протестирован в реальном развертывании.</span></span>
                             </div>
                         </div>
                     </div>
@@ -853,7 +900,10 @@
                     <div class="section-block" id="xuiVersionBlock">
                         <div class="form-group full-width">
                             <label for="xui_version">Версия 3X-UI панели (тег Docker-образа)</label>
-                            <input type="text" id="xui_version" value="3.6.0" placeholder="3.6.0 или latest">
+                            <select id="xui_version" class="custom-select"
+                                style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                <option value="3.6.0">Загрузка версий...</option>
+                            </select>
                         </div>
                     </div>
 
@@ -1082,8 +1132,10 @@
                                 <div class="form-group full-width">
                                     <label for="update_xui_version">Новая версия 3X-UI панели (тег
                                         Docker-образа)</label>
-                                    <input type="text" id="update_xui_version" value="3.6.0"
-                                        placeholder="3.6.0 или latest">
+                                    <select id="update_xui_version" class="custom-select"
+                                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                        <option value="3.6.0">Загрузка версий...</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -1104,6 +1156,50 @@
                             <div class="section-title">Перезагрузка сервера</div>
                             <p class="step-desc" style="margin-bottom: 12px;">При запуске на удаленном сервере будет
                                 выполнена команда reboot.</p>
+                        </div>
+                    </div>
+
+                    <!-- Restart Sub Server Section -->
+                    <div id="restartSubSection" class="hidden">
+                        <div class="section-block">
+                            <div class="section-title">Перезапуск Сервера подписок</div>
+                            <p class="step-desc" style="margin-bottom: 12px;">При запуске на удаленном Сервере подписок
+                                будет выполнена команда docker compose down/up (контейнеры subs-server и sub-caddy).</p>
+                        </div>
+                    </div>
+
+                    <!-- Backup Sub Server Section -->
+                    <div id="backupSubSection" class="hidden">
+                        <div class="section-block">
+                            <div class="section-title">Бэкап Сервера подписок</div>
+                            <p class="step-desc" style="margin-bottom: 12px;">При запуске будет создан архив
+                                конфигурации Сервера подписок (subs.yml, force-subs.yml, Caddyfile, docker-compose,
+                                caddy_data) и скачан в локальную папку <code>./backups_sub_server/</code>.</p>
+                        </div>
+                    </div>
+
+                    <!-- Rollback Sub Server Section -->
+                    <div id="rollbackSubSection" class="hidden">
+                        <div class="section-block">
+                            <div class="section-title">Восстановление Сервера подписок из бэкапа</div>
+                            <p class="step-desc" style="margin-bottom: 12px;">Архив будет загружен на Сервер подписок,
+                                распакован в рабочую директорию, после чего контейнеры будут перезапущены.</p>
+                            <div class="form-group full-width">
+                                <label for="rollback_sub_backup_file">Выберите архив бэкапа из папки
+                                    ./backups_sub_server/</label>
+                                <div class="custom-select-wrapper" id="rollbackSubBackupWrapper">
+                                    <div class="custom-select-trigger" id="rollbackSubBackupTrigger">
+                                        <span id="rollbackSubBackupSelected">-- Выберите архив --</span>
+                                        <span class="arrow">▼</span>
+                                    </div>
+                                    <div class="custom-select-dropdown hidden" id="rollbackSubBackupDropdown">
+                                        <!-- Rendered via JS -->
+                                    </div>
+                                    <select id="rollback_sub_backup_file" class="hidden">
+                                        <option value="">-- Выберите архив --</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

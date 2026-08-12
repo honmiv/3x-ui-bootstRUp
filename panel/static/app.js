@@ -213,50 +213,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrModalUrl = document.getElementById('qrModalUrl');
     const btnCloseQr = document.getElementById('btnCloseQr');
 
-    const fetchBackupList = async () => {
+    const fetchBackupList = async (folder = 'backups_panel') => {
         try {
-            const res = await fetch('/api/backups');
+            const res = await fetch(`/api/backups?folder=${encodeURIComponent(folder)}`);
             if (!res.ok) return;
             const files = await res.json();
-            const select = document.getElementById('recovery_backup_file');
-            const selectedSpan = document.getElementById('recoveryBackupSelected');
-            const dropdown = document.getElementById('recoveryBackupDropdown');
-            if (!select || !selectedSpan || !dropdown) return;
 
-            select.innerHTML = '<option value="">-- Выберите архив --</option>';
-            dropdown.innerHTML = '';
+            const targets = [
+                {
+                    selectId: 'recovery_backup_file',
+                    selectedId: 'recoveryBackupSelected',
+                    dropdownId: 'recoveryBackupDropdown'
+                },
+                {
+                    selectId: 'rollback_sub_backup_file',
+                    selectedId: 'rollbackSubBackupSelected',
+                    dropdownId: 'rollbackSubBackupDropdown'
+                }
+            ];
 
-            if (!files || files.length === 0) {
-                selectedSpan.textContent = 'Архивы бэкапов не найдены в ./backups_panel/';
-                dropdown.innerHTML = '<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./backups_panel/</div>';
-                return;
-            }
+            targets.forEach(({ selectId, selectedId, dropdownId }) => {
+                const select = document.getElementById(selectId);
+                const selectedSpan = document.getElementById(selectedId);
+                const dropdown = document.getElementById(dropdownId);
+                if (!select || !selectedSpan || !dropdown) return;
 
-            files.forEach((f) => {
-                const opt = document.createElement('option');
-                opt.value = f.name;
-                opt.textContent = `${f.name} (${f.size}, ${f.mtime})`;
-                select.appendChild(opt);
+                select.innerHTML = '<option value="">-- Выберите архив --</option>';
+                dropdown.innerHTML = '';
 
-                const div = document.createElement('div');
-                div.className = 'custom-select-option';
-                div.style.cssText = 'padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;';
-                div.innerHTML = `<div><strong>📦 ${f.name}</strong><br><small style="color:#94a3b8">${f.mtime}</small></div><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${f.size}</span>`;
-                div.addEventListener('click', () => {
-                    select.value = f.name;
-                    selectedSpan.textContent = `${f.name} (${f.size})`;
-                    dropdown.classList.add('hidden');
-                    document.querySelectorAll('#recoveryBackupDropdown .custom-select-option').forEach(el => el.classList.remove('selected'));
-                    div.classList.add('selected');
+                if (!files || files.length === 0) {
+                    selectedSpan.textContent = `Архивы бэкапов не найдены в ./${folder}/`;
+                    dropdown.innerHTML = `<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./${folder}/</div>`;
+                    return;
+                }
+
+                files.forEach((f) => {
+                    const opt = document.createElement('option');
+                    opt.value = f.name;
+                    opt.textContent = `${f.name} (${f.size}, ${f.mtime})`;
+                    select.appendChild(opt);
+
+                    const div = document.createElement('div');
+                    div.className = 'custom-select-option';
+                    div.style.cssText = 'padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;';
+                    div.innerHTML = `<div><strong>📦 ${f.name}</strong><br><small style="color:#94a3b8">${f.mtime}</small></div><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${f.size}</span>`;
+                    div.addEventListener('click', () => {
+                        select.value = f.name;
+                        selectedSpan.textContent = `${f.name} (${f.size})`;
+                        dropdown.classList.add('hidden');
+                        document.querySelectorAll(`#${dropdownId} .custom-select-option`).forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+                    });
+                    dropdown.appendChild(div);
                 });
-                dropdown.appendChild(div);
-            });
 
-            if (files.length > 0 && !select.value) {
-                select.value = files[0].name;
-                selectedSpan.textContent = `${files[0].name} (${files[0].size})`;
-                if (dropdown.children[0]) dropdown.children[0].classList.add('selected');
-            }
+                if (files.length > 0 && !select.value) {
+                    select.value = files[0].name;
+                    selectedSpan.textContent = `${files[0].name} (${files[0].size})`;
+                    if (dropdown.children[0]) dropdown.children[0].classList.add('selected');
+                }
+            });
         } catch (e) {
             console.error('Failed to fetch backup list', e);
         }
@@ -269,10 +285,23 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             recDropdown.classList.toggle('hidden');
         });
-        document.addEventListener('click', () => {
-            recDropdown.classList.add('hidden');
+    }
+
+    const rollbackSubTrigger = document.getElementById('rollbackSubBackupTrigger');
+    const rollbackSubDropdown = document.getElementById('rollbackSubBackupDropdown');
+    if (rollbackSubTrigger && rollbackSubDropdown) {
+        rollbackSubTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            rollbackSubDropdown.classList.toggle('hidden');
         });
     }
+
+    document.addEventListener('click', () => {
+        const recDr = document.getElementById('recoveryBackupDropdown');
+        if (recDr) recDr.classList.add('hidden');
+        const rollDr = document.getElementById('rollbackSubBackupDropdown');
+        if (rollDr) rollDr.classList.add('hidden');
+    });
 
     const hideQrModal = () => {
         if (qrModal) qrModal.classList.remove('active');
@@ -736,6 +765,75 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        } else if (mode === 'restart_sub') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Перезапуск Сервера подписок</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">SSH команда</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">docker compose</span>
+                            <span class="arrow-label">down / up</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">📡</span>
+                            <span class="node-title">Сервер подписок</span>
+                            <span class="node-desc">subs-server + sub-caddy</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'backup_sub') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Бэкап конфигурации Сервера подписок</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">./backups_panel/backup.tar.gz</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Упаковка &</span>
+                            <span class="arrow-label">SCP Скачивание</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">📡</span>
+                            <span class="node-title">Сервер подписок</span>
+                            <span class="node-desc">subs.yml + Caddyfile</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (mode === 'rollback_sub') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">Восстановление Сервера подписок из бэкапа</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon">💻</span>
+                            <span class="node-title">Локальный ПК</span>
+                            <span class="node-desc">./backups_panel/backup.tar.gz</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Загрузка &</span>
+                            <span class="arrow-label">Docker Compose</span>
+                            <span>➔</span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon">📡</span>
+                            <span class="node-title">Сервер подписок</span>
+                            <span class="node-desc">Восстановленная конфигурация</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
         diagramEl.innerHTML = html;
     };
@@ -758,16 +856,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const updatePanelSection = document.getElementById('updatePanelSection');
         const restartPanelSection = document.getElementById('restartPanelSection');
         const restartServerSection = document.getElementById('restartServerSection');
+        const restartSubSection = document.getElementById('restartSubSection');
+        const backupSubSection = document.getElementById('backupSubSection');
+        const rollbackSubSection = document.getElementById('rollbackSubSection');
         const subOnlyTargetGroup = document.getElementById('subOnlyTargetGroup');
         const subWarningBanner = document.getElementById('subWarningBanner');
+        const subWarningText = document.getElementById('subWarningText');
         const devModeWarning = document.getElementById('devModeWarning');
         const devModeWarningStep1 = document.getElementById('devModeWarningStep1');
-        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server';
-
-        // Notification disabled. Code kept for future use.
-        // if (subWarningBanner) {
-        //     subWarningBanner.classList[isDevMode ? 'remove' : 'add']('hidden');
-        // }
+        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub';
 
         if (devModeWarning) {
             devModeWarning.classList[isDevMode ? 'remove' : 'add']('hidden');
@@ -786,10 +883,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (updatePanelSection) updatePanelSection.classList.add('hidden');
         if (restartPanelSection) restartPanelSection.classList.add('hidden');
         if (restartServerSection) restartServerSection.classList.add('hidden');
+        if (restartSubSection) restartSubSection.classList.add('hidden');
+        if (backupSubSection) backupSubSection.classList.add('hidden');
+        if (rollbackSubSection) rollbackSubSection.classList.add('hidden');
 
         const topologySection = document.getElementById('topologySection');
         if (topologySection) {
-            if (mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
+            if (mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
                 topologySection.classList.add('hidden');
             } else {
                 topologySection.classList.remove('hidden');
@@ -861,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
             if (recoveryPanelSection) recoveryPanelSection.classList.remove('hidden');
-            fetchBackupList();
+            fetchBackupList('backups_panel');
         } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
@@ -883,6 +983,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'update_3xui' && updatePanelSection) updatePanelSection.classList.remove('hidden');
             if (mode === 'restart_panel' && restartPanelSection) restartPanelSection.classList.remove('hidden');
             if (mode === 'restart_server' && restartServerSection) restartServerSection.classList.remove('hidden');
+        } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+            singleNodeSection.classList.add('hidden');
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.remove('hidden');
+
+            if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
+            if (singlePanelSection) singlePanelSection.classList.add('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+            if (mode === 'restart_sub' && restartSubSection) restartSubSection.classList.remove('hidden');
+            if (mode === 'backup_sub' && backupSubSection) backupSubSection.classList.remove('hidden');
+            if (mode === 'rollback_sub' && rollbackSubSection) rollbackSubSection.classList.remove('hidden');
+            if (mode === 'rollback_sub') fetchBackupList('backups_sub_server');
         }
         resetSSHValidation();
     };
@@ -1016,6 +1129,99 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     initCustomSelects();
+
+    const refreshCustomSelect = (select) => {
+        const wrapper = select ? select.parentNode : null;
+        if (!wrapper || !wrapper.classList.contains('custom-select-container')) return;
+        const triggerText = wrapper.querySelector('.custom-select-text');
+        const optionsContainer = wrapper.querySelector('.custom-select-options');
+        if (optionsContainer) {
+            optionsContainer.innerHTML = '';
+            Array.from(select.options).forEach(opt => {
+                const optEl = document.createElement('div');
+                optEl.className = 'custom-select-option';
+                optEl.dataset.value = opt.value;
+                optEl.textContent = opt.textContent;
+                optEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (select.value !== opt.value) {
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    wrapper.classList.remove('open');
+                });
+                optionsContainer.appendChild(optEl);
+            });
+            optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.value === select.value);
+            });
+        }
+        if (triggerText) triggerText.textContent = select.selectedOptions[0] ? select.selectedOptions[0].textContent : select.value;
+    };
+
+    const syncVersionSelect = (select) => {
+        if (!select) return;
+        const wanted = select.dataset.initialVersion || select.value || '3.6.0';
+        if (wanted && !Array.from(select.options).some(o => o.value === wanted)) {
+            const opt = document.createElement('option');
+            opt.value = wanted;
+            opt.textContent = wanted;
+            select.insertBefore(opt, select.firstChild);
+        }
+        if (wanted) select.value = wanted;
+        refreshCustomSelect(select);
+    };
+
+    const loadXuiVersions = async () => {
+        let versions = [];
+        try {
+            const res = await fetch('/api/xui_versions');
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.versions) && data.versions.length) versions = data.versions;
+            }
+        } catch (e) { }
+        if (versions.length === 0) versions = ['latest', '3.6.0', '3.5.0'];
+        ['xui_version', 'update_xui_version'].forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const wanted = select.dataset.initialVersion || select.value || '3.6.0';
+            select.innerHTML = '';
+            const list = versions.includes(wanted) ? versions : [wanted].concat(versions);
+            list.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                select.appendChild(opt);
+            });
+            select.value = list.includes(wanted) ? wanted : versions[0];
+            refreshCustomSelect(select);
+        });
+    };
+
+    loadXuiVersions();
+
+    const isVersionBelow = (v, min) => {
+        const toParts = (s) => String(s).trim().replace(/^v/, '').split('.').map(n => parseInt(n, 10));
+        if (isNaN(toParts(v)[0])) return false;
+        const a = toParts(v), b = toParts(min);
+        for (let i = 0; i < Math.max(a.length, b.length); i++) {
+            const x = a[i] || 0, y = b[i] || 0;
+            if (x !== y) return x < y;
+        }
+        return false;
+    };
+
+    ['xui_version', 'update_xui_version'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.addEventListener('change', () => {
+            const v = sel.value;
+            if (v && isVersionBelow(v, '3.5.0')) {
+                showToast(`Версия ${v} ниже 3.5.0 — не тестировалась в этом проекте. Используйте на свой риск.`, 'warning', 5000);
+            }
+        });
+    });
 
     const resetSSHValidation = () => {
         btnNext1.classList.add('hidden');
@@ -1233,7 +1439,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cfg.update_vps_password && document.getElementById('update_vps_password')) document.getElementById('update_vps_password').value = cfg.update_vps_password;
                 if (cfg.update_vps_key && document.getElementById('update_vps_key')) document.getElementById('update_vps_key').value = cfg.update_vps_key;
                 setAuthSelect('update_auth_type', 'updatePassGroup', 'updateKeyGroup', cfg.update_auth_type, cfg.update_vps_key);
-                if (cfg.update_xui_version && document.getElementById('update_xui_version')) document.getElementById('update_xui_version').value = cfg.update_xui_version;
+                if (cfg.update_xui_version && document.getElementById('update_xui_version')) {
+                    const sel = document.getElementById('update_xui_version');
+                    sel.dataset.initialVersion = cfg.update_xui_version;
+                    syncVersionSelect(sel);
+                }
 
                 if (cfg.xui_username) document.getElementById('xui_username').value = cfg.xui_username;
                 if (cfg.xui_password) document.getElementById('xui_password').value = cfg.xui_password;
@@ -1242,7 +1452,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (!document.getElementById('sub_secret').value) {
                     document.getElementById('sub_secret').value = randomDigits(16);
                 }
-                if (cfg.xui_version && document.getElementById('xui_version')) document.getElementById('xui_version').value = cfg.xui_version;
+                if (cfg.xui_version && document.getElementById('xui_version')) {
+                    const sel = document.getElementById('xui_version');
+                    sel.dataset.initialVersion = cfg.xui_version;
+                    syncVersionSelect(sel);
+                }
                 if (cfg.client_tcp_list) document.getElementById('client_tcp_list').value = cfg.client_tcp_list;
                 if (cfg.client_xhttp_list) document.getElementById('client_xhttp_list').value = cfg.client_xhttp_list;
                 if (cfg.foreign_sub_url) document.getElementById('foreign_sub_url').value = cfg.foreign_sub_url;
@@ -1543,6 +1757,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         testResult.className = 'test-result error';
                         testResult.textContent = `❌ ${res.message}`;
                     }
+                } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+                    const host = document.getElementById('sub_vps_host').value.trim();
+                    const port = parseInt(document.getElementById('sub_vps_port').value) || 22;
+                    const user = document.getElementById('sub_vps_user').value.trim() || 'root';
+                    const password = document.getElementById('sub_vps_password').value;
+                    const key_data = document.getElementById('sub_vps_key').value;
+
+                    if (!host) {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = '❌ Укажите домен Сервера подписок';
+                        return;
+                    }
+                    if (mode === 'rollback_sub') {
+                        const backup_file = document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '';
+                        if (!backup_file) {
+                            testResult.className = 'test-result error';
+                            testResult.textContent = '❌ Выберите архив бэкапа из списка';
+                            return;
+                        }
+                    }
+
+                    testResult.className = 'test-result info';
+                    testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${host}:${port})...`;
+                    const resp = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sub_vps_host: host, sub_vps_port: port, sub_vps_user: user, sub_vps_password: password, sub_vps_key: key_data })
+                    });
+                    const res = await resp.json();
+                    if (res.ok) {
+                        testResult.className = 'test-result success';
+                        testResult.textContent = `✅ Успешное подключение к Серверу подписок (${host}:${port})`;
+                        btnNext1.classList.remove('hidden');
+                    } else {
+                        testResult.className = 'test-result error';
+                        testResult.textContent = `❌ ${res.message}`;
+                    }
                 } else if (mode === 'recovery') {
                     const host = document.getElementById('recovery_vps_host').value.trim();
                     const port = parseInt(document.getElementById('recovery_vps_port').value) || 22;
@@ -1821,6 +2072,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'update_3xui') {
                 payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
             }
+        } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+            payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
+            payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
+            payload.sub_vps_user = document.getElementById('sub_vps_user').value.trim() || 'root';
+            payload.sub_vps_password = document.getElementById('sub_vps_password').value;
+            payload.sub_vps_key = document.getElementById('sub_vps_key').value;
+            if (mode === 'rollback_sub') {
+                payload.rollback_sub_backup_file = document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '';
+            }
         } else {
             payload.freedom_host = document.getElementById('freedom_host').value.trim();
             payload.freedom_port = parseInt(document.getElementById('freedom_port').value) || 22;
@@ -1870,6 +2130,12 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBadgeStatus('Восстановление сервера...', '#f59e0b', true);
         } else if (mode === 'update_3xui') {
             updateBadgeStatus('Обновление 3X-UI панели...', '#f59e0b', true);
+        } else if (mode === 'restart_sub') {
+            updateBadgeStatus('Перезапуск Сервера подписок...', '#f59e0b', true);
+        } else if (mode === 'backup_sub') {
+            updateBadgeStatus('Создание бэкапа Сервера подписок...', '#f59e0b', true);
+        } else if (mode === 'rollback_sub') {
+            updateBadgeStatus('Восстановление Сервера подписок...', '#f59e0b', true);
         } else {
             updateBadgeStatus('Каскадное развертывание...', '#f59e0b', true);
         }
@@ -1949,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const result = data.result || {};
 
-                const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true) => {
+                const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true, urlLabel = 'Адрес панели (URL)') => {
                     const block = document.createElement('div');
                     block.className = 'panel-info-block';
                     block.innerHTML = `
@@ -1958,13 +2224,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="panel-title-text">${title}</span>
                         </div>
                         <div class="summary-grid">
+                            ${url ? `
                             <div class="summary-item full-width">
-                                <span class="summary-label">Адрес панели (URL)</span>
+                                <span class="summary-label">${urlLabel}</span>
                                 <div class="val-code-wrapper">
                                     <a href="${url}" target="_blank" class="val-code link">${url}</a>
                                     <button type="button" class="btn-sm btn-copy" data-copy="${url}">📋 Copy</button>
                                 </div>
-                            </div>
+                            </div>` : ''}
                             ${user ? `
                             <div class="summary-item">
                                 <span class="summary-label">${userLabel}</span>
@@ -2050,9 +2317,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                if (mode === 'restart_sub') {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    const done = document.createElement('div');
+                    done.className = 'panel-info-block';
+                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Сервер подписок перезапущен, всё готово!</span></div>';
+                    panelsContainer.appendChild(done);
+                    return;
+                }
+
+                if (mode === 'backup_sub') {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    const bHost = result.sub_host || cfg.sub_vps_host || '';
+                    const bName = result.backup_name || '';
+                    const bSize = result.file_size || '';
+                    panelsContainer.appendChild(renderPanelBlock('Бэкап Сервера подписок успешно создан!', '📦', `Локальный архив: ./backups_sub_server/${bName}`, bHost, bSize, 'Сервер подписок', 'Размер архива', false, 'Локальный архив'));
+                    return;
+                }
+
+                if (mode === 'rollback_sub') {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    const rHost = result.sub_host || cfg.sub_vps_host || '';
+                    const bFile = result.backup_file || cfg.rollback_sub_backup_file || '';
+                    const subBaseUrl = result.sub_base_url || '';
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок восстановлен из бэкапа!', '🔄', subBaseUrl, rHost, bFile, 'Сервер подписок', 'Архив', false, 'Адрес подписок (URL)'));
+                    return;
+                }
+
                 if (mode === 'sub_only') {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', ''));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', 'Логин администратора', 'Пароль администратора', true, 'Адрес подписок (URL)'));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
@@ -2070,7 +2367,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', ''));
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, '', '', 'Логин администратора', 'Пароль администратора', true, 'Адрес подписок (URL)'));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';
@@ -2095,7 +2392,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientsContainer.innerHTML = '';
 
                 const clientsList = result.clients || [];
-                if (clientsList.length === 0 && mode !== 'sub_only' && mode !== 'restart_panel' && mode !== 'restart_server') {
+                if (clientsList.length === 0 && mode !== 'sub_only' && mode !== 'restart_panel' && mode !== 'restart_server' && mode !== 'restart_sub' && mode !== 'backup_sub' && mode !== 'rollback_sub') {
                     const targetDomain = (mode === 'cascade' || mode === 'cascade_sub') ? cfg.proxy_host : (cfg.vps_host || cfg.domain);
                     const fallbackSub = `https://${targetDomain}:2096/${cfg.sub_secret}`;
                     clientsList.push({ name: cfg.xui_username, sub_url: fallbackSub, tcp_url: '', xhttp_url: '' });

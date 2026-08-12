@@ -370,6 +370,56 @@ async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: C
     return True, local_backup_path, file_size_mb
 
 
+async def _perform_remote_sub_backup(deployer: SSHDeployer, backup_name: str, log: Callable[[str, str], None]) -> tuple[bool, str, float]:
+    """Create a backup archive of the subscription server config on the remote host,
+    download it locally via SCP, and clean up.
+
+    Returns (success, local_backup_path, file_size_mb).
+    """
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    backups_dir = os.path.join(repo_root, "backups_sub_server")
+    os.makedirs(backups_dir, exist_ok=True)
+    local_backup_path = os.path.join(backups_dir, backup_name)
+
+    log("Creating sub-server config backup archive on remote server...", "info")
+    remote_script = (
+        "set -e\n"
+        "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+        "if [ ! -d \"$WORK_DIR\" ]; then\n"
+        "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+        "fi\n"
+        "cd \"$WORK_DIR\"\n"
+        "rm -rf /tmp/sub_server_backup /tmp/sub_server_backup.tar.gz\n"
+        "mkdir -p /tmp/sub_server_backup/working\n"
+        "[ -f \"sub-server/subs.yml\" ] && cp \"sub-server/subs.yml\" /tmp/sub_server_backup/subs.yml || true\n"
+        "[ -f \"sub-server/force-subs.yml\" ] && cp \"sub-server/force-subs.yml\" /tmp/sub_server_backup/force-subs.yml || true\n"
+        "[ -f \"working/caddy/Caddyfile\" ] && cp \"working/caddy/Caddyfile\" /tmp/sub_server_backup/working/Caddyfile || true\n"
+        "[ -f \"working/docker-compose/docker-compose.yml\" ] && cp \"working/docker-compose/docker-compose.yml\" /tmp/sub_server_backup/working/docker-compose.yml || true\n"
+        "[ -d \".caddy_data\" ] && cp -r \".caddy_data\" /tmp/sub_server_backup/.caddy_data || true\n"
+        "tar -czf /tmp/sub_server_backup.tar.gz -C /tmp/sub_server_backup .\n"
+        "rm -rf /tmp/sub_server_backup\n"
+    )
+
+    rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+    if rc != 0:
+        log(f"[ERROR] Remote sub-server backup creation failed: {out}", "error")
+        return False, "", 0.0
+
+    log(f"⬇️ Downloading sub-server backup archive via SCP to ./backups_sub_server/{backup_name}...", "info")
+    rc_scp, scp_out = await deployer.download_file("/tmp/sub_server_backup.tar.gz", local_backup_path, lambda m: log(m, "info"))
+
+    await deployer.exec_command("rm -f /tmp/sub_server_backup.tar.gz")
+
+    if rc_scp != 0 or not os.path.exists(local_backup_path):
+        log(f"[ERROR] SCP download failed: {scp_out}", "error")
+        return False, "", 0.0
+
+    file_size_bytes = os.path.getsize(local_backup_path)
+    file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
+
+    return True, local_backup_path, file_size_mb
+
+
 async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
@@ -614,25 +664,25 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 return False, {}
 
             web_base_path = ""
-            try:
-                import tarfile
-                with tarfile.open(local_backup_path, "r:*") as tar:
-                    for member in tar.getmembers():
-                        if member.name.endswith("Caddyfile"):
-                            ef = tar.extractfile(member)
-                            if ef:
-                                caddy_text = ef.read().decode("utf-8", errors="replace")
-                                m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', caddy_text)
-                                if m_path:
-                                    web_base_path = m_path.group(1)
-                                    break
-            except Exception:
-                pass
+            m_path_out = re.search(r'RECOVERY_WEB_PATH=([A-Za-z0-9_-]+)', out)
+            if m_path_out:
+                web_base_path = m_path_out.group(1)
 
             if not web_base_path:
-                m_path_out = re.search(r'RECOVERY_WEB_PATH=([A-Za-z0-9_-]+)', out)
-                if m_path_out:
-                    web_base_path = m_path_out.group(1)
+                try:
+                    import tarfile
+                    with tarfile.open(local_backup_path, "r:*") as tar:
+                        for member in tar.getmembers():
+                            if member.name.endswith("Caddyfile"):
+                                ef = tar.extractfile(member)
+                                if ef:
+                                    caddy_text = ef.read().decode("utf-8", errors="replace")
+                                    m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', caddy_text)
+                                    if m_path:
+                                        web_base_path = m_path.group(1)
+                                        break
+                except Exception:
+                    pass
 
             xui_url = f"https://{host}/{web_base_path}/" if web_base_path else f"https://{host}/"
 
@@ -789,6 +839,166 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 rc, out = await deployer.exec_command("sudo reboot || reboot")
                 log("✅ Reboot command sent!", "success")
                 return True, {"deploy_mode": deploy_mode, "host": host}
+
+    # Subscription Server Maintenance Modes: Restart / Backup / Rollback
+    if deploy_mode in ["restart_sub", "backup_sub", "rollback_sub"]:
+        sub_host = (config.get("sub_vps_host") or config.get("vps_host") or "").strip()
+        sub_port = int(config.get("sub_vps_port") or config.get("vps_port") or 22)
+        sub_user = (config.get("sub_vps_user") or config.get("vps_user") or "root").strip()
+        sub_password = config.get("sub_vps_password") if config.get("sub_vps_password") is not None else config.get("vps_password", "")
+        sub_key = config.get("sub_vps_key") if config.get("sub_vps_key") is not None else config.get("vps_key", "")
+
+        if not sub_host:
+            log(f"[ERROR] Subscription Server host is required for {deploy_mode}.", "error")
+            return False, {}
+
+        log(f"Starting {deploy_mode} process for Subscription Server {sub_host}:{sub_port}...", "info")
+        async with SSHDeployer(sub_host, sub_port, sub_user, sub_password, sub_key, cancel_check=cancel_check) as deployer:
+            log(f"Connecting to {sub_host}:{sub_port}...", "info")
+            ok, msg = await deployer.test_connection()
+            if not ok:
+                log(f"[ERROR] SSH connection failed: {msg}", "error")
+                return False, {}
+
+            if deploy_mode == "restart_sub":
+                log(f"Syncing local tool files to Subscription Server {sub_host}...", "info")
+                bundle_bytes = get_bundle_bytes()
+                sync_cmd = "mkdir -p /opt/3x-ui-bootstRUp && tar -xzf - -C /opt/3x-ui-bootstRUp"
+                rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
+                if rc != 0:
+                    log(f"[ERROR] Failed to transfer tool files to {sub_host}: {sync_out}", "error")
+                    return False, {}
+
+                log("Restarting sub-server containers via sub-server/restart.sh...", "info")
+                remote_script = (
+                    "set -e\n"
+                    "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+                    "if [ ! -d \"$WORK_DIR\" ]; then\n"
+                    "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+                    "fi\n"
+                    "cd \"$WORK_DIR\"\n"
+                    "bash sub-server/restart.sh\n"
+                )
+                rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+                if rc != 0:
+                    log(f"[ERROR] Sub-server restart failed: {out}", "error")
+                    return False, {}
+
+                log("✅ Subscription Server restarted successfully!", "success")
+                return True, {"deploy_mode": deploy_mode, "sub_host": sub_host}
+
+            if deploy_mode == "backup_sub":
+                raw_backup_name = config.get("backup_name", "").strip()
+                if not raw_backup_name:
+                    import datetime
+                    now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    raw_backup_name = f"{sub_host}_sub_{now_str}.tar.gz"
+                elif not any(raw_backup_name.endswith(ext) for ext in [".tar.gz", ".tgz", ".zip", ".tar"]):
+                    raw_backup_name = f"{raw_backup_name}.tar.gz"
+                backup_name = os.path.basename(raw_backup_name)
+
+                bk_ok, bk_local_path, file_size_mb = await _perform_remote_sub_backup(deployer, backup_name, log)
+                if not bk_ok:
+                    return False, {}
+
+                log("=========================================", "success")
+                log("🎉 SUB-SERVER BACKUP CREATED AND DOWNLOADED SUCCESSFULLY!", "success")
+                log(f"Local backup location: ./backups_sub_server/{backup_name} ({file_size_mb} MB)", "success")
+                log("=========================================", "success")
+
+                return True, {
+                    "deploy_mode": "backup_sub",
+                    "sub_host": sub_host,
+                    "backup_name": backup_name,
+                    "backup_path": f"./backups_sub_server/{backup_name}",
+                    "file_size": f"{file_size_mb} MB"
+                }
+
+            if deploy_mode == "rollback_sub":
+                backup_filename = config.get("rollback_sub_backup_file", "").strip()
+                if not backup_filename:
+                    log("[ERROR] Backup file must be selected for rollback_sub mode.", "error")
+                    return False, {}
+
+                repo_root = os.path.dirname(os.path.abspath(__file__))
+                local_backup_path = os.path.join(repo_root, "backups_sub_server", os.path.basename(backup_filename))
+
+                if not os.path.isfile(local_backup_path):
+                    log(f"[ERROR] Selected backup archive '{backup_filename}' not found in ./backups_sub_server/", "error")
+                    return False, {}
+
+                with open(local_backup_path, "rb") as f:
+                    backup_bytes = f.read()
+
+                log(f"Uploading sub-server backup archive ({len(backup_bytes)} bytes) to {sub_host}...", "info")
+                upload_cmd = "cat > /tmp/sub_rollback_backup.tar.gz"
+                rc, up_out = await deployer.exec_command(upload_cmd, lambda m: log(m, "info"), stdin_data=backup_bytes)
+                if rc != 0:
+                    log(f"[ERROR] Failed to upload backup archive to {sub_host}: {up_out}", "error")
+                    return False, {}
+
+                log("Restoring configs and restarting Subscription Server containers...", "info")
+                remote_script = (
+                    "set -e\n"
+                    "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+                    "if [ ! -d \"$WORK_DIR\" ]; then\n"
+                    "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+                    "fi\n"
+                    "cd \"$WORK_DIR\"\n"
+                    "COMPOSE_FILE=\"working/docker-compose/docker-compose.yml\"\n"
+                    "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                    "  docker compose -f \"$COMPOSE_FILE\" --project-directory . down --remove-orphans 2>/dev/null || true\n"
+                    "fi\n"
+                    "docker stop subs-server sub-caddy 2>/dev/null || true\n"
+                    "docker rm subs-server sub-caddy 2>/dev/null || true\n"
+                    "rm -rf /tmp/sub_restore && mkdir -p /tmp/sub_restore\n"
+                    "tar -xzf /tmp/sub_rollback_backup.tar.gz -C /tmp/sub_restore\n"
+                    "rm -f /tmp/sub_rollback_backup.tar.gz\n"
+                    "mkdir -p sub-server working/caddy working/docker-compose\n"
+                    "[ -f /tmp/sub_restore/subs.yml ] && cp /tmp/sub_restore/subs.yml sub-server/subs.yml || true\n"
+                    "[ -f /tmp/sub_restore/force-subs.yml ] && cp /tmp/sub_restore/force-subs.yml sub-server/force-subs.yml || true\n"
+                    "[ -f /tmp/sub_restore/working/Caddyfile ] && cp /tmp/sub_restore/working/Caddyfile working/caddy/Caddyfile || true\n"
+                    "[ -f /tmp/sub_restore/working/docker-compose.yml ] && cp /tmp/sub_restore/working/docker-compose.yml working/docker-compose/docker-compose.yml || true\n"
+                    "if [ -d /tmp/sub_restore/.caddy_data ]; then\n"
+                    "  rm -rf .caddy_data && cp -r /tmp/sub_restore/.caddy_data .caddy_data\n"
+                    "fi\n"
+                    "rm -rf /tmp/sub_restore\n"
+                    "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                    "  docker compose -f \"$COMPOSE_FILE\" --project-directory . up -d\n"
+                    "else\n"
+                    "  echo \"[ERROR] docker-compose.yml not found after restore!\"\n"
+                    "  exit 1\n"
+                    "fi\n"
+                    "SECRET_SUB_PATH=$(grep -oE 'handle /[A-Za-z0-9_-]+' working/caddy/Caddyfile 2>/dev/null | head -n 1 | sed 's|handle /||' || true)\n"
+                    "if [ -n \"$SECRET_SUB_PATH\" ]; then\n"
+                    "  echo \"SUB_SECRET_PATH=$SECRET_SUB_PATH\"\n"
+                    "fi\n"
+                )
+                rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
+                if rc != 0:
+                    log(f"[ERROR] Sub-server rollback failed: {out}", "error")
+                    return False, {}
+
+                sub_secret_path = ""
+                m_sub_out = re.search(r'SUB_SECRET_PATH=([A-Za-z0-9_-]+)', out)
+                if m_sub_out:
+                    sub_secret_path = m_sub_out.group(1)
+
+                log("=========================================", "success")
+                log("🎉 SUB-SERVER ROLLBACK COMPLETED SUCCESSFULLY!", "success")
+                log(f"Subscription Server {sub_host} restored from '{backup_filename}'", "success")
+                if sub_secret_path:
+                    log(f"Subscriptions base URL: https://{sub_host}/{sub_secret_path}", "success")
+                log("=========================================", "success")
+
+                result = {
+                    "deploy_mode": "rollback_sub",
+                    "sub_host": sub_host,
+                    "backup_file": backup_filename
+                }
+                if sub_secret_path:
+                    result["sub_base_url"] = f"https://{sub_host}/{sub_secret_path}"
+                return True, result
 
     # Standalone Subscription Server Mode
     if deploy_mode == "sub_only":

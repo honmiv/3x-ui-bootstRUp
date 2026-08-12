@@ -37,7 +37,7 @@ main() {
     TARGET_DIR_ABS="$PWD"
 
     echo "[..] Cleaning working directory at ${TARGET_DIR_ABS}..."
-    echo "[..] Preserving 'backups_panel' folder, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+    echo "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
 
     shopt -s dotglob nullglob
     for item in *; do
@@ -45,7 +45,7 @@ main() {
         if [[ "$name" == "." || "$name" == ".." ]]; then
             continue
         fi
-        if [[ "$name" == "backups_panel" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" || "$name" == "panel" ]]; then
+        if [[ "$name" == "backups_panel" || "$name" == "backups_sub_server" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" || "$name" == "panel" ]]; then
             echo "[KEEP] $name"
             continue
         fi

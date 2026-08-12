@@ -3,7 +3,9 @@ import json
 import mimetypes
 import os
 import sys
+import time
 import urllib.parse
+import urllib.request
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, List
@@ -20,6 +22,45 @@ is_deploying = False
 deploy_status = "idle"
 deploy_result: Dict[str, Any] = {}
 cancel_requested = False
+
+XUI_TOKEN_URL = "https://ghcr.io/token?scope=repository:mhsanaei/3x-ui:pull"
+XUI_TAGS_URL = "https://ghcr.io/v2/mhsanaei/3x-ui/tags/list?n=1000"
+XUI_UA = "3x-ui-bootstrUp"
+XUI_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0}
+
+def _xui_ver_key(tag: str) -> List[int]:
+    base = tag[1:] if tag.startswith("v") else tag
+    return [int(p) if p.isdigit() else -1 for p in base.split(".")]
+
+def fetch_xui_versions() -> List[str]:
+    now = time.time()
+    if XUI_CACHE["data"] is not None and now - XUI_CACHE["ts"] < 300:
+        return XUI_CACHE["data"]
+
+    req = urllib.request.Request(XUI_TOKEN_URL, headers={"User-Agent": XUI_UA})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        token = json.loads(resp.read().decode("utf-8")).get("token", "")
+
+    headers = {"Authorization": f"Bearer {token}", "User-Agent": XUI_UA}
+    req = urllib.request.Request(XUI_TAGS_URL, headers=headers)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+
+    tags = data.get("tags") or []
+    seen: Dict[str, str] = {}
+    for t in tags:
+        base = t[1:] if t.startswith("v") else t
+        if base not in seen or seen[base].startswith("v"):
+            seen[base] = t
+
+    versions = sorted(seen.keys(), key=_xui_ver_key, reverse=True)
+    if "latest" in versions:
+        versions.remove("latest")
+        versions.insert(0, "latest")
+
+    XUI_CACHE["data"] = versions
+    XUI_CACHE["ts"] = now
+    return versions
 
 def is_cancel_requested() -> bool:
     global cancel_requested
@@ -155,8 +196,8 @@ def save_backup_config(data: Dict[str, Any]):
     except Exception:
         pass
 
-def list_backup_files() -> List[Dict[str, Any]]:
-    backups_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups_panel")
+def list_backup_files(folder: str = "backups_panel") -> List[Dict[str, Any]]:
+    backups_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), folder)
     if not os.path.exists(backups_dir):
         return []
     result = []
@@ -202,8 +243,20 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_json(load_backup_config())
             return
 
+        if url_path == "/api/xui_versions":
+            try:
+                self.send_json({"versions": fetch_xui_versions()})
+            except Exception as e:
+                self.send_json({"versions": ["latest", "3.6.0"], "error": str(e)})
+            return
+
         if url_path == "/api/backups":
-            self.send_json(list_backup_files())
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            folder = params.get("folder", ["backups_panel"])[0]
+            if folder == "backups_sub_server":
+                self.send_json(list_backup_files("backups_sub_server"))
+            else:
+                self.send_json(list_backup_files("backups_panel"))
             return
 
         if url_path == "/api/status":
@@ -323,11 +376,11 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/ssh/test":
-            host = (payload.get("vps_host") or payload.get("backup_vps_host") or payload.get("recovery_vps_host") or payload.get("update_vps_host") or "").strip()
-            port = int(payload.get("vps_port") or payload.get("backup_vps_port") or payload.get("recovery_vps_port") or payload.get("update_vps_port") or 22)
-            user = (payload.get("vps_user") or payload.get("backup_vps_user") or payload.get("recovery_vps_user") or payload.get("update_vps_user") or "root").strip()
-            password = payload.get("vps_password") if payload.get("vps_password") is not None else (payload.get("backup_vps_password") if payload.get("backup_vps_password") is not None else (payload.get("recovery_vps_password") if payload.get("recovery_vps_password") is not None else payload.get("update_vps_password", "")))
-            key_data = payload.get("vps_key") if payload.get("vps_key") is not None else (payload.get("backup_vps_key") if payload.get("backup_vps_key") is not None else (payload.get("recovery_vps_key") if payload.get("recovery_vps_key") is not None else payload.get("update_vps_key", "")))
+            host = (payload.get("vps_host") or payload.get("backup_vps_host") or payload.get("recovery_vps_host") or payload.get("update_vps_host") or payload.get("sub_vps_host") or "").strip()
+            port = int(payload.get("vps_port") or payload.get("backup_vps_port") or payload.get("recovery_vps_port") or payload.get("update_vps_port") or payload.get("sub_vps_port") or 22)
+            user = (payload.get("vps_user") or payload.get("backup_vps_user") or payload.get("recovery_vps_user") or payload.get("update_vps_user") or payload.get("sub_vps_user") or "root").strip()
+            password = payload.get("vps_password") if payload.get("vps_password") is not None else (payload.get("backup_vps_password") if payload.get("backup_vps_password") is not None else (payload.get("recovery_vps_password") if payload.get("recovery_vps_password") is not None else (payload.get("update_vps_password") if payload.get("update_vps_password") is not None else payload.get("sub_vps_password", ""))))
+            key_data = payload.get("vps_key") if payload.get("vps_key") is not None else (payload.get("backup_vps_key") if payload.get("backup_vps_key") is not None else (payload.get("recovery_vps_key") if payload.get("recovery_vps_key") is not None else (payload.get("update_vps_key") if payload.get("update_vps_key") is not None else payload.get("sub_vps_key", ""))))
 
             if not host:
                 self.send_json({"ok": False, "message": "Host address is required"}, 400)

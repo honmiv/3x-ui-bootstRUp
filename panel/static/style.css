@@ -416,6 +416,8 @@ input:focus, textarea:focus {
     visibility: hidden;
     transform: translateY(-8px) scale(0.96);
     pointer-events: none;
+    max-height: 210px;
+    overflow-y: auto;
     transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s ease;
 }
 
@@ -455,11 +457,36 @@ input:focus, textarea:focus {
     font-size: 0.75rem;
     color: #60a5fa;
 }
+.custom-select-options {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(15, 23, 42, 0.6);
+}
+.custom-select-options::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-select-options::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 4px;
+}
+.custom-select-options::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+.custom-select-options::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
 .sidebar-form .custom-select-container {
     width: 100%;
     flex: 1 1 auto;
 }
 .sidebar-form .custom-select-options {
+    min-width: 100%;
+}
+.form-group > .custom-select-container {
+    width: 100%;
+    flex: 1 1 auto;
+}
+.form-group > .custom-select-container .custom-select-options {
     min-width: 100%;
 }
 .domain-port-row {
@@ -622,6 +649,7 @@ details.mode-category:not([open]) .category-header::after {
 .radio-card .card-desc {
     font-size: 0.75rem;
     color: var(--text-secondary);
+    padding-top: 2px
 }
 
 /* Collapsible Topology */
@@ -969,19 +997,19 @@ details.mode-category:not([open]) .category-header::after {
 /* Terminal Styles */
 .terminal-container {
     background: #090d16;
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(59, 130, 246, 0.4);
     border-radius: 12px;
     overflow: hidden;
     margin-bottom: 20px;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 0 18px rgba(59, 130, 246, 0.12), inset 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 .terminal-header {
-    background: rgba(30, 41, 59, 0.9);
+    background: rgba(13, 20, 32, 0.95);
     padding: 10px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.3);
 }
 .terminal-title {
     font-family: 'JetBrains Mono', monospace;

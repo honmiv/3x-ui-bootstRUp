@@ -1166,9 +1166,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     total_stages = "3" if deploy_mode == "cascade_sub" else "2"
 
-    log("=========================================", "info")
-    log(f"[STAGE 1/{total_stages}] Deploying foreign server (Freedom Node) on {freedom_host}...", "info")
-    log("=========================================", "info")
+    log("╔════════════════════════════════════════════╗", "info")
+    log(f"║ [STAGE 1/{total_stages}] FREEDOM NODE (Foreign Server)    ║", "info")
+    log("╠════════════════════════════════════════════╣", "info")
+    log(f"║ CURRENTLY DEPLOYING: {freedom_host:35} ║", "info")
+    log("╚════════════════════════════════════════════╝", "info")
     freedom_env = {
         "DOMAIN": freedom_host,
         "EMAIL": email,
@@ -1187,7 +1189,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
-    log("[OK] Foreign server (Freedom Node) deployed successfully!", "success")
+    log("", "success")
+    log("✅ [STAGE 1 COMPLETE] Freedom Node deployed successfully!", "success")
+    log("", "success")
     freedom_xui_url, freedom_clients = parse_deployment_results(out1)
 
     freedom_sub_url = ""
@@ -1197,9 +1201,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         freedom_sub_url = f"https://{freedom_host}/{derive_sub_path(freedom_secret)}/{freedom_client}"
     log(f"Cascade subscription URL generated for client '{freedom_client}'.", "info")
 
-    log("=========================================", "info")
-    log(f"[STAGE 2/{total_stages}] Deploying local server (Proxy Node) on {proxy_host}...", "info")
-    log("=========================================", "info")
+    log("╔════════════════════════════════════════════╗", "info")
+    log(f"║ [STAGE 2/{total_stages}] PROXY NODE (Local Server)       ║", "info")
+    log("╠════════════════════════════════════════════╣", "info")
+    log(f"║ CURRENTLY DEPLOYING: {proxy_host:35} ║", "info")
+    log("╚════════════════════════════════════════════╝", "info")
     proxy_env = {
         "DOMAIN": proxy_host,
         "EMAIL": email,
@@ -1219,6 +1225,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
+    log("", "success")
+    log("✅ [STAGE 2 COMPLETE] Proxy Node deployed successfully!", "success")
+    log("", "success")
     parsed_xui_url, parsed_clients = parse_deployment_results(out2) if ok2 else ("", [])
     proxy_web_path = hashlib.md5(f"{proxy_secret}-panel".encode('utf-8')).hexdigest()[:16]
     final_xui_url = parsed_xui_url or f"https://{proxy_host}/{proxy_web_path}/"
@@ -1242,9 +1251,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     }
 
     if deploy_mode == "cascade_sub":
-        log("=========================================", "info")
-        log(f"[STAGE 3/3] Deploying Subscription Server...", "info")
-        log("=========================================", "info")
+        log("╔════════════════════════════════════════════╗", "info")
+        log("║ [STAGE 3/3] SUBSCRIPTION SERVER (Relay)   ║", "info")
+        log("╠════════════════════════════════════════════╣", "info")
+        log(f"║ CURRENTLY DEPLOYING: {config.get('sub_vps_host', '').strip():35} ║", "info")
+        log("╚════════════════════════════════════════════╝", "info")
 
         sub_host = config.get("sub_vps_host", "").strip()
         sub_port = int(config.get("sub_vps_port", 22))
@@ -1292,6 +1303,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}
 
+        log("", "success")
+        log("✅ [STAGE 3 COMPLETE] Subscription Server deployed successfully!", "success")
+        log("", "success")
+
         base_sub_url = f"https://{sub_domain}/{sub_secret_path}"
         result_data["sub_domain"] = sub_domain
         result_data["sub_secret_path"] = sub_secret_path
@@ -1302,8 +1317,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         for cl in parsed_clients:
             cl["sub_server_url"] = f"{base_sub_url}/{cl['name']}"
 
-    log("=========================================", "success")
-    log("🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!", "success")
+    log("╔════════════════════════════════════════════╗", "success")
+    log("║         🎉 ALL STAGES COMPLETED! 🎉         ║", "success")
+    log("╚════════════════════════════════════════════╝", "success")
+    log("", "success")
     log(f"Panel 1 (Freedom Node): {freedom_final_xui_url}", "success")
     log(f"  - Admin User: {freedom_xui_user}", "success")
     log(f"  - Admin Password: ••••••••", "success")

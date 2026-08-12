@@ -1974,11 +1974,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const initProgressIndicator = (hasSub = false) => {
+        const stage1 = document.getElementById('stage1');
+        const stage2 = document.getElementById('stage2');
+        const stage3 = document.getElementById('stage3');
+        const connector23 = document.getElementById('connector23');
+        
+        if (stage1) stage1.classList.add('active');
+        if (stage2) stage2.classList.remove('active', 'completed');
+        if (stage3) {
+            if (hasSub) {
+                stage3.classList.remove('hidden');
+                if (connector23) connector23.classList.remove('hidden');
+            } else {
+                stage3.classList.add('hidden');
+                if (connector23) connector23.classList.add('hidden');
+            }
+        }
+        
+        const infoText = document.getElementById('currentStageInfo');
+        if (infoText) {
+            infoText.innerHTML = '<span class="info-icon">🚀</span><span class="info-text">STAGE 1: Развертывание Freedom Node...</span>';
+        }
+    };
+
+    const updateProgressIndicator = (message) => {
+        const stage1 = document.getElementById('stage1');
+        const stage2 = document.getElementById('stage2');
+        const stage3 = document.getElementById('stage3');
+        const connector12 = document.querySelector('.progress-stages .progress-connector');
+        const connector23 = document.getElementById('connector23');
+        const infoText = document.getElementById('currentStageInfo');
+        
+        if (!infoText) return;
+
+        // Stage 1 Detection
+        if (message.includes('STAGE 1') && message.includes('FREEDOM NODE')) {
+            if (stage1) stage1.classList.add('active');
+            infoText.innerHTML = '<span class="info-icon">🚀</span><span class="info-text">STAGE 1: Развертывание Freedom Node...</span>';
+        }
+
+        // Stage 1 Complete
+        if (message.includes('STAGE 1 COMPLETE')) {
+            if (stage1) {
+                stage1.classList.remove('active');
+                stage1.classList.add('completed');
+            }
+            if (connector12) connector12.classList.add('completed');
+        }
+
+        // Stage 2 Detection
+        if (message.includes('STAGE 2') && message.includes('PROXY NODE')) {
+            if (stage2) stage2.classList.add('active');
+            infoText.innerHTML = '<span class="info-icon">⚙️</span><span class="info-text">STAGE 2: Развертывание Proxy Node...</span>';
+        }
+
+        // Stage 2 Complete
+        if (message.includes('STAGE 2 COMPLETE')) {
+            if (stage2) {
+                stage2.classList.remove('active');
+                stage2.classList.add('completed');
+            }
+            if (connector23 && !connector23.classList.contains('hidden')) {
+                connector23.classList.add('completed');
+            }
+        }
+
+        // Stage 3 Detection
+        if (message.includes('STAGE 3') && message.includes('SUBSCRIPTION SERVER')) {
+            if (stage3) stage3.classList.add('active');
+            infoText.innerHTML = '<span class="info-icon">📦</span><span class="info-text">STAGE 3: Развертывание Subscription Server...</span>';
+        }
+
+        // Stage 3 Complete
+        if (message.includes('STAGE 3 COMPLETE')) {
+            if (stage3) {
+                stage3.classList.remove('active');
+                stage3.classList.add('completed');
+            }
+        }
+
+        // All stages complete
+        if (message.includes('ALL STAGES COMPLETED')) {
+            infoText.innerHTML = '<span class="info-icon">✅</span><span class="info-text">Все этапы завершены успешно!</span>';
+        }
+    };
+
     const appendLog = (message, level = 'info') => {
         const line = document.createElement('div');
         line.className = `log-line ${level}`;
         line.textContent = message;
         terminalLogs.appendChild(line);
+
+        // Update progress indicator based on log message
+        updateProgressIndicator(message);
 
         if (!isUserScrolledUp) {
             terminalLogs.scrollTop = terminalLogs.scrollHeight;
@@ -2210,6 +2299,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Show progress indicator for cascade deployments
+            const progressContainer = document.getElementById('deployProgressContainer');
+            if ((mode === 'cascade' || mode === 'cascade_sub') && progressContainer) {
+                progressContainer.classList.remove('hidden');
+                initProgressIndicator(mode === 'cascade_sub');
+            }
+
             const eventSource = new EventSource('/api/deploy/logs');
             eventSource.onmessage = (event) => {
                 const item = JSON.parse(event.data);
@@ -2251,6 +2347,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnStopDeploy.disabled = false;
                     btnStopDeploy.textContent = '🛑 Остановить развертывание';
                 }
+                // Hide progress indicator
+                const progressContainer = document.getElementById('deployProgressContainer');
+                if (progressContainer) {
+                    progressContainer.classList.add('hidden');
+                }
                 appendLog('[CANCEL] Процесс остановлен пользователем.', 'warning');
                 return;
             }
@@ -2261,6 +2362,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (btnStartDeploy) btnStartDeploy.classList.remove('hidden');
                 if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
+
+                // Hide progress indicator
+                const progressContainer = document.getElementById('deployProgressContainer');
+                if (progressContainer) {
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                    }, 1500);
+                }
 
                 const summaryCard = document.getElementById('summaryCard');
                 const panelsContainer = document.getElementById('panelsContainer');

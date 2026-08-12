@@ -1251,6 +1251,39 @@
                             развертывание</button>
                     </div>
 
+                    <!-- Deploy Progress Indicator -->
+                    <div class="deploy-progress-container hidden" id="deployProgressContainer">
+                        <div class="progress-stages">
+                            <div class="progress-stage" id="stage1">
+                                <div class="stage-dot"></div>
+                                <div class="stage-label">
+                                    <div class="stage-title">STAGE 1</div>
+                                    <div class="stage-name">Freedom Node</div>
+                                </div>
+                            </div>
+                            <div class="progress-connector"></div>
+                            <div class="progress-stage" id="stage2">
+                                <div class="stage-dot"></div>
+                                <div class="stage-label">
+                                    <div class="stage-title">STAGE 2</div>
+                                    <div class="stage-name">Proxy Node</div>
+                                </div>
+                            </div>
+                            <div class="progress-connector hidden" id="connector23"></div>
+                            <div class="progress-stage hidden" id="stage3">
+                                <div class="stage-dot"></div>
+                                <div class="stage-label">
+                                    <div class="stage-title">STAGE 3</div>
+                                    <div class="stage-name">Sub Server</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="current-stage-info" id="currentStageInfo">
+                            <span class="info-icon">🚀</span>
+                            <span class="info-text">Подготовка к развертыванию...</span>
+                        </div>
+                    </div>
+
                     <div class="terminal-container">
                         <div class="terminal-header">
                             <div class="terminal-title">Консоль удаленного развертывания</div>

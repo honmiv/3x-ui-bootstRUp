@@ -168,7 +168,7 @@ def save_backup_config(data: Dict[str, Any]):
         lines.append("\n")
 
         lines.append("sub_server:\n")
-        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients", "sub_admin_user"]:
+        for k in ["sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_auth_type", "sub_domain", "sub_secret_path", "sub_russian_url", "sub_foreign_url", "sub_proxy_clients", "sub_freedom_clients"]:
             if k in data:
                 lines.append(f"  {k}: {fmt_val(data[k])}\n")
         lines.append("\n")

@@ -667,6 +667,26 @@ def save_nodes(nodes=None):
         f.write("\n")
 
 
+def nodes_file_is_empty(path):
+    """Return whether the node file is missing or contains no JSON data.
+
+    LEGACY: remove this migration and the environment fallback one month
+    after the commit that introduced nodes.json, once existing deployments
+    have had time to migrate.
+
+    setup.sh creates nodes.json with ``touch`` for new installations. Treat
+    that empty file as a legacy configuration that should be migrated from
+    the environment-backed node URLs.
+    """
+    if not os.path.exists(path):
+        return True
+    try:
+        with open(path, encoding="utf-8") as f:
+            return not f.read().strip()
+    except OSError:
+        return False
+
+
 def all_clients():
     return {client for node in NODES for client in node["clients"]}
 
@@ -1322,10 +1342,12 @@ def main():
     global SUBS, FORCE_SUBS, NODES
     SUBS = load_subs(DATABASE_FILE)
     FORCE_SUBS = load_force_subs(FORCE_FILE)
+    migrate_nodes = nodes_file_is_empty(NODES_FILE)
     NODES = load_nodes(NODES_FILE, SUBS)
-    if not os.path.exists(NODES_FILE):
+    if migrate_nodes:
         try:
             save_nodes()
+            log.info("migrated node configuration from environment to %s", NODES_FILE)
         except OSError as exc:
             log.warning("could not persist initial node configuration: %s", exc)
     log.info("listening on %s:%s, path prefix /%s, db %s", HOST, PORT, SECRET_SUB_PATH, DATABASE_FILE)

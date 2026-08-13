@@ -1206,6 +1206,31 @@ collect_results() {
     done
 }
 
+print_json_results() {
+    echo "===RESULT_JSON_START==="
+    local clients_items=()
+    local i
+    for i in "${!RESULTS_CLIENTS[@]}"; do
+        clients_items+=("$(jq -n \
+            --arg name "${RESULTS_CLIENTS[$i]}" \
+            --arg sub "${RESULTS_SUB_URLS[$i]}" \
+            --arg tcp "${RESULTS_TCP_URLS[$i]:-}" \
+            --arg xhttp "${RESULTS_XHTTP_URLS[$i]:-}" \
+            '{name: $name, sub_url: $sub, tcp_url: $tcp, xhttp_url: $xhttp}')")
+    done
+    
+    local clients_payload="[]"
+    if [ ${#clients_items[@]} -gt 0 ]; then
+        clients_payload=$(printf '%s\n' "${clients_items[@]}" | jq -s '.')
+    fi
+    
+    jq -n \
+        --arg url "https://${DOMAIN}/${XUI_WEB_BASE_PATH}/" \
+        --argjson clients "${clients_payload}" \
+        '{panel_url: $url, clients: $clients}'
+    echo "===RESULT_JSON_END==="
+}
+
 print_results() {
     section "$MSG_RESULTS_TITLE"
     echo -e "${GREEN}${MSG_SETUP_DONE}${NC}\n"
@@ -1237,6 +1262,8 @@ print_results() {
             echo
         fi
     done
+
+    print_json_results
 }
 
 main() {

@@ -32,35 +32,35 @@ def get_bundle_bytes() -> bytes:
     return buf.getvalue()
 
 def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]]]:
-    clients = []
-    current_client = None
-    xui_url = ""
     lines = output_text.splitlines()
+    start_idx = -1
+    end_idx = -1
     for i, line in enumerate(lines):
         line = line.strip()
-        if "3x-UI" in line or "panel is available at" in line or "панель доступна на" in line:
-            for j in range(i+1, min(i+5, len(lines))):
-                candidate = lines[j].strip()
-                if candidate.startswith("https://") or candidate.startswith("http://"):
-                    xui_url = candidate
-                    break
-        if (line.startswith("Client:") or line.startswith("Клиент:")) and "Docker Engine" not in line:
-            if current_client:
-                clients.append(current_client)
-            cname = line.split(":", 1)[1].strip()
-            current_client = {"name": cname, "sub_url": "", "tcp_url": "", "xhttp_url": ""}
-        elif current_client:
-            if line.startswith("https://") or line.startswith("http://"):
-                if not current_client["sub_url"]:
-                    current_client["sub_url"] = line
-            elif line.startswith("vless://"):
-                if "type=xhttp" in line:
-                    current_client["xhttp_url"] = line
-                else:
-                    current_client["tcp_url"] = line
-    if current_client:
-        clients.append(current_client)
-    return xui_url, clients
+        if "===RESULT_JSON_START===" in line:
+            start_idx = i
+        elif "===RESULT_JSON_END===" in line:
+            end_idx = i
+            break
+            
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        json_content = "\n".join(lines[start_idx + 1:end_idx]).strip()
+        try:
+            data = json.loads(json_content)
+            xui_url = data.get("panel_url", "")
+            clients = []
+            for c in data.get("clients", []):
+                clients.append({
+                    "name": c.get("name", ""),
+                    "sub_url": c.get("sub_url", ""),
+                    "tcp_url": c.get("tcp_url", ""),
+                    "xhttp_url": c.get("xhttp_url", "")
+                })
+            return xui_url, clients
+        except Exception:
+            pass
+
+    return "", []
 
 
 def derive_sub_path(secret: str) -> str:
@@ -151,6 +151,7 @@ class SSHDeployer:
                 proc.stdin.close()
 
             output_lines = []
+            in_json_block = False
             while True:
                 if self.cancel_check and self.cancel_check():
                     try:
@@ -175,8 +176,15 @@ class SSHDeployer:
                 decoded = strip_ansi(line.decode('utf-8', errors='replace')).rstrip()
                 if decoded:
                     output_lines.append(decoded)
-                    if log_callback:
+                    
+                    if "===RESULT_JSON_START===" in decoded:
+                        in_json_block = True
+                        
+                    if log_callback and not in_json_block and "===RESULT_JSON_END===" not in decoded:
                         log_callback(decoded)
+                        
+                    if "===RESULT_JSON_END===" in decoded:
+                        in_json_block = False
             await proc.wait()
             return proc.returncode or 0, "\n".join(output_lines)
         except Exception as e:

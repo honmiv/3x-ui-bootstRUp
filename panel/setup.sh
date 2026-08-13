@@ -266,17 +266,17 @@ install_packages() {
 
     case "$pm" in
         apt)
-            apt-get update && apt-get install -y curl jq openssl qrencode iproute2 procps coreutils gawk grep sed || die "$MSG_DEP_ERR"
+            apt-get update && apt-get install -y curl ca-certificates jq openssl qrencode iproute2 procps coreutils gawk grep sed || die "$MSG_DEP_ERR"
             ;;
         dnf|yum)
             if ! $pm repolist | grep -q "epel"; then
                 $pm install -y epel-release || true
                 $pm makecache || true
             fi
-            $pm install -y curl jq openssl qrencode iproute procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
+            $pm install -y curl ca-certificates jq openssl qrencode iproute procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
             ;;
         pacman)
-            pacman -Sy --noconfirm curl jq openssl qrencode iproute2 procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
+            pacman -Sy --noconfirm curl ca-certificates jq openssl qrencode iproute2 procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
             ;;
         *)
             die "$(printf "$MSG_UNSUPPORTED_PM" "${REQUIRED_CMDS[*]}")"

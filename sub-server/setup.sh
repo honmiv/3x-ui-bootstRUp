@@ -83,9 +83,9 @@ install_missing_deps() {
         local pm
         pm=$(get_package_manager)
         case "$pm" in
-            apt)     apt-get update && apt-get install -y curl iproute2 || die "Failed to install system dependencies." ;;
-            dnf|yum) $pm install -y curl iproute || die "Failed to install system dependencies." ;;
-            pacman)  pacman -Sy --noconfirm curl iproute2 || die "Failed to install system dependencies." ;;
+            apt)     apt-get update && apt-get install -y curl ca-certificates iproute2 || die "Failed to install system dependencies." ;;
+            dnf|yum) $pm install -y curl ca-certificates iproute || die "Failed to install system dependencies." ;;
+            pacman)  pacman -Sy --noconfirm curl ca-certificates iproute2 || die "Failed to install system dependencies." ;;
             *)       die "Could not determine package manager." ;;
         esac
     fi

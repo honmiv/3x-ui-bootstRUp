@@ -259,54 +259,6 @@ class SSHDeployer:
             return 1, err_msg
 
 
-async def _ensure_remote_docker(deployer: SSHDeployer, log: Callable[[str, str], None]) -> tuple[bool, str]:
-    if deployer.cancel_check and deployer.cancel_check():
-        return False, "Cancelled by user"
-
-    rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
-    if rc == 0:
-        await deployer.exec_command("systemctl start docker 2>/dev/null || true; systemctl enable docker 2>/dev/null || true", lambda m: log(m, "info"))
-        return True, "Docker is already installed"
-
-    if deployer.cancel_check and deployer.cancel_check():
-        return False, "Cancelled by user"
-
-    log("Checking package manager status on remote server...", "info")
-    wait_lock_cmd = (
-        "while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1 || pgrep -x 'apt-get|dpkg|unattended-upgr' >/dev/null 2>&1; do "
-        "  echo '[..] Package manager is locked by system process. Waiting 5 seconds...'; "
-        "  sleep 5; "
-        "done"
-    )
-    rc, out = await deployer.exec_command(wait_lock_cmd, lambda m: log(m, "info"))
-    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
-        return False, out or "Cancelled by user"
-
-    log("Installing Docker using official get.docker.com script...", "info")
-    install_docker_cmd = "curl -fsSL https://get.docker.com | sh"
-    rc, out = await deployer.exec_command(install_docker_cmd, lambda m: log(m, "info"))
-    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
-        err_msg = f"Failed to install Docker: {out}"
-        log(f"[ERROR] {err_msg}", "error")
-        return False, err_msg
-
-    log("Configuring Docker daemon & registry mirrors...", "info")
-    mirror_cmd = (
-        "mkdir -p /etc/docker && "
-        "echo '{\"registry-mirrors\": [\"https://dh-mirror.gitverse.ru\"]}' > /etc/docker/daemon.json && "
-        "systemctl daemon-reload 2>/dev/null || true; "
-        "systemctl start docker && systemctl enable docker"
-    )
-    rc, out = await deployer.exec_command(mirror_cmd, lambda m: log(m, "info"))
-    if rc != 0 or (deployer.cancel_check and deployer.cancel_check()):
-        return False, out or "Cancelled by user"
-
-    rc, _ = await deployer.exec_command("which docker", lambda m: log(m, "info"))
-    if rc != 0:
-        return False, "Docker installation completed but 'docker' binary was not found in PATH."
-
-    return True, "Docker installed successfully"
-
 
 async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: Callable[[str, str], None]) -> tuple[bool, str, float]:
     """Create a backup archive on the remote server, download it locally via SCP, and clean up.
@@ -424,12 +376,6 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             log(f"SSH test failed for {host}: {msg}", "error")
             return False, ""
 
-        log(f"Checking and installing Docker on {host}...", "info")
-        ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
-        if not ok_doc:
-            log(f"[ERROR] Docker setup failed on {host}: {doc_msg}", "error")
-            return False, ""
-
         log(f"Syncing local files to {host}...", "info")
         bundle_bytes = get_bundle_bytes()
         sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
@@ -458,12 +404,6 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
         ok, msg = await deployer.test_connection()
         if not ok:
             log(f"SSH test failed for Subscription Server {host}: {msg}", "error")
-            return False, ""
-
-        log(f"Checking and installing Docker on {host}...", "info")
-        ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
-        if not ok_doc:
-            log(f"[ERROR] Docker setup failed on Subscription Server {host}: {doc_msg}", "error")
             return False, ""
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
@@ -599,12 +539,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             ok, msg = await deployer.test_connection()
             if not ok:
                 log(f"[ERROR] SSH connection failed: {msg}", "error")
-                return False, {}
-
-            log(f"Checking and installing dependencies and Docker on {host}...", "info")
-            ok_doc, doc_msg = await _ensure_remote_docker(deployer, log)
-            if not ok_doc:
-                log(f"[ERROR] Docker setup failed: {doc_msg}", "error")
                 return False, {}
 
             log(f"Syncing local tool files to {host}...", "info")

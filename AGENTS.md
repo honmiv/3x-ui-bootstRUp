@@ -10,7 +10,9 @@ category: architecture
 
 **3x-UI BootstRUp** is a sophisticated cross-platform infrastructure-as-code tool for deploying and managing multi-node proxy networks (3x-UI panels). It automates the deployment of XRay-based VPN/proxy infrastructure with cascading node architectures, subscription management, and centralized administration.
 
-**Target Use Case**: Users in regions with internet restrictions who need to deploy multi-region proxy cascades.
+### Business Problem & Goal (Бизнес-задача)
+**The Problem**: Users in regions with strict internet censorship (like Russia, Iran, China) face deep packet inspection (DPI) and active probing that blocks standard VPNs. Direct connections to foreign servers are often detected and blocked.
+**The Solution**: 3x-UI BootstRUp automates the complex deployment of multi-node proxy networks that resist DPI. By routing traffic through a domestic "proxy" node (which looks like normal domestic traffic to ISPs) and then tunneling to a foreign "freedom" node, it bypasses restrictions. The project abstracts this complex Docker, Caddy, and XRay configuration behind a simple, local web interface so non-technical administrators can deploy censorship-resistant infrastructure in minutes.
 
 **Key Capabilities**:
 - Deploy XRay proxy panels to remote VPS servers via SSH
@@ -32,7 +34,7 @@ category: architecture
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  3x-UI BootstRUp Control Panel (localhost:8000)             ││
 │  │  ┌──────────────────┐              ┌──────────────────┐    ││
-│  │  │  Web UI (HTML)   │ ←→ ←→ ←→ ←→ │ main.py (Flask) │    ││
+│  │  │  Web UI (HTML)   │ ←→ ←→ ←→ ←→ │ main.py (http.server) │ │
 │  │  │ • Forms          │  (HTTP)      │ • Routes        │    ││
 │  │  │ • Logs (SSE)     │              │ • State mgmt    │    ││
 │  │  └──────────────────┘              └────────┬─────────┘    ││
@@ -82,8 +84,9 @@ main.py (Orchestrator)
   └─→ Maintenance Operations
       ├─→ backup_panel / recovery_panel
       ├─→ update_3xui
-      ├─→ restart_panel / restart_sub
-      └─→ backup_sub / rollback_sub
+      ├─→ restart_panel / restart_server / restart_sub
+      ├─→ update_sub / backup_sub / rollback_sub
+      └─→ update_sources (git pull on remote)
 ```
 
 ---
@@ -95,14 +98,22 @@ main.py (Orchestrator)
 **Files**: `main.py`, `ssh_deployer.py`, `setup_backup.yml`, `servers.json`
 
 #### main.py - HTTP Server & Orchestrator
-- **Role**: Entry point, HTTP server (port 8000), UI routing, deployment dispatch
+- **Role**: Entry point, HTTP server (127.0.0.1:8000 via `http.server.ThreadingHTTPServer`), UI routing, deployment dispatch
 - **Key Functions**:
   - Serves web UI (HTML/CSS/JS from `panel/static/`)
   - Routes POST requests from forms to `ssh_deployer` functions
-  - Manages session state between deployments
-  - Streams real-time logs to UI via Server-Sent Events (SSE)
-  - Loads/saves deployment configurations in YAML format
-
+  - Manages session state between deployments (globals `active_logs`, `is_deploying`, `deploy_status`, `deploy_result`, `cancel_requested`)
+  - Streams real-time logs to UI via Server-Sent Events (SSE) at `/api/deploy/logs`
+  - Loads/saves deployment configurations in YAML format (`setup_backup.yml`)
+  - `fetch_xui_versions()`: fetches available 3x-ui Docker tags from ghcr.io (token + tags API, 300s cache) for the version dropdown
+- **API Endpoints**:
+  - `GET/POST /api/config` - load/save form state (passwords and `*_key` stripped)
+  - `GET /api/xui_versions`, `GET /api/backups`, `GET /api/status`
+  - `GET/POST /api/servers`, `DELETE /api/servers/reset` - saved VPS profiles
+  - `POST /api/deploy`, `GET /api/deploy/logs` (SSE), `POST /api/deploy/stop` - run/cancel deployments
+  - `POST /api/ssh/test` - pre-flight SSH connection test
+  - `POST /api/update_sources` - git pull on remote
+  - `POST /api/restart`, `POST /api/shutdown` - restart/shutdown the local control panel
 - **When to Look Here**:
   - Adding new web form endpoints
   - Changing UI routing or log streaming behavior
@@ -112,20 +123,24 @@ main.py (Orchestrator)
 #### ssh_deployer.py - Remote Execution Engine
 - **Role**: Core deployment logic, SSH/SCP operations, remote command execution
 - **Key Functions**:
-  - `SSHDeployer` class: Async SSH connection manager
-  - `exec_command()`: Execute remote shell commands with logging
-  - `upload_file()` / `download_file()`: File transfers
-  - `run_deployment()`: Master orchestration function (handles all 8 deployment modes)
+  - `SSHDeployer` class: Async SSH/SCP wrapper that shells out to the system `ssh`/`scp` binaries (password auth via `SSH_ASKPASS`; optional private key)
+  - `exec_command()`: Execute remote shell commands with logging; supports `stdin_data` streaming (used to upload files/bundles)
+  - `download_file()`: SCP download from the remote host
+  - `get_bundle_bytes()`: Builds a tar.gz of the whole repo (excludes `.git`, `.python_env`, `__pycache__`, `panel/static`, `*.pyc`, `setup_backup.yml`) that is streamed to the remote `/opt/3x-ui-bootstRUp` directory
+  - `parse_deployment_results()`: Extracts panel URL + client subscriptions (sub/tcp/xhttp) from setup.sh output
+  - `run_deployment()`: Master orchestration function (handles all deployment modes)
 
 - **Deployment Modes** (handled in `run_deployment()`):
-  1. **single** - Deploy one panel (freedom or proxy)
+  1. **single** - Deploy one standalone panel (node type `custom`, no RU blocking)
   2. **cascade** - Deploy two panels (freedom → proxy with subscription URL)
-  3. **cascade_subscription** - Deploy panels + subscription server
+  3. **cascade_sub** - Deploy panels + subscription server (3 stages)
   4. **sub_only** - Deploy only subscription server
-  5. **backup** - Download remote ./working/ directory
-  6. **recovery** - Restore from backup, auto-replace domain
-  7. **update** - Upgrade 3x-ui version (backs up first)
-  8. **restart_panel**, **restart_server**, **restart_sub** - Service restart
+  5. **proxy_only** / **freedom_only** / **freedom_component** - Deploy a single cascade component (useful when a node was banned)
+  6. **backup** - Create remote ./working/ archive, download to ./backups_panel/
+  7. **recovery** - Restore from backup, auto-replace domain
+  8. **update_3xui** - Upgrade 3x-ui version (creates pre-update backup first)
+  9. **restart_panel** / **restart_server** - Restart panel containers or reboot the VPS
+  10. **restart_sub** / **update_sub** / **backup_sub** / **rollback_sub** - Subscription server maintenance
 
 - **When to Look Here**:
   - Debugging SSH/connection issues
@@ -136,40 +151,39 @@ main.py (Orchestrator)
 
 #### setup_backup.yml - Session Persistence
 - **Role**: Store deployment form data between sessions
-- **Format**: YAML with sections per deployment node
+- **Format**: YAML with sections per deployment mode (secrets stripped, see Code Patterns below)
 - **Example Structure**:
   ```yaml
+  common:
+    deploy_mode: cascade
+    vps_host: 1.2.3.4
+    vps_port: 22
+    vps_user: root
+    vps_auth_type: password
+
   freedom_node:
     host: 1.2.3.4
     port: 22
     username: root
-    password: secret
     domain: freedom.example.com
-    
+
   proxy_node:
     host: 5.6.7.8
     port: 22
     username: root
-    password: secret
     domain: proxy.example.com
     foreign_sub_url: https://freedom.example.com/subs
-    
-  sub_server:
-    host: 9.10.11.12
-    port: 22
-    username: root
-    password: secret
-    domain: sub.example.com
   ```
+  **Important**: passwords and `*_key` fields are stripped by `save_backup_config()` on every save — credentials are never persisted.
 
 - **When to Look Here**:
   - Resuming incomplete deployments
   - Modifying form state persistence
   - Debugging configuration loading/saving
 
-#### servers.json - Saved VPS Profiles
+#### servers.json - Saved VPS Profiles (PIN-encrypted)
 - **Role**: Quick-select list of previously configured servers
-- **Format**: JSON array of server credential objects
+- **Format**: JSON object with credentials encrypted via PBKDF2 (100k iterations) + AES-GCM under a user-set PIN; plaintext never stored
 - **When to Look Here**:
   - Adding server profile management features
   - Changing credential encryption or storage
@@ -185,13 +199,12 @@ main.py (Orchestrator)
 ```
 panel/
 ├── setup.sh              # Remote deployment script (runs on VPS)
-├── restart.sh            # (Optional) Remote restart script
 ├── static/               # Web UI assets for local control panel
 │   ├── index.html        # Main dashboard
 │   ├── app.js            # Frontend logic (forms, logs, state)
 │   └── style.css         # Dashboard styling
-└── templates/            # Configuration templates (Jinja-like syntax)
-    ├── users.yml.template         # (Optional) Initial users for 3x-ui
+└── templates/            # Configuration templates ({{VARIABLE}} syntax)
+    ├── users.yml         # (Optional) Initial users for 3x-ui
     └── 3x-ui/
     │   ├── vless-tcp-reality.template    # Inbound protocol config
     │   └── vless-xhttp-reality.template  # Alternative protocol
@@ -199,45 +212,59 @@ panel/
     │   └── Caddyfile.template    # Reverse proxy config
     ├── docker-compose/
     │   ├── docker-compose.yml.template   # Service definitions
-    │   ├── Dockerfile-caddy-l4           # Custom Caddy with Reality support
-    │   └── Dockerfile-nginx              # Nginx decoy server Dockerfile
+    │   └── Dockerfile-caddy-l4           # Custom Caddy with Reality (L4) support
     └── nginx-decoy/
         ├── default.conf.template  # Nginx reverse proxy config
         └── html/                  # Decoy website assets
             ├── index.html, access.html, operations.html, status.html, robots.txt
-            └── style.css
+            ├── style.css
             └── errors/            # Error pages (400, 403, 404, 405, 50x)
 ```
 
 #### panel/setup.sh - Remote Deployment Script
 - **Role**: Runs on remote VPS, configures the entire panel deployment
+- **Key Constants**: `PANEL_CONTAINER="3xui"`, `PANEL_API_PORT="2053"` (3x-UI web/API port), `REQUIRED_CMDS` (curl, jq, openssl, ss, qrencode, pgrep, base64, md5sum, awk, grep, sed)
 - **Execution Flow**:
-  1. Validate prerequisites (root access, Docker installed)
+  1. Validate prerequisites (root access, Docker installed, required commands)
   2. Create working directory structure (./working/)
-  3. Process templates (substitute variables via envsubst/sed)
-  4. Generate configs in ./working/
-  5. Build and start Docker services
-  6. Wait for SSL certificate (up to 300s)
-  7. Output subscription URLs and admin credentials
-
+  3. Generate random ports (49152–65535) for `XUI_WEB_PORT`, `XUI_SUB_PORT`, `CADDY_GLOBAL_INTERNAL_PORT`, `TCP_REALITY_INBOUND_PORT`, `XHTTP_REALITY_INBOUND_PORT`
+  4. Derive hidden admin web base path and subscription path from `SECRET_PHRASE` (md5 → 16 hex chars)
+  5. Generate Reality keypair via `docker run ghcr.io/xtls/xray-core x25519`
+  6. Process templates (substitute variables via sed)
+  7. Configure 3x-UI through its HTTP API (admin/admin + CSRF token): login, create two inbounds (`vless-tcp-reality` id 1, `vless-xhttp-reality` id 2), set admin credentials
+  8. Build and start Docker services (3xui, caddy, nginx-decoy)
+  9. Wait for SSL certificate (up to 300s)
+  10. Output subscription URLs and admin credentials
+- **Node Types** (via `NODE_TYPE_CHOICE`):
+  - `freedom` - Blocks `geoip:ru` / `geosite:category-ru` in XRay routing (for foreign nodes)
+  - `proxy` - Routes foreign traffic via `outbound-subs` API (client traffic goes freedom node → internet)
+  - `custom` - Standalone single node with no RU blocking
 - **Environment Variables** (passed from main.py):
   ```bash
   # Core config
   DOMAIN                    # e.g., proxy.example.com
-  SECRET_PATH               # e.g., subs or secret123
-  DECOY_PORT               # e.g., 80 or 8080
-  XUI_INBOUND_PORT         # e.g., 443 (Reality protocol port)
-  XUI_VERSION              # e.g., 1.7.5 (Docker image tag)
+  XUI_VERSION               # e.g., 1.7.5 (Docker image tag)
   
-  # Subscription URLs (for cascade deployments)
-  FOREIGN_SUB_URL          # URL to foreign node's subscription endpoint
+  # Random ports (generated if not provided)
+  XUI_WEB_PORT              # 3x-UI web UI internal port
+  XUI_SUB_PORT              # subscription service internal port
+  CADDY_GLOBAL_INTERNAL_PORT # Caddy https_port (e.g., 2000)
+  TCP_REALITY_INBOUND_PORT  # VLESS TCP Reality inbound port
+  XHTTP_REALITY_INBOUND_PORT # VLESS XHTTP Reality inbound port
+  
+  # Secrets & clients
+  SECRET_PHRASE            # Used to derive hidden web base path + sub path (md5)
+  CLIENTS_TCP_LIST         # Space-separated client UUIDs for TCP inbound
+  CLIENTS_XHTTP_LIST       # Space-separated client UUIDs for XHTTP inbound
+  
+  # Cascade configuration
+  CASCADE_CHOICE           # e.g., "true"/"false" (whether sub path is enabled)
+  NODE_TYPE_CHOICE         # freedom | proxy | custom
+  FOREIGN_SUB_URL          # URL to foreign node's subscription endpoint (proxy node only)
   
   # Admin credentials
-  ADMIN_USER               # e.g., admin
-  ADMIN_PASSWORD           # Auto-generated if not provided
-  
-  # Security/TLS
-  CERT_EMAIL              # For Let's Encrypt (e.g., admin@example.com)
+  USERNAME                 # e.g., admin
+  USER_PASSWORD            # Auto-generated if not provided
   ```
 
 - **When to Look Here**:
@@ -249,62 +276,62 @@ panel/
 
 #### panel/templates/ - Configuration Templates
 
-All templates use `{{VARIABLE}}` placeholder syntax (processed by envsubst on remote):
+All templates use `{{VARIABLE}}` placeholder syntax (processed by sed on remote; the vars are exported env vars, see panel/setup.sh):
 
 **Caddyfile.template**
 - **Purpose**: Caddy reverse proxy configuration
 - **Key Sections**:
-  - Email for Let's Encrypt: `{{CERT_EMAIL}}`
-  - Reverse proxy rules for 3x-UI (internal port 2053)
-  - Layer 4 proxy for Reality protocol (TCP port {{XUI_INBOUND_PORT}})
-  - HTTP/HTTPS routing to Nginx decoy
+  - Email for Let's Encrypt: `3xui@{{DOMAIN}}` (ZeroSSL + Let's Encrypt)
+  - `https_port {{CADDY_GLOBAL_INTERNAL_PORT}}` + `auto_https disable_redirects` (L4 mode)
+  - Layer 4 proxy on `:443` → `3xui:{{TCP_REALITY_INBOUND_PORT}}` (VLESS TCP Reality)
+  - HTTP `:80` → nginx-decoy (defeats active probing)
+  - HTTPS routing: `@sub_path` → 3xui subscription port, `@web_base_path` (hidden base path) → 3xui web port, everything else → nginx-decoy
 - **Key Variables**:
   - `{{DOMAIN}}` - Public domain name
-  - `{{XUI_INBOUND_PORT}}` - Reality protocol listening port
-  - `{{CADDY_INTERNAL_PORT}}` - Internal Caddy port for admin API
+  - `{{TCP_REALITY_INBOUND_PORT}}` - Reality protocol inbound port
+  - `{{CADDY_GLOBAL_INTERNAL_PORT}}` - Internal Caddy https_port
+  - `{{XUI_SUB_PORT}}`, `{{XUI_WEB_PORT}}` - 3x-UI internal ports
 
 **docker-compose.yml.template**
-- **Purpose**: Define all Docker services and networking
+- **Purpose**: Define all Docker services and networking (network `3xui-caddy-net`)
 - **Services**:
-  - `3x-ui` - Main XRay panel (port 2053)
-  - `caddy` - Custom reverse proxy (port 80, 443)
-  - `nginx-decoy` - Fake website server (internal port)
-- **Volumes**:
-  - `./working/3x-ui/db/` - XRay configuration database
-  - `./working/caddy/` - Caddy config and SSL certificates
-  - `./working/nginx/` - Nginx config and static files
+  - `3xui` - Main XRay panel (image `ghcr.io/mhsanaei/3x-ui:{{XUI_VERSION}}`, volume `./working/3x-ui/db/:/etc/x-ui/`, env `XRAY_VMESS_AEAD_FORCED="false"`, `XUI_ENABLE_FAIL2BAN="true"`)
+  - `caddy` - Custom reverse proxy `ghcr.io/honmiv/caddy-l4:latest` (ports 80, 443; Caddyfile from `./working/caddy/Caddyfile`; depends on both services)
+  - `nginx-decoy` - Fake website server (image `nginx:1.27-alpine`, static files from `./working/nginx-decoy/`)
 - **Key Variables**:
   - `{{XUI_VERSION}}` - Docker image tag for 3x-UI
   - All environment variables from setup.sh passed through
 
 **nginx-decoy/default.conf.template**
-- **Purpose**: Nginx configuration for decoy website
+- **Purpose**: Nginx configuration for decoy website (static-only; all proxying is done by Caddy)
 - **Key Features**:
-  - Serves static HTML under `./working/nginx/html/`
-  - Reverse proxies /admin paths to 3x-UI backend (security measure)
-  - Custom 404/5xx error pages
+  - Serves static HTML under `./working/nginx-decoy/html/`
+  - Blocks `CONNECT` requests (return 444) and URL-in-request-target (return 400)
+  - Returns 404 for any host other than `{{DOMAIN}}` (via `map $host $known_decoy_host`)
+  - Custom 400/403/404/405/50x error pages (`/errors/*`)
 - **Key Variables**:
   - `{{DOMAIN}}` - Server name directive
-  - `{{DECOY_PORT}}` - Listen port for Nginx
 
 **3x-ui/vless-tcp-reality.template & vless-xhttp-reality.template**
-- **Purpose**: XRay inbound protocol configurations
+- **Purpose**: XRay inbound protocol configurations (loaded into 3x-UI via its API, not as static files)
 - **Key Settings**:
-  - Reality protocol settings (private key, public key, server name)
-  - VLESS protocol handlers
-  - Port binding ({{XUI_INBOUND_PORT}})
+  - VLESS + Reality (private key, public key, serverName `{{DOMAIN}}`)
+  - TCP inbound: tag `in-{{TCP_REALITY_INBOUND_PORT}}-tcp`, reality target `127.0.0.1:{{XHTTP_REALITY_INBOUND_PORT}}`, externalProxy `forceTls` same destination `{{DOMAIN}}:443`
+  - XHTTP inbound: network `xhttp`, mode `auto`, `xPaddingBytes "100-1000"`, reality target `caddy:{{CADDY_GLOBAL_INTERNAL_PORT}}`, path `/`, host `{{DOMAIN}}`
+  - `shortIds` passed as JSON arrays (`{{TCP_REALITY_SHORT_IDS_JSON_ARRAY}}`, `{{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}}`)
 - **When to Modify**: Adding new protocol support or tweaking Reality settings
 
 #### Docker Service Architecture (Panel)
 ```
 Freedom/Proxy Node Docker Services:
 ┌─────────────────────────────────────┐
-│ Docker Network: panel-caddy-net     │
+│ Docker Network: 3xui-caddy-net      │
 ├─────────────────────────────────────┤
 │                                     │
 │  ┌────────────────┐                 │
 │  │    3x-ui       │                 │
-│  │ • Port 2053    │                 │
+│  │ • Ports 2053,  │                 │
+│  │   2001-65535   │                 │
 │  │ • XRay core    │                 │
 │  │ • Proxy rules  │                 │
 │  └────────────────┘                 │
@@ -343,14 +370,16 @@ Freedom/Proxy Node Docker Services:
 #### Sub-Server Structure
 ```
 sub-server/
-├── server.py             # Python Flask app (subscription server)
+├── server.py             # Python http.server app (subscription server)
 ├── setup.sh              # Remote deployment script
 ├── restart.sh            # Remote restart script
-├── subs.yml              # Client database (manually edited or auto-generated)
+├── subs.yml              # (Legacy) Client database, migrated to nodes.json
 ├── force-subs.yml        # Custom subscription overrides (auto-managed)
+├── nodes.json            # Node registry: [{id, name, url, clients[]}] (auto-managed)
 └── templates/
-    ├── docker-compose.yml.template  # Service definitions
-    ├── Dockerfile-python            # Python 3.12 image
+    ├── docker-compose/
+    │   ├── docker-compose.yml.template  # Service definitions
+    │   └── Dockerfile-python            # Python 3.12 image
     └── caddy/
         └── Caddyfile.template       # Reverse proxy config
 ```
@@ -363,41 +392,43 @@ Client Browser
     ↓ HTTPS
 Caddy (Port 443)
     ↓ HTTP
-subs-server (Port 8000)
+subs-server (Port 8080, Docker port 8000)
     ├─→ Check force-subs.yml for override
-    ├─→ Lookup client in subs.yml
-    ├─→ Route to RUSSIAN_SUB_URL or FOREIGN_SUB_URL
+    ├─→ Lookup client in nodes.json (node registry)
+    ├─→ Fetch from that node's subscription URL: {node.url}/{client}
     └─→ Return subscription content or custom override
 ```
 
 **Endpoints**:
 | Path | Method | Purpose | Auth | Notes |
 |------|--------|---------|------|-------|
-| `/{SECRET_SUB_PATH}` | GET | Admin dashboard | Yes | Web UI, shows all clients |
+| `/{SECRET_SUB_PATH}` | GET | Admin dashboard | Yes | Web UI, shows all nodes/clients; `?raw=1` returns plain list |
 | `/{SECRET_SUB_PATH}/login` | GET/POST | Admin login | No | Session cookie set on success |
 | `/{SECRET_SUB_PATH}/logout` | GET | Clear session | No | Removes session cookie |
 | `/{SECRET_SUB_PATH}/<client_name>` | GET | Subscription request | No | Returns vless:// config |
 | `/{SECRET_SUB_PATH}/api/override` | POST | Set/clear override | Yes | Modifies force-subs.yml |
+| `/{SECRET_SUB_PATH}/api/client` | POST | Add/remove client | Yes | Modifies nodes.json |
+| `/{SECRET_SUB_PATH}/api/node` | POST | Add/remove node | Yes | Modifies nodes.json |
 
 **Client Routing Logic**:
 1. Admin POSTs override → stored in force-subs.yml
 2. Client requests subscription:
    - Check `force-subs.yml` first → if found, return it directly
-   - Lookup client in `subs.yml`:
-     - If in `proxy` section → fetch from `RUSSIAN_SUB_URL`
-     - If in `freedom` section → fetch from `FOREIGN_SUB_URL`
+   - Look up client via `find_client_node()` in `nodes.json` registry
+   - Fetch subscription from the owning node: `{node['url']}/{client}` (e.g., proxy node → RUSSIAN_SUB_URL, freedom node → FOREIGN_SUB_URL)
    - Return subscription content (or 404 if not found)
 
 **Key Features**:
 - **Web UI Dashboard**:
-  - Collapsible sections (proxy clients, freedom clients, overrides)
+  - Collapsible sections (proxy nodes, freedom nodes, overrides)
   - QR codes (toggleable) for each subscription URL
   - Copy buttons with visual feedback
   - Override editor with inline base64 encoding
   - Dark theme, responsive design
+  - `?raw=1` mode returns a plain newline-separated subscription list (useful for curl/clients)
   
 - **Authentication**:
-  - Session cookie: HMAC-SHA256 signed, 12-hour TTL
+  - Session cookie: HMAC-SHA256 signed, 12-hour TTL (`AUTH_SESSION_TTL`)
   - Timing-safe comparison (constant-time verification)
   - HTTPS-only, SameSite=Lax, path-scoped
   - HTTP Basic Auth also supported
@@ -409,13 +440,20 @@ subs-server (Port 8000)
 
 **Environment Variables** (passed from main.py):
 ```bash
+DATABASE_FILE            # Path to subs.yml (legacy client db), e.g. ./subs.yml
+FORCE_FILE               # Path to force-subs.yml (overrides), e.g. ./force-subs.yml
+NODES_FILE               # Path to nodes.json (node registry), e.g. ./nodes.json
 SECRET_SUB_PATH          # e.g., subs or secret123
 DOMAIN                   # e.g., sub.example.com
 RUSSIAN_SUB_URL          # e.g., https://proxy-node/subs
 FOREIGN_SUB_URL          # e.g., https://freedom-node/subs
+PUBLIC_URL               # Optional; if unset, derived from X-Forwarded-Proto/Host
 ADMIN_USER              # e.g., admin
 ADMIN_PASSWORD          # Auto-generated or provided
 AUTH_SESSION_SECRET     # Defaults to ADMIN_PASSWORD
+AUTH_SESSION_TTL        # Seconds, default 43200 (12h)
+HOST                     # Listen host, default 0.0.0.0
+PORT                     # Listen port, default 8080 (Docker maps 8000)
 LOG_LEVEL              # INFO, DEBUG (default: INFO)
 ```
 
@@ -429,9 +467,12 @@ LOG_LEVEL              # INFO, DEBUG (default: INFO)
 #### sub-server/setup.sh - Remote Deployment Script
 - **Role**: Deploy subscription server to remote VPS
 - **Execution Flow**:
-  1. Validate Docker/dependencies
-  2. Create ./working directory structure
-  3. Generate subs.yml from environment variables:
+  1. Validate Docker/dependencies (root, docker compose plugin, curl)
+  2. `validate_update_state()`: if `UPDATE_SUB_SERVER=1`, keep existing subs.yml/force-subs.yml/nodes.json
+  3. `load_existing_update_values()`: in update mode, restore SECRET_SUB_PATH, RUSSIAN_SUB_URL, FOREIGN_SUB_URL, ADMIN_USER/PASSWORD, DOMAIN from existing ./working/ configs
+  4. Reset ./working directory (compose down first if needed)
+  5. Prompt for domain, sub path, subscription URLs, admin credentials (env vars pre-fill)
+  6. Generate subs.yml from environment variables:
      ```yaml
      proxy:
        - client1
@@ -439,13 +480,14 @@ LOG_LEVEL              # INFO, DEBUG (default: INFO)
      freedom:
        - freedom-user
      ```
-  4. Process templates (Caddyfile, docker-compose.yml)
-  5. Build and start Docker services (Caddy + Python server)
-  6. Wait for SSL certificate (Let's Encrypt)
+  7. Process templates (Caddyfile, docker-compose.yml) via `generate_config()` + sed substitution
+  8. Build and start Docker services (`compose up -d --build`)
+  9. Wait for SSL certificate (Let's Encrypt, up to 300s)
 
 **Key Environment Variables**:
 - `PROXY_CLIENTS` - Space-separated client list for Russian node
 - `FREEDOM_CLIENTS` - Space-separated client list for foreign node
+- `UPDATE_SUB_SERVER` - `1` preserves existing client/node config (used by `update_sub` mode)
 
 #### sub-server/subs.yml - Client Database
 ```yaml
@@ -464,7 +506,7 @@ freedom:
 **Management**: 
 - Auto-generated by setup.sh from environment variables
 - Can be manually edited after deployment
-- Changes take effect immediately (server reloads on access)
+- **Legacy**: At startup, `load_subs()` parses subs.yml and `default_nodes()` builds the `nodes.json` registry from these lists + RUSSIAN_SUB_URL / FOREIGN_SUB_URL; the registry is then the source of truth (see `load_nodes()` fallback logic)
 
 #### sub-server/force-subs.yml - Subscription Overrides
 ```yaml
@@ -536,8 +578,9 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 
 **Maintenance Operations**:
 - `restart_sub` - Restart containers via ./restart.sh
-- `backup_sub` - Backup subs.yml, force-subs.yml, Caddyfile, SSL certs
-- `rollback_sub` - Restore from backup archive
+- `update_sub` - One-click update: creates a full pre-update backup (subs.yml, force-subs.yml, nodes.json, Caddyfile, SSL certs), then redeploys preserving client/node/override data; aborts if backup fails
+- `backup_sub` - Backup subs.yml, force-subs.yml, nodes.json, Caddyfile, SSL certs
+- `rollback_sub` - Restore from backup archive (incl. nodes.json)
 
 ---
 
@@ -548,15 +591,16 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 | Variable | Example | Usage | Source |
 |----------|---------|-------|--------|
 | `{{DOMAIN}}` | proxy.example.com | Caddy server_name, Let's Encrypt email | User input (form) |
-| `{{SECRET_PATH}}` | subs | Subscription endpoint path | User input (form) |
-| `{{DECOY_PORT}}` | 80 or 8080 | Nginx listen port | User input (form) |
-| `{{XUI_INBOUND_PORT}}` | 443 | Reality protocol TCP port | User input (form) |
+| `{{XUI_WEB_PORT}}` | 2053 | 3x-UI web UI internal port | Random (49152–65535) |
+| `{{XUI_SUB_PORT}}` | 2053+1 | 3x-UI subscription internal port | Random (49152–65535) |
+| `{{XUI_WEB_BASE_PATH}}` | a1b2c3d4e5f60718 | Hidden admin web base path | Derived from SECRET_PHRASE (md5) |
+| `{{XUI_SUB_PATH}}` | subs | Subscription endpoint path | Derived from SECRET_PHRASE (md5) |
+| `{{CADDY_GLOBAL_INTERNAL_PORT}}` | 2000 | Caddy `https_port` (internal) | Random (49152–65535) |
+| `{{TCP_REALITY_INBOUND_PORT}}` | 52113 | VLESS TCP Reality inbound port | Random (49152–65535) |
+| `{{TCP_REALITY_SHORT_IDS_JSON_ARRAY}}` | ["abcd"] | TCP inbound shortIds (JSON) | Auto-generated |
+| `{{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}}` | ["abcd"] | XHTTP inbound shortIds (JSON) | Auto-generated |
 | `{{XUI_VERSION}}` | 1.7.5 | 3x-UI Docker image tag | User input (form) |
-| `{{CERT_EMAIL}}` | admin@example.com | Let's Encrypt email | Derived from DOMAIN |
 | `{{FOREIGN_SUB_URL}}` | https://freedom/subs | Subscription URL (for proxy node) | Previous deployment |
-| `{{ADMIN_USER}}` | admin | 3x-UI admin username | User input (form) |
-| `{{ADMIN_PASSWORD}}` | (auto) | 3x-UI admin password | Auto-generated or user input |
-| `{{CADDY_INTERNAL_PORT}}` | 2000 | Internal Caddy admin API port | Calculated |
 
 ### Sub-Server Template Variables
 
@@ -610,69 +654,141 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 
 ---
 
+### Frontend Technical Specifics (Особенности работы фронтенда)
+1. **Validation & Mandatory Fields (`REQUIRED_FIELDS`)**:
+   - The frontend enforces declarative validation logic in `panel/static/app.js` via the `REQUIRED_FIELDS` array.
+   - Fields are dynamically validated based on the selected deployment mode (e.g., `cascade`, `single`, `sub_only`, `proxy_only`, `freedom_only`, `freedom_component`, `update_3xui`, `recovery`, `backup`, `restart_panel`, `restart_server`, and sub-server operations).
+   - Supports both single-field checks and group-based rules (e.g., `mode: 'any'` ensures at least one field in a group is populated, such as requiring either `sub_russian_url` or `sub_foreign_url` for `sub_only` / `cascade_sub`).
+   - Multi-step validation: Checks are organized by wizard steps (Step 1: Mode selection, Step 2: VPS SSH credentials, Step 3: Node & Subscription parameters). The form prevents submission if any required field is missing or invalid.
+   - Dynamic authentication validation: Dynamically validates either SSH password or SSH private key depending on the chosen `auth_type` (`password` vs `key`).
+
+2. **Debounced Background State Saving (`setup_backup.yml`)**: 
+   - **Debounce Timer**: On every form input and configuration change, a 500ms debounce timer (`debounceAutoSave`) triggers a background `POST /api/config` request to persist user inputs.
+   - **Accordion State Persistence**: Persists not only input values, but also UI state such as open/closed accordions (`ui_open_categories`: `category-full`, `category-single`, `category-maintenance`).
+   - **State Restoration (`loadBackupConfig`)**: On page load, `GET /api/config` fetches the saved state, re-populates inputs, selects active deployment modes, restores accordion visibility, and sets the proper auth type selectors.
+   - **Security Filter (Secret Stripping)**: In `main.py` (`save_backup_config`), the backend strictly filters the payload before writing to `setup_backup.yml` — all keys containing `"password"` or ending in `"_key"` are stripped. Passwords and private keys are never stored in plaintext on disk.
+
+3. **Saved VPS Profiles Manager (PIN-encrypted `servers.json`)**: 
+   - The UI includes a slide-out "Servers" drawer to save and reload server credentials for any host role (`proxy_host`, `freedom_host`, `sub_vps_host`, `vps_host`, `backup_vps_host`, etc.).
+   - Security: Uses client-side PBKDF2 (100,000 iterations) + AES-GCM encryption with a user-defined PIN. Plaintext credentials never hit the filesystem.
+   - Endpoints: `GET /api/servers` (reads encrypted vault), `POST /api/servers` (saves encrypted vault), `DELETE /api/servers/reset` (resets vault).
+
+4. **Real-time Log Streaming & Process Control (SSE)**: 
+   - Long-running operations (deployment, recovery, backups, updates) stream `stdout`/`stderr` line-by-line via Server-Sent Events (`GET /api/deploy/logs`).
+   - Frontend creates an `EventSource`, color-codes log messages by level (`INFO`, `WARN`, `ERROR`, `SUCCESS`), and auto-scrolls the terminal output.
+   - Cancellation: `POST /api/deploy/stop` signals the backend `cancel_requested` flag, which aborts active SSH subprocesses cleanly and alerts the UI.
+
+5. **Pre-flight SSH Connection Testing (`/api/ssh/test`)**:
+   - Each host entry card in Step 2 features a "Test Connection" button.
+   - Sends a lightweight probe to `POST /api/ssh/test` with host, port, user, and credentials to verify connectivity and auth before committing to a full deployment.
+
+6. **Asynchronous Version & Backup Fetching**:
+   - `GET /api/xui_versions`: Fetches available 3x-ui Docker tags from ghcr.io (cached for 300s) and dynamically populates version dropdowns in the UI.
+   - `GET /api/backups`: Scans `./backups_panel/` and populates the backup selection dropdown for the recovery mode.
+
+7. **Custom Non-blocking UI Modals & Toasts**: 
+   - Browser-native `window.alert` and `window.confirm` are replaced in `app.js` with custom DOM-based components (`showAlert`, `showConfirm`, `showToast`).
+   - Keeps the UI non-blocking and visually aligned with the dark theme during long background operations.
+
+8. **Dynamic Visual Topology Rendering**: 
+   - Dynamically renders an interactive topology diagram showing traffic flow (Client → Domestic Proxy → Freedom Node → Internet) based on the currently selected `deploy_mode`.
+
+---
+
+### Infrastructure Problem-Solving Patterns (Паттерны технических решений)
+1. **Caddy L4 SNI Multiplexing + Nginx Decoy Active-Probe Defense**: 
+   - *Problem*: Active probing scanners connect to port 443 with TLS handshakes or HTTP requests to detect proxy signatures (e.g., GFW/RKN active probes).
+   - *Solution*: Caddy operates in Layer 4 mode on port 443 with SNI passthrough. Legitimate VLESS Reality traffic matches Reality keys and is handled by XRay, while regular HTTPS and HTTP port 80 traffic falls back to `nginx-decoy` serving a genuine static website with valid TLS certificates, headers, and custom error pages.
+
+2. **Cascade Tunneling Pattern (Russian Proxy + Foreign Freedom)**: 
+   - *Problem*: Direct connections from domestic users to foreign servers are throttled or blocked by domestic DPI.
+   - *Solution*: A two-tier cascade:
+     - Tier 1 (Russian Proxy Node): Deployed on a domestic VPS; routes foreign destinations through an XRay outbound subscription to the Freedom Node. Domestic traffic stays in-country.
+     - Tier 2 (Foreign Freedom Node): Deployed outside censorship boundaries; unblocks global internet while blocking direct `.ru` traffic via XRay routing rules.
+     - Result: Domestic ISPs only see domestic TLS traffic between the user and the Russian node.
+
+3. **Self-Contained SSH Tarball Streaming**:
+   - *Problem*: Remote VPS nodes may have minimal OS installations, restricted repositories, or lack `git`/Python environments.
+   - *Solution*: The local deployment engine builds an in-memory `.tar.gz` bundle of the necessary repository scripts and templates (`get_bundle_bytes()`) and pipes it directly over SSH standard input (`exec_command(stdin_data=...)`) to `tar -xzf - -C /opt/3x-ui-bootstRUp`. No `git clone` or external dependencies required on the target VPS.
+
+4. **Dynamic Domain Migration & Auto-Recovery**:
+   - *Problem*: If a VPS domain is blocked by DNS filtering or SNI blocking, recovering from a backup on a new domain traditionally requires manual database edits.
+   - *Solution*: In `recovery` mode, the orchestrator unpacks the `./working/` archive on the VPS and runs regex substitutions across 3x-UI SQLite databases, Caddyfiles, and Nginx configurations, seamlessly replacing the old domain with the new domain before restarting containers.
+
+5. **Decoupled Centralized Subscription Server**:
+   - *Problem*: Exposing direct panel subscription links can lead to panel discovery, credential leaks, or hardcoded client config lock-in.
+   - *Solution*: A standalone Python/Caddy `sub-server` acts as an abstraction proxy. It maintains a `nodes.json` registry and client routing table. When a client requests their subscription, the sub-server fetches and transforms the upstream config on-the-fly, supports instant per-client overrides via `force-subs.yml`, and provides an isolated admin panel with HMAC session authentication.
+
+---
+
 ## Code Patterns & Conventions
 
 ### Async SSH Pattern
 ```python
-# In ssh_deployer.py
-async with SSHDeployer(host, port, user, password) as deployer:
-    # Execute command with log callback
-    success, output = await deployer.exec_command(
-        "echo 'Hello'",
-        log_callback=lambda msg: print(msg)
+# In ssh_deployer.py — the SSHDeployer wraps the system ssh/scp binaries
+# (password auth via SSH_ASKPASS; optional private key), not paramiko.
+async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+    # Execute a remote command with a log callback
+    rc, output = await deployer.exec_command(
+        "cd /opt/3x-ui-bootstRUp && bash panel/setup.sh",
+        log_callback=lambda msg: log(msg, "info")
     )
-    
-    # Transfer file
-    success = await deployer.upload_file(
-        local_path="./config.yml",
-        remote_path="/tmp/config.yml",
-        log_callback=lambda msg: print(msg)
+
+    # Stream binary data (e.g. the repo tar.gz bundle) to a remote command's stdin
+    rc, out = await deployer.exec_command(
+        "mkdir -p /opt/3x-ui-bootstRUp && tar -xzf - -C /opt/3x-ui-bootstRUp",
+        log_callback=lambda m: log(m, "info"),
+        stdin_data=bundle_bytes,
     )
+
+    # Download a file via SCP
+    rc_scp, scp_out = await deployer.download_file("/tmp/backup.tar.gz", local_path, log_callback)
 ```
 
 ### Template Processing
 ```bash
-# In setup.sh (remote)
-# Input: templates/Caddyfile.template with {{DOMAIN}}, {{PORT}}
-# Output: ./working/Caddyfile with values substituted
-
-envsubst < /tmp/Caddyfile.template > ./working/Caddyfile
-# OR
-sed "s|{{DOMAIN}}|$DOMAIN|g; s|{{PORT}}|$PORT|g" /tmp/Caddyfile.template > ./working/Caddyfile
+# In panel/setup.sh / sub-server/setup.sh (remote)
+# generate_config() copies ./panel/templates → ./working, then substitutes
+# {{VARIABLE}} placeholders in *.template files via sed (not envsubst).
+apply_template_values() {
+    local target_path="$1"
+    sed -i \
+       -e "s|{{DOMAIN}}|${DOMAIN}|g" \
+       -e "s|{{SECRET_SUB_PATH}}|${SECRET_SUB_PATH}|g" \
+       -e "s|{{ADMIN_USER}}|${ADMIN_USER}|g" \
+       "$target_path"
+}
 ```
 
 ### Logging Pattern
 ```python
-# In main.py
-@app.route('/api/deploy', methods=['POST'])
-def deploy():
-    def log(message, level="INFO"):
-        # Send to all connected SSE clients
-        yield f"data: {json.dumps({'level': level, 'message': message})}\n\n"
-    
-    # Use in deployment
-    asyncio.run(ssh_deployer.run_deployment(..., log_callback=log))
+# In main.py (http.server, not Flask)
+def log(self, message, level="INFO"):
+    # Broadcast to all connected SSE clients (GET /api/deploy/logs)
+    yield f"data: {json.dumps({'level': level, 'message': message})}\n\n"
 ```
 
 ### Cross-Platform Script Handling
 ```python
-# In main.py/ssh_deployer.py
-# Detect OS and use appropriate script variant
-if platform.system() == "Windows":
-    script = "start_deployment.bat"
-elif platform.system() == "Darwin":  # macOS
-    script = "start_deployment.sh"
-else:  # Linux
-    script = "start_deployment.sh"
+# In main.py — cli_script_path() picks the launcher variant per OS
+def cli_script_path(base_name: str) -> str:
+    if platform.system() == "Windows":
+        return f"./{base_name}.cmd"
+    if platform.system() == "Darwin":
+        return f"./{base_name}.sh"
+    return f"./{base_name}.sh"
+# Launchers: start_3x_ui_deployment_manager, update_sources, panel_backup,
+# panel_recover, panel_update (each has .sh / .ps1 / .cmd variants)
 ```
 
 ### Configuration Persistence
 ```yaml
-# setup_backup.yml structure
+# setup_backup.yml structure — secrets are NEVER stored
+# save_backup_config() strips any field containing "password" or ending "_key"
 freedom_node:
   host: 1.2.3.4
   port: 22
-  # ... persist all form fields
+  # ... persist all form fields (except passwords and *_key)
 
 proxy_node:
   host: 5.6.7.8
@@ -688,15 +804,16 @@ proxy_node:
 1. main.py receives form submission
 2. Validates inputs
 3. Calls ssh_deployer.run_deployment(mode="single" or "cascade")
-4. ssh_deployer creates SSHDeployer connection
-5. Uploads panel/setup.sh to remote /tmp/
-6. Executes: bash /tmp/setup.sh (with env vars)
-7. setup.sh processes templates → generates ./working/ configs
-8. setup.sh builds Docker services
-9. Docker Compose starts services
-10. Wait for Let's Encrypt certificate
-11. Return subscription URLs and credentials
-12. main.py displays results to UI
+4. ssh_deployer creates SSHDeployer connection + test_connection()
+5. Ensures Docker on remote (_ensure_remote_docker)
+6. Streams repo tar.gz via exec_command(stdin_data) → /opt/3x-ui-bootstRUp
+7. Executes: cd /opt/3x-ui-bootstRUp && ENV_VARS bash panel/setup.sh
+8. setup.sh processes templates → generates ./working/ configs
+9. setup.sh configures 3x-UI via its HTTP API and builds Docker services
+10. Docker Compose starts services
+11. Wait for Let's Encrypt certificate (300s)
+12. parse_deployment_results() extracts subscription URLs
+13. main.py displays results to UI
 ```
 
 ### Cascade Subscription Deployment
@@ -731,12 +848,12 @@ Recovery:
 
 ### SSH Authentication
 - **Methods**: Password or private key-based
-- **Storage**: Credentials in setup_backup.yml (local only, should be encrypted)
+- **Storage**: Passwords and private keys are never persisted — `save_backup_config()` strips any field containing "password" or ending in `_key` from `setup_backup.yml`; saved VPS profiles in `servers.json` are encrypted (PBKDF2 + AES-GCM under a user PIN)
 - **Validation**: Pre-flight test_connection() before each deployment
 
 ### 3x-UI Admin Access
 - **Credentials**: Stored in 3x-UI SQLite database
-- **Access**: Via Caddy reverse proxy on port 443
+- **Access**: Via Caddy reverse proxy on port 443 (hidden web base path derived from SECRET_PHRASE)
 - **Default user**: Created during setup.sh execution
 
 ### Sub-Server Admin Access
@@ -792,7 +909,7 @@ Recovery:
 This project implements a **sophisticated deployment orchestration system** with:
 - **Dual-tier architecture**: Local control plane + remote nodes
 - **Template-driven configuration**: Centralized config generation
-- **Multi-deployment modes**: 8 different deployment strategies
+- **Multi-deployment modes**: 8+ different deployment strategies (single, cascade, cascade_sub, sub_only, per-node deploy, backup/recovery, updates, restarts)
 - **Optional subscription management**: Centralized multi-node proxy routing
 - **Cross-platform support**: Windows, macOS, Linux CLI
 

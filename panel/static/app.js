@@ -791,19 +791,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-        } else if (mode === 'restart_sub') {
+        } else if (mode === 'restart_sub' || mode === 'update_sub') {
+            const subStageTitle = mode === 'update_sub' ? 'Обновление Сервера подписок' : 'Перезапуск Сервера подписок';
+            const subArrowFirst = mode === 'update_sub' ? 'Бэкап &' : 'docker compose';
+            const subArrowSecond = mode === 'update_sub' ? 'up -d --build' : 'down / up';
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">Перезапуск Сервера подписок</div>
+                    <div class="topology-stage-title">${subStageTitle}</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">💻</span>
                             <span class="node-title">Локальный ПК</span>
-                            <span class="node-desc">SSH команда</span>
+                            <span class="node-desc">${mode === 'update_sub' ? 'Бэкап & файлы' : 'SSH команда'}</span>
                         </div>
                         <div class="topology-arrow">
-                            <span class="arrow-label">docker compose</span>
-                            <span class="arrow-label">down / up</span>
+                            <span class="arrow-label">${subArrowFirst}</span>
+                            <span class="arrow-label">${subArrowSecond}</span>
                             <span>➔</span>
                         </div>
                         <div class="topology-node configurable">
@@ -891,9 +894,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'restart_server') {
             title = '3. Перезагрузка сервера';
             desc = 'Проверьте параметры и запустите перезагрузку сервера.';
-        } else if (mode === 'restart_sub') {
-            title = '3. Перезапуск Сервера подписок';
-            desc = 'Проверьте параметры и запустите перезапуск Сервера подписок.';
+        } else if (mode === 'restart_sub' || mode === 'update_sub') {
+            title = mode === 'update_sub' ? '3. Обновление Сервера подписок' : '3. Перезапуск Сервера подписок';
+            desc = mode === 'update_sub'
+                ? 'Файлы будут обновлены, а клиенты, ноды и overrides сохранены.'
+                : 'Проверьте параметры и запустите перезапуск Сервера подписок.';
         } else if (mode === 'backup_sub') {
             title = '3. Параметры бэкапа Сервера подписок';
             desc = 'Задайте имя файла бэкапа (опционально).';
@@ -924,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const restartPanelSection = document.getElementById('restartPanelSection');
         const restartServerSection = document.getElementById('restartServerSection');
         const restartSubSection = document.getElementById('restartSubSection');
+        const updateSubSection = document.getElementById('updateSubSection');
         const backupSubSection = document.getElementById('backupSubSection');
         const rollbackSubSection = document.getElementById('rollbackSubSection');
         const subOnlyTargetGroup = document.getElementById('subOnlyTargetGroup');
@@ -931,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const subWarningText = document.getElementById('subWarningText');
         const devModeWarning = document.getElementById('devModeWarning');
         const devModeWarningStep1 = document.getElementById('devModeWarningStep1');
-        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub';
+        const isDevMode = mode === 'proxy_only' || mode === 'sub_only' || mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub';
 
         if (devModeWarning) {
             devModeWarning.classList[isDevMode ? 'remove' : 'add']('hidden');
@@ -952,12 +958,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (restartPanelSection) restartPanelSection.classList.add('hidden');
         if (restartServerSection) restartServerSection.classList.add('hidden');
         if (restartSubSection) restartSubSection.classList.add('hidden');
+        if (updateSubSection) updateSubSection.classList.add('hidden');
         if (backupSubSection) backupSubSection.classList.add('hidden');
         if (rollbackSubSection) rollbackSubSection.classList.add('hidden');
 
         const topologySection = document.getElementById('topologySection');
         if (topologySection) {
-            if (mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+            if (mode === 'backup' || mode === 'recovery' || mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
                 topologySection.classList.add('hidden');
             } else {
                 topologySection.classList.remove('hidden');
@@ -1007,6 +1014,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
             if (subOnlyTargetGroup) subOnlyTargetGroup.classList.remove('hidden');
+        } else if (mode === 'update_sub') {
+            singleNodeSection.classList.add('hidden');
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.remove('hidden');
+            if (updateSubSection) updateSubSection.classList.remove('hidden');
+            if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
+            if (singlePanelSection) singlePanelSection.classList.add('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
         } else if (mode === 'backup') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
@@ -1051,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'update_3xui' && updatePanelSection) updatePanelSection.classList.remove('hidden');
             if (mode === 'restart_panel' && restartPanelSection) restartPanelSection.classList.remove('hidden');
             if (mode === 'restart_server' && restartServerSection) restartServerSection.classList.remove('hidden');
-        } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+        } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.remove('hidden');
@@ -1060,7 +1076,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
-            if (mode === 'restart_sub' && restartSubSection) restartSubSection.classList.remove('hidden');
+            if (mode === 'restart_sub' && restartSubSection) {
+                restartSubSection.classList.remove('hidden');
+            }
+            if (mode === 'update_sub') {
+                if (updateSubSection) updateSubSection.classList.remove('hidden');
+            }
             if (mode === 'backup_sub' && backupSubSection) backupSubSection.classList.remove('hidden');
             if (mode === 'rollback_sub' && rollbackSubSection) rollbackSubSection.classList.remove('hidden');
             if (mode === 'rollback_sub') fetchBackupList('backups_sub_server');
@@ -1839,7 +1860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         testResult.className = 'test-result error';
                         testResult.textContent = `❌ ${res.message}`;
                     }
-                } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+                } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
                     const host = document.getElementById('sub_vps_host').value.trim();
                     const port = parseInt(document.getElementById('sub_vps_port').value) || 22;
                     const user = document.getElementById('sub_vps_user').value.trim() || 'root';
@@ -2247,9 +2268,9 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'vps_user', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите SSH пользователя VPS сервера' },
 
         // --- Sub-server: host / port / user ---
-        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
-        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
-        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
+        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
+        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
+        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
 
         // --- Backup: host / port / user ---
         { id: 'backup_vps_host', step: 2, modes: ['backup'], message: 'Укажите домен сервера для бэкапа' },
@@ -2458,7 +2479,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'update_3xui') {
                 payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
             }
-        } else if (mode === 'restart_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
+        } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
             payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
             payload.sub_vps_user = document.getElementById('sub_vps_user').value.trim() || 'root';
@@ -2523,6 +2544,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBadgeStatus('Обновление 3X-UI панели...', '#f59e0b', true);
         } else if (mode === 'restart_sub') {
             updateBadgeStatus('Перезапуск Сервера подписок...', '#f59e0b', true);
+        } else if (mode === 'update_sub') {
+            updateBadgeStatus('Обновление Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'backup_sub') {
             updateBadgeStatus('Создание бэкапа Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'rollback_sub') {
@@ -2729,12 +2752,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                if (mode === 'restart_sub') {
+                if (mode === 'restart_sub' || mode === 'update_sub') {
                     const clientsSectionEl = document.getElementById('clientsSection');
                     if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
-                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Сервер подписок перезапущен, всё готово!</span></div>';
+                    const backupInfo = mode === 'update_sub' && result.pre_update_backup
+                        ? `<div class="panel-info-line">Pre-update backup: <code>${result.pre_update_backup}</code></div>`
+                        : '';
+                    done.innerHTML = `<div class="panel-info-header"><span class="panel-icon">${mode === 'update_sub' ? '⬆️' : '🔄'}</span><span class="panel-title-text">${mode === 'update_sub' ? 'Сервер подписок обновлён, клиенты и ноды сохранены!' : 'Сервер подписок перезапущен, всё готово!'}</span></div>${backupInfo}`;
                     panelsContainer.appendChild(done);
                     return;
                 }
@@ -2808,7 +2834,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientsContainer.innerHTML = '';
 
                 const clientsList = result.clients || [];
-                if (clientsList.length === 0 && mode !== 'sub_only' && mode !== 'restart_panel' && mode !== 'restart_server' && mode !== 'restart_sub' && mode !== 'backup_sub' && mode !== 'rollback_sub') {
+                if (clientsList.length === 0 && mode !== 'sub_only' && mode !== 'restart_panel' && mode !== 'restart_server' && mode !== 'restart_sub' && mode !== 'update_sub' && mode !== 'backup_sub' && mode !== 'rollback_sub') {
                     const targetDomain = (mode === 'cascade' || mode === 'cascade_sub') ? cfg.proxy_host : (cfg.vps_host || cfg.domain);
                     const fallbackSub = `https://${targetDomain}:2096/${cfg.sub_secret}`;
                     clientsList.push({ name: cfg.xui_username, sub_url: fallbackSub, tcp_url: '', xhttp_url: '' });

@@ -436,6 +436,20 @@
                                             <span class="card-desc">Обновление Docker-образа</span>
                                         </div>
                                     </label>
+                                    <label class="radio-card">
+                                        <input type="radio" name="deploy_mode" value="update_sub"
+                                            id="mode_update_sub">
+                                        <div class="card-content">
+                                            <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                                    height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    style="color: #ef4444">
+                                                    <path d="m5 12 7-7 7 7" />
+                                                    <path d="M12 19V5" />
+                                                </svg> Обновить Sub-Server</span>
+                                            <span class="card-desc">Обновление с сохранением подписок</span>
+                                        </div>
+                                    </label>
                                 </div>
                             </details>
 
@@ -1155,6 +1169,17 @@
                             <div class="section-title">Перезапуск Сервера подписок</div>
                             <p class="step-desc" style="margin-bottom: 12px;">При запуске на удаленном Сервере подписок
                                 будет выполнена команда docker compose down/up (контейнеры subs-server и sub-caddy).</p>
+                        </div>
+                    </div>
+
+                    <!-- Update Sub Server Section -->
+                    <div id="updateSubSection" class="hidden">
+                        <div class="section-block">
+                            <div class="section-title">Обновление Сервера подписок</div>
+                            <p class="step-desc" style="margin-bottom: 12px;">При запуске будет создан полный бэкап
+                                конфигурации в локальную папку <code>./backups_sub_server/</code>, после чего файлы
+                                Сервера подписок будут обновлены и контейнеры subs-server и sub-caddy пересобраны
+                                (docker compose up -d --build). Клиенты, ноды и overrides будут сохранены.</p>
                         </div>
                     </div>
 

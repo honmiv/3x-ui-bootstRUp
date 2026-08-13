@@ -102,6 +102,37 @@ reset_working_dir() {
     success "Working directory ready."
 }
 
+validate_update_state() {
+    [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]] || return 0
+    [[ -f "$SCRIPT_DIR/subs.yml" ]] || die "Cannot update Subscription Server: subs.yml is missing."
+    [[ -f "$SCRIPT_DIR/force-subs.yml" ]] || touch "$SCRIPT_DIR/force-subs.yml"
+    [[ -f "$SCRIPT_DIR/nodes.json" ]] || touch "$SCRIPT_DIR/nodes.json"
+    info "Update mode: preserving subs.yml, force-subs.yml and nodes.json."
+}
+
+load_existing_update_values() {
+    [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]] || return 0
+    local compose_file="./working/docker-compose/docker-compose.yml"
+    local caddy_file="./working/caddy/Caddyfile"
+    local value
+
+    if [[ -f "$compose_file" ]]; then
+        value=$(sed -n 's/^      SECRET_SUB_PATH: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${SECRET_SUB_PATH:-}" || -z "$value" ]] || SECRET_SUB_PATH="$value"
+        value=$(sed -n 's/^      RUSSIAN_SUB_URL: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${RUSSIAN_SUB_URL:-}" || -z "$value" ]] || RUSSIAN_SUB_URL="$value"
+        value=$(sed -n 's/^      FOREIGN_SUB_URL: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${FOREIGN_SUB_URL:-}" || -z "$value" ]] || FOREIGN_SUB_URL="$value"
+        value=$(sed -n 's/^      ADMIN_USER: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${ADMIN_USER:-}" || -z "$value" ]] || ADMIN_USER="$value"
+        value=$(sed -n 's/^      ADMIN_PASSWORD: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${ADMIN_PASSWORD:-}" || -z "$value" ]] || ADMIN_PASSWORD="$value"
+    fi
+    if [[ -f "$caddy_file" && -z "${DOMAIN:-}" ]]; then
+        DOMAIN=$(sed -n 's/^http:\/\/\([^ ]*\) {.*/\1/p' "$caddy_file" | head -n1)
+    fi
+}
+
 prompt_domain() {
     if [[ -n "${DOMAIN:-}" ]] && is_valid_domain "$DOMAIN"; then
         info "Using domain from environment: $DOMAIN"
@@ -275,13 +306,19 @@ print_results() {
 main() {
     check_root
     install_missing_deps
+    validate_update_state
+    load_existing_update_values
     reset_working_dir
 
     prompt_domain
     prompt_sub_path
     prompt_subscription_urls
     prompt_admin
-    create_subs_yml
+    if [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]]; then
+        info "Keeping existing client and node configuration."
+    else
+        create_subs_yml
+    fi
 
     process_templates
     start_containers

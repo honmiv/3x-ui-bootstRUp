@@ -387,6 +387,7 @@ async def _perform_remote_sub_backup(deployer: SSHDeployer, backup_name: str, lo
         "mkdir -p /tmp/sub_server_backup/working\n"
         "[ -f \"sub-server/subs.yml\" ] && cp \"sub-server/subs.yml\" /tmp/sub_server_backup/subs.yml || true\n"
         "[ -f \"sub-server/force-subs.yml\" ] && cp \"sub-server/force-subs.yml\" /tmp/sub_server_backup/force-subs.yml || true\n"
+        "[ -f \"sub-server/nodes.json\" ] && cp \"sub-server/nodes.json\" /tmp/sub_server_backup/nodes.json || true\n"
         "[ -f \"working/caddy/Caddyfile\" ] && cp \"working/caddy/Caddyfile\" /tmp/sub_server_backup/working/Caddyfile || true\n"
         "[ -f \"working/docker-compose/docker-compose.yml\" ] && cp \"working/docker-compose/docker-compose.yml\" /tmp/sub_server_backup/working/docker-compose.yml || true\n"
         "[ -d \".caddy_data\" ] && cp -r \".caddy_data\" /tmp/sub_server_backup/.caddy_data || true\n"
@@ -469,9 +470,17 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
         bundle_bytes = get_bundle_bytes()
         sync_cmd = (
             f"mkdir -p {remote_dir} && "
+            f"if [ \"{env_vars.get('UPDATE_SUB_SERVER', '')}\" = \"1\" ]; then "
+            f"for f in subs.yml force-subs.yml nodes.json; do "
+            f"if [ -f {remote_dir}/sub-server/$f ]; then cp {remote_dir}/sub-server/$f /tmp/sub-server-$f.bak; fi; "
+            f"done; fi && "
             f"if [ -f {remote_dir}/sub-server/force-subs.yml ]; then "
             f"cp {remote_dir}/sub-server/force-subs.yml /tmp/force-subs.yml.bak; fi && "
             f"tar -xzf - -C {remote_dir} && "
+            f"if [ \"{env_vars.get('UPDATE_SUB_SERVER', '')}\" = \"1\" ]; then "
+            f"for f in subs.yml force-subs.yml nodes.json; do "
+            f"if [ -f /tmp/sub-server-$f.bak ]; then cp /tmp/sub-server-$f.bak {remote_dir}/sub-server/$f; rm -f /tmp/sub-server-$f.bak; fi; "
+            f"done; fi && "
             f"if [ -f /tmp/force-subs.yml.bak ]; then "
             f"cp /tmp/force-subs.yml.bak {remote_dir}/sub-server/force-subs.yml && rm -f /tmp/force-subs.yml.bak; fi"
         )
@@ -842,7 +851,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 return True, {"deploy_mode": deploy_mode, "host": host}
 
     # Subscription Server Maintenance Modes: Restart / Backup / Rollback
-    if deploy_mode in ["restart_sub", "backup_sub", "rollback_sub"]:
+    if deploy_mode in ["restart_sub", "update_sub", "backup_sub", "rollback_sub"]:
         sub_host = (config.get("sub_vps_host") or config.get("vps_host") or "").strip()
         sub_port = int(config.get("sub_vps_port") or config.get("vps_port") or 22)
         sub_user = (config.get("sub_vps_user") or config.get("vps_user") or "root").strip()
@@ -887,6 +896,42 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
                 log("✅ Subscription Server restarted successfully!", "success")
                 return True, {"deploy_mode": deploy_mode, "sub_host": sub_host}
+
+            if deploy_mode == "update_sub":
+                import datetime
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                pre_backup_name = f"{sub_host}_pre-update_{now_str}.tar.gz"
+                log("📦 Creating full pre-update backup before changing Subscription Server files...", "info")
+                bk_ok, bk_local_path, file_size_mb = await _perform_remote_sub_backup(
+                    deployer, pre_backup_name, log
+                )
+                if not bk_ok:
+                    log("[ERROR] Update aborted because the pre-update backup could not be created.", "error")
+                    return False, {}
+                log(
+                    f"✅ Pre-update backup saved: ./backups_sub_server/{pre_backup_name} ({file_size_mb} MB)",
+                    "success",
+                )
+
+                sub_env = {
+                    "UPDATE_SUB_SERVER": "1",
+                    # setup.sh reads DOMAIN/path/URLs/admin credentials from the
+                    # existing generated compose/Caddy config in update mode.
+                }
+                log("Updating Subscription Server files and containers; client data will be preserved...", "info")
+                ok_sub, out_sub = await _deploy_sub_server(
+                    sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log,
+                    cancel_check=cancel_check
+                )
+                if not ok_sub:
+                    log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")
+                    return False, {}
+                log("✅ Subscription Server updated successfully; clients and nodes preserved!", "success")
+                return True, {
+                    "deploy_mode": deploy_mode,
+                    "sub_host": sub_host,
+                    "pre_update_backup": f"./backups_sub_server/{pre_backup_name}",
+                }
 
             if deploy_mode == "backup_sub":
                 raw_backup_name = config.get("backup_name", "").strip()
@@ -958,6 +1003,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     "mkdir -p sub-server working/caddy working/docker-compose\n"
                     "[ -f /tmp/sub_restore/subs.yml ] && cp /tmp/sub_restore/subs.yml sub-server/subs.yml || true\n"
                     "[ -f /tmp/sub_restore/force-subs.yml ] && cp /tmp/sub_restore/force-subs.yml sub-server/force-subs.yml || true\n"
+                    "[ -f /tmp/sub_restore/nodes.json ] && cp /tmp/sub_restore/nodes.json sub-server/nodes.json || true\n"
                     "[ -f /tmp/sub_restore/working/Caddyfile ] && cp /tmp/sub_restore/working/Caddyfile working/caddy/Caddyfile || true\n"
                     "[ -f /tmp/sub_restore/working/docker-compose.yml ] && cp /tmp/sub_restore/working/docker-compose.yml working/docker-compose/docker-compose.yml || true\n"
                     "if [ -d /tmp/sub_restore/.caddy_data ]; then\n"

@@ -44,7 +44,7 @@ def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]
                 if candidate.startswith("https://") or candidate.startswith("http://"):
                     xui_url = candidate
                     break
-        if line.startswith("Client:") or line.startswith("Клиент:"):
+        if (line.startswith("Client:") or line.startswith("Клиент:")) and "Docker Engine" not in line:
             if current_client:
                 clients.append(current_client)
             cname = line.split(":", 1)[1].strip()

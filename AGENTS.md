@@ -127,7 +127,7 @@ main.py (Orchestrator)
   - `exec_command()`: Execute remote shell commands with logging; supports `stdin_data` streaming (used to upload files/bundles)
   - `download_file()`: SCP download from the remote host
   - `get_bundle_bytes()`: Builds a tar.gz of the whole repo (excludes `.git`, `.python_env`, `__pycache__`, `panel/static`, `*.pyc`, `setup_backup.yml`) that is streamed to the remote `/opt/3x-ui-bootstRUp` directory
-  - `parse_deployment_results()`: Extracts panel URL + client subscriptions (sub/tcp/xhttp) from setup.sh output
+  - `parse_deployment_results()`: Extracts panel URL + client subscriptions (sub/tcp/xhttp) from the structured, marker-delimited JSON block (`===RESULT_JSON_START===` to `===RESULT_JSON_END===`) printed at the end of `setup.sh` output
   - `run_deployment()`: Master orchestration function (handles all deployment modes)
 
 - **Deployment Modes** (handled in `run_deployment()`):

@@ -33,7 +33,7 @@ category: architecture
 │                      LOCAL MACHINE                              │
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  3x-UI BootstRUp Control Panel (localhost:8000)             ││
-│  │  ┌──────────────────┐              ┌──────────────────┐    ││
+│  │  ┌──────────────────┐              ┌──────────────────┐     ││
 │  │  │  Web UI (HTML)   │ ←→ ←→ ←→ ←→ │ main.py (http.server) │ │
 │  │  │ • Forms          │  (HTTP)      │ • Routes        │    ││
 │  │  │ • Logs (SSE)     │              │ • State mgmt    │    ││
@@ -921,3 +921,78 @@ Key design principles:
 - **Modularity**: Panel and sub-server components can be deployed independently
 
 Start debugging by checking the log stream in main.py → trace to ssh_deployer.py → review remote setup.sh output.
+
+---
+
+## TODO / Technical Debt & Architectural Inconsistencies
+
+1. **YAML Parsing Inconsistency & Duplication**:
+   - `main.py` uses PyYAML with a line-by-line fallback on load, but strictly requires PyYAML on save (`save_backup_config` raises `RuntimeError` if unavailable).
+   - `sub-server/server.py` implements a custom YAML parser (`load_subs`) assuming a fixed indentation structure (`proxy:` / `freedom:` lists).
+   - `force-subs.yml` is parsed in another ad-hoc key-value manner.
+   - *Goal*: Standardize configuration format/parsers across components (or migrate state persistence to standard JSON).
+
+2. **Schema Divergence: Legacy `subs.yml` vs `nodes.json`**:
+   - `sub-server/server.py` supports arbitrary nodes and clients via `nodes.json`, but `sub-server/setup.sh` and initial deploy templates still generate legacy `subs.yml`.
+   - Web API mutations modify `nodes.json` while `subs.yml` remains desynchronized.
+   - *Goal*: Fully migrate remote setup scripts and backups to use `nodes.json` as the single source of truth.
+
+3. **Fragile Remote Output Parsing in Deployer**:
+   - `ssh_deployer.py:parse_deployment_results()` parses unstructured text and localized strings (`"Клиент:"`, `"Client:"`, `"3x-UI"`, `vless://`) from remote `setup.sh` stdout.
+   - *Goal*: Have remote scripts emit a machine-readable JSON summary block at completion to avoid breaking on script output/locale changes.
+
+4. **Template Substitution Edge Cases (`sed` vs Structured Configs)**:
+   - Config templates in `panel/` and `sub-server/` rely on `sed -i "s|{{VAR}}|...|g"`. Special characters (`|`, `&`, `\`) in passwords or secrets can break substitution.
+   - 3x-UI inbound configurations are rendered via curl API payload injection rather than file-based templating.
+   - *Goal*: Ensure proper escaping in bash scripts or generate configuration files via python/json serialization where applicable.
+
+5. **Thread Safety in Local Control Plane (`main.py`)**:
+   - Shared globals (`active_logs`, `is_deploying`, `deploy_status`, `deploy_result`, `cancel_requested`) are accessed concurrently across HTTP worker threads without explicit synchronization locks (`threading.Lock`).
+   - *Goal*: Add synchronization primitives around shared deployment state and SSE log streaming buffers.
+
+6. **`restart_sub` Overwrites Runtime Data on Remote Node**:
+   - `restart_sub` mode in `ssh_deployer.py` re-syncs the whole repo bundle via `tar -xzf -` **without** the preservation dance that `update_sub` performs (`_deploy_sub_server` backups/restores `subs.yml`, `force-subs.yml`, `nodes.json`).
+   - Since `sub-server/subs.yml` and `sub-server/force-subs.yml` are git-tracked and included in `get_bundle_bytes()`, a simple "restart" clobbers the remote client database and all custom overrides with the local repo copies.
+   - `force-subs.yml` is also backed up twice in the update-mode sync command (inside the loop and via a separate `if`), i.e. redundant/duplicated logic.
+   - *Goal*: Reuse one shared sync-and-preserve helper for all sub-server modes (restart/update) — or drop the bundle sync entirely from `restart_sub` (restart.sh already exists on the remote).
+
+7. **`save_backup_config` Silently Swallows All Errors**:
+   - `main.py:save_backup_config` wraps everything in a bare `except Exception: pass`, so the documented `RuntimeError` for missing PyYAML (and any write failure) is silently ignored and the config is lost without diagnostics.
+   - AGENTS.md claims the function "raises `RuntimeError` if PyYAML is unavailable" — that contradicts the actual behavior.
+   - *Goal*: Let save failures surface (log/return error status) so a broken `setup_backup.yml` is not silently dropped.
+
+8. **Recovery Domain Replacement Misses the 3x-UI Database**:
+   - The `recovery` mode only runs `sed` over `working/3x-ui/*.json` (`ssh_deployer.py`), but 3x-UI state lives in a SQLite DB (`working/3x-ui/db/x-ui.db`) — no JSON config files exist there.
+   - As a result `serverName`, `subURI`, and client configs keep the old domain after recovering onto a new domain, so generated subscriptions point to a dead host. AGENTS.md overstates this ("regex substitutions across 3x-UI SQLite databases").
+   - *Goal*: Rewrite the domain inside the SQLite DB (or re-derive subURI/web paths via the panel API after recovery).
+
+9. **Docker Installation & Registry Mirror Logic Duplicated and Inert**:
+   - Docker bootstrap is implemented three times: `_ensure_remote_docker` (ssh_deployer.py), `install_docker` (panel/setup.sh), `install_docker` (sub-server/setup.sh).
+   - `daemon.json` (registry mirror) is written but the docker daemon is never restarted, so the mirror is not actually applied.
+   - *Goal*: Single shared Docker bootstrap (orchestrator-side only) and restart the daemon after writing `daemon.json`.
+
+10. **Dead Configuration: Environment Variables and UI Fields That Do Nothing**:
+    - `EMAIL` is passed to node setup (ssh_deployer.py) but never read by `panel/setup.sh`.
+    - `XUI_WEB_PORT` / `XUI_SUB_PORT` / `CADDY_GLOBAL_INTERNAL_PORT` / `TCP_REALITY_INBOUND_PORT` / `XHTTP_REALITY_INBOUND_PORT` are always regenerated by `generate_ports()` in `panel/setup.sh`, so any port values sent from the UI/orchestrator are ignored (AGENTS.md's "generated if not provided" is wrong).
+    - `sub_same_as_proxy` checkbox is persisted to `setup_backup.yml` but never consumed (neither in `app.js` deploy payload nor in `ssh_deployer.py`).
+    - `freedom_component` mode is a pure alias of `freedom_only` (same code path in `ssh_deployer.py` and identical frontend handling) — redundant radio button.
+    - *Goal*: Remove dead fields/env vars, or wire them up (e.g., actually apply user-specified ports, or implement "same SSH creds as proxy").
+
+11. **Backup Asymmetry & Duplication Between Panel and Sub-Server**:
+    - `_perform_remote_backup` (ssh_deployer.py) and `_perform_remote_sub_backup` (ssh_deployer.py) are near-identical copy-paste helpers differing only in the file list.
+    - The panel backup (`panel_backup.sh` / `_perform_remote_backup`) does **not** include `.caddy_data` (SSL certificates), while the sub-server backup does — so recovering a panel forces re-issuing certificates on the new host (Let's Encrypt rate-limit risk), and the two components' backups are inconsistent in scope.
+    - *Goal*: One parameterized backup helper and consistent inclusion of TLS state across both components.
+
+12. **Misc Local-Orchestrator & Frontend Oddities**:
+    - `main.py` imports `from ssh_deployer import run_deployment` but never uses it; instead `importlib.reload(ssh_deployer)` is invoked on every `/api/deploy` request, which can desync already-imported references.
+    - `panel_api_request` in `panel/setup.sh` builds the remote curl command via string concatenation with manual quote-escaping — fragile and injection-prone.
+    - Sub-server QR codes are loaded from the external `api.qrserver.com` service, leaking client subscription URLs to a third party.
+    - Default XUI version `"3.6.0"` is hardcoded in multiple places (main.py, ssh_deployer.py, app.js, panel/setup.sh).
+    - The `tests/` directory is empty despite AGENTS.md referencing test-driven flows.
+    - *Goal*: Drop the unused import/reload hack, build curl args as an array, self-host or inline QR generation, centralize version defaults, and add basic tests.
+
+13. **Weak Encryption of servers.json**:
+    - Uses PBKDF2 (100k iterations) based on a user PIN. If the PIN is short (4-6 digits), the file is easily brute-forced locally. Short passwords require significantly more iterations or the use of argon2id.
+
+14. **Vulnerable Session Secret**:
+    - In sub-server, `AUTH_SESSION_SECRET` defaults to `ADMIN_PASSWORD`. If the password is weak, an attacker can brute-force it and forge the HMAC-SHA256 cookie to access the panel.

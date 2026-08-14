@@ -469,10 +469,14 @@ class WebUIHandler(BaseHTTPRequestHandler):
         if url_path == "/":
             url_path = "/index.html"
 
-        static_dir = os.path.join(os.path.dirname(__file__), "panel", "static")
-        target_file = os.path.abspath(os.path.join(static_dir, url_path.lstrip("/")))
+        if url_path.startswith("/resources/"):
+            base_dir = os.path.join(os.path.dirname(__file__), "resources")
+            target_file = os.path.abspath(os.path.join(base_dir, url_path[len("/resources/"):].lstrip("/")))
+        else:
+            base_dir = os.path.join(os.path.dirname(__file__), "panel", "static")
+            target_file = os.path.abspath(os.path.join(base_dir, url_path.lstrip("/")))
 
-        if not target_file.startswith(static_dir) or not os.path.isfile(target_file):
+        if not target_file.startswith(base_dir) or not os.path.isfile(target_file):
             self.send_response(404)
             self.end_headers()
             self.wfile.write(b"404 Not Found")

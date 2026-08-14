@@ -11,6 +11,9 @@ readonly REQUIRED_CMDS=("curl" "jq" "openssl" "ss" "qrencode" "pgrep" "base64" "
 readonly DOCKER_COMPOSE_FILE="./working/docker-compose/docker-compose.yml"
 readonly PANEL_CONTAINER="3xui"
 readonly PANEL_API_PORT="2053"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "$SCRIPT_DIR/../common/setup.sh"
 
 declare -a USED_PORTS=()
 declare -a XHTTP_CLIENTS=() TCP_CLIENTS=() CREATED_CLIENTS=()
@@ -247,110 +250,6 @@ show_spinner() {
     echo -ne "${spin_chars:$((counter % 4)):1}"
 }
 
-check_root() {
-    [[ $EUID -eq 0 ]] || die "$MSG_NOT_ROOT"
-}
-
-get_package_manager() {
-    if command -v apt-get &>/dev/null; then echo "apt";
-    elif command -v dnf &>/dev/null; then echo "dnf";
-    elif command -v yum &>/dev/null; then echo "yum";
-    elif command -v pacman &>/dev/null; then echo "pacman";
-    else echo "unknown"; fi
-}
-
-wait_for_lock() {
-    local pm="$1"
-    case "$pm" in
-        apt)
-            while pgrep -f "apt-get|dpkg" &>/dev/null; do
-                warn "$MSG_APT_LOCKED"
-                sleep 5
-            done
-            ;;
-        dnf|yum)
-            while pgrep -f "$pm|rpm" &>/dev/null; do
-                warn "$MSG_DNF_LOCKED"
-                sleep 5
-            done
-            ;;
-        pacman)
-            while [[ -f /var/lib/pacman/db.lck ]]; do
-                warn "$MSG_PACMAN_LOCKED"
-                sleep 5
-            done
-            ;;
-    esac
-}
-
-install_packages() {
-    local pm="$1"
-    local packages="$2"
-    info "$(printf "$MSG_DEPS_INSTALLING" "$pm" "$packages")"
-    wait_for_lock "$pm"
-
-    case "$pm" in
-        apt)
-            apt-get update && apt-get install -y curl ca-certificates jq openssl qrencode iproute2 procps coreutils gawk grep sed || die "$MSG_DEP_ERR"
-            ;;
-        dnf|yum)
-            if ! $pm repolist | grep -q "epel"; then
-                $pm install -y epel-release || true
-                $pm makecache || true
-            fi
-            $pm install -y curl ca-certificates jq openssl qrencode iproute procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
-            ;;
-        pacman)
-            pacman -Sy --noconfirm curl ca-certificates jq openssl qrencode iproute2 procps-ng coreutils gawk grep sed || die "$MSG_DEP_ERR"
-            ;;
-        *)
-            die "$(printf "$MSG_UNSUPPORTED_PM" "${REQUIRED_CMDS[*]}")"
-            ;;
-    esac
-
-    success "$MSG_DEPS_READY"
-}
-
-install_docker() {
-    if ! command -v docker &>/dev/null; then
-        info "$MSG_DOCKER_INSTALLING"
-        if command -v pacman &>/dev/null; then
-            pacman -S --noconfirm docker docker-compose || die "$MSG_DOCKER_ERR"
-        else
-            curl -fsSL https://get.docker.com | sh || die "$MSG_DOCKER_ERR"
-        fi
-    fi
-
-    if command -v systemctl &>/dev/null; then
-        systemctl is-active --quiet docker || systemctl start docker || die "$MSG_DOCKER_START_ERR"
-        systemctl is-enabled --quiet docker || systemctl enable docker
-    fi
-
-    echo -e "${YELLOW}${MSG_DOCKER_MIRRORS}${NC}"
-    mkdir -p /etc/docker && echo '{"registry-mirrors": ["https://dh-mirror.gitverse.ru"]}' | sudo tee /etc/docker/daemon.json > /dev/null
-
-    success "$MSG_DOCKER_READY"
-}
-
-install_missing_deps() {
-    section "$MSG_STEP_PREFLIGHT"
-
-    local missing=()
-    for cmd in "${REQUIRED_CMDS[@]}"; do
-        command -v "$cmd" &>/dev/null || missing+=("$cmd")
-    done
-
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        local pm
-        pm=$(get_package_manager)
-        install_packages "$pm" "${missing[*]}"
-    else
-        success "$MSG_DEPS_READY"
-    fi
-
-    install_docker
-}
-
 reset_working_dir() {
     info "$MSG_WORKDIR_RESET"
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
@@ -390,6 +289,8 @@ load_messages() {
     MSG_DEP_ERR="Failed to install system dependencies."
     MSG_DOCKER_ERR="Failed to install Docker."
     MSG_DOCKER_START_ERR="Failed to start Docker service."
+    MSG_DOCKER_RESTART_ERR="Failed to restart Docker service to apply registry mirror."
+    MSG_DOCKER_COMPOSE_ERR="Docker compose plugin unavailable."
     MSG_UNSUPPORTED_PM="Unsupported package manager. Install manually: %s"
     MSG_CLIENT_EMPTY="Client name cannot be empty."
     MSG_USERS_FILE_FOUND="Found templates/users.yml. Creating VPN clients from the file."
@@ -1294,7 +1195,11 @@ print_results() {
 main() {
     load_messages
     check_root
-    install_missing_deps
+    install_missing_deps \
+        "${REQUIRED_CMDS[*]}" \
+        "curl ca-certificates jq openssl qrencode iproute2 procps coreutils gawk grep sed" \
+        "curl ca-certificates jq openssl qrencode iproute procps-ng coreutils gawk grep sed" \
+        "curl ca-certificates jq openssl qrencode iproute2 procps-ng coreutils gawk grep sed"
     reset_working_dir
 
     prompt_domain

@@ -813,15 +813,14 @@ proxy_node:
 2. Validates inputs
 3. Calls ssh_deployer.run_deployment(mode="single" or "cascade")
 4. ssh_deployer creates SSHDeployer connection + test_connection()
-5. Ensures Docker on remote (_ensure_remote_docker)
-6. Streams repo tar.gz via exec_command(stdin_data) → /opt/3x-ui-bootstRUp
-7. Executes: cd /opt/3x-ui-bootstRUp && ENV_VARS bash panel/setup.sh
-8. setup.sh processes templates → generates ./working/ configs
-9. setup.sh configures 3x-UI via its HTTP API and builds Docker services
-10. Docker Compose starts services
-11. Wait for Let's Encrypt certificate (300s)
-12. parse_deployment_results() extracts subscription URLs
-13. main.py displays results to UI
+5. Streams repo tar.gz via exec_command(stdin_data) → /opt/3x-ui-bootstRUp
+6. Executes: cd /opt/3x-ui-bootstRUp && ENV_VARS bash panel/setup.sh
+7. setup.sh processes templates → generates ./working/ configs
+8. setup.sh configures 3x-UI via its HTTP API and builds Docker services
+9. Docker Compose starts services
+10. Wait for Let's Encrypt certificate (300s)
+11. parse_deployment_results() extracts subscription URLs
+12. main.py displays results to UI
 ```
 
 ### Cascade Subscription Deployment
@@ -973,10 +972,9 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
    - Backups from the pre-`panel/` repo layout still contain a compose file that builds caddy from `./templates/docker-compose` (relative to `--project-directory`). As a *legacy fallback* `recovery` now rewrites that caddy `build:` block to `image: ghcr.io/honmiv/caddy-l4:latest` (`LEGACY_COMPOSE_REWRITE_CMD` in `ssh_deployer.py`) — only when the restored compose actually references the old build context — so recovery pulls the published image instead of a ~70s source build and needs no build context. `restart_panel`/`panel_update.sh` keep the `templates -> panel/templates` compatibility symlink fallback (`LEGACY_TEMPLATES_SYMLINK_CMD`) for legacy servers that were never re-recovered. Neither path touches modern deployments.
    - *Remaining debt*: a failed login mid-recovery aborts after containers are up (the recovery itself is idempotent and can be re-run with correct creds).
 
-9. **Docker Installation & Registry Mirror Logic Duplicated and Inert**:
-   - Docker bootstrap is implemented three times: `_ensure_remote_docker` (ssh_deployer.py), `install_docker` (panel/setup.sh), `install_docker` (sub-server/setup.sh).
-   - `daemon.json` (registry mirror) is written but the docker daemon is never restarted, so the mirror is not actually applied.
-   - *Goal*: Single shared Docker bootstrap (orchestrator-side only) and restart the daemon after writing `daemon.json`.
+9. **Docker Installation & Registry Mirror Logic Duplicated and Inert** — *RESOLVED*:
+   - The orchestrator-side `_ensure_remote_docker` was removed from `ssh_deployer.py`; Docker bootstrap lives in the shared remote script `common/setup.sh` (`check_root`, `get_package_manager`, `wait_for_lock`, `install_packages`, `restart_docker`, `install_docker`, `install_missing_deps`), sourced by both `panel/setup.sh` and `sub-server/setup.sh`. Each consumer passes its own required-command list and per-pm package lists; panel overrides the `MSG_*` strings via `load_messages()`, sub-server keeps the English defaults.
+   - The script installs `/etc/docker/daemon.json` from `common/daemon.json` (registry mirror `https://dh-mirror.gitverse.ru`) and **restarts the docker daemon** (`restart_docker`, systemctl → rc-service → service) so the mirror is actually applied before any image pull. `common/setup.sh` is included in the remote bundle automatically (nothing in `get_bundle_bytes()` excludes it).
 
 10. **Dead Configuration: Environment Variables and UI Fields That Do Nothing**:
     - `EMAIL` is passed to node setup (ssh_deployer.py) but never read by `panel/setup.sh`.

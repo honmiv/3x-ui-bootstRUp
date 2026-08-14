@@ -10,6 +10,8 @@ readonly RED='\033[0;31m'
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly DOCKER_COMPOSE_FILE="./working/docker-compose/docker-compose.yml"
 
+source "$SCRIPT_DIR/../common/setup.sh"
+
 die() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
     exit 1
@@ -39,58 +41,6 @@ is_valid_domain() {
     local domain="$1"
     [[ ${#domain} -le 253 ]] &&
         [[ "$domain" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$ ]]
-}
-
-check_root() {
-    [[ $EUID -eq 0 ]] || die "Script must be run as root: sudo ./setup.sh"
-}
-
-get_package_manager() {
-    if command -v apt-get &>/dev/null; then echo "apt";
-    elif command -v dnf &>/dev/null; then echo "dnf";
-    elif command -v yum &>/dev/null; then echo "yum";
-    elif command -v pacman &>/dev/null; then echo "pacman";
-    else echo "unknown"; fi
-}
-
-install_docker() {
-    if ! command -v docker &>/dev/null; then
-        info "Docker not found. Installing Docker."
-        if command -v pacman &>/dev/null; then
-            pacman -S --noconfirm docker docker-compose || die "Failed to install Docker."
-        else
-            curl -fsSL https://get.docker.com | sh || die "Failed to install Docker."
-        fi
-    fi
-
-    if command -v systemctl &>/dev/null; then
-        systemctl is-active --quiet docker || systemctl start docker || die "Failed to start Docker service."
-        systemctl is-enabled --quiet docker || systemctl enable docker
-    fi
-
-    docker compose version &>/dev/null || die "Docker compose plugin unavailable."
-    success "Docker is ready."
-}
-
-install_missing_deps() {
-    section "Environment check"
-    local missing=()
-    for cmd in curl; do
-        command -v "$cmd" &>/dev/null || missing+=("$cmd")
-    done
-
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        local pm
-        pm=$(get_package_manager)
-        case "$pm" in
-            apt)     apt-get update && apt-get install -y curl ca-certificates iproute2 || die "Failed to install system dependencies." ;;
-            dnf|yum) $pm install -y curl ca-certificates iproute || die "Failed to install system dependencies." ;;
-            pacman)  pacman -Sy --noconfirm curl ca-certificates iproute2 || die "Failed to install system dependencies." ;;
-            *)       die "Could not determine package manager." ;;
-        esac
-    fi
-
-    install_docker
 }
 
 reset_working_dir() {
@@ -352,7 +302,7 @@ print_results() {
 
 main() {
     check_root
-    install_missing_deps
+    install_missing_deps "curl" "curl ca-certificates iproute2" "curl ca-certificates iproute" "curl ca-certificates iproute2"
     validate_update_state
     load_existing_update_values
     reset_working_dir

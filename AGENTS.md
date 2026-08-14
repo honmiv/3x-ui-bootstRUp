@@ -951,11 +951,9 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
    - Shared globals (`active_logs`, `is_deploying`, `deploy_status`, `deploy_result`, `cancel_requested`) are accessed concurrently across HTTP worker threads without explicit synchronization locks (`threading.Lock`).
    - *Goal*: Add synchronization primitives around shared deployment state and SSE log streaming buffers.
 
-6. **`restart_sub` Overwrites Runtime Data on Remote Node**:
-   - `restart_sub` mode in `ssh_deployer.py` re-syncs the whole repo bundle via `tar -xzf -` **without** the preservation dance that `update_sub` performs (`_deploy_sub_server` backups/restores `subs.yml`, `force-subs.yml`, `nodes.json`).
-   - Since `sub-server/subs.yml` and `sub-server/force-subs.yml` are git-tracked and included in `get_bundle_bytes()`, a simple "restart" clobbers the remote client database and all custom overrides with the local repo copies.
-   - `force-subs.yml` is also backed up twice in the update-mode sync command (inside the loop and via a separate `if`), i.e. redundant/duplicated logic.
-   - *Goal*: Reuse one shared sync-and-preserve helper for all sub-server modes (restart/update) — or drop the bundle sync entirely from `restart_sub` (restart.sh already exists on the remote).
+6. **`restart_sub` Overwrites Runtime Data on Remote Node** — *RESOLVED*:
+   - `ssh_deployer.py` now has a single `_sub_server_sync_cmd(remote_dir, preserve)` helper used by both `_deploy_sub_server` (update mode) and `restart_sub`; it backs up `subs.yml`/`force-subs.yml`/`nodes.json` before extracting the bundle and restores them afterwards, so syncing tool scripts never clobbers remote client/override data.
+   - The duplicate `force-subs.yml` backup in the update-mode sync command (inside the loop and via a separate `if`) was removed.
 
 7. **`save_backup_config` Silently Swallows All Errors** — *RESOLVED*:
    - `main.py:save_backup_config` now returns a `bool` and logs failures via `log_event` (`[ERROR] Failed to save setup_backup.yml: ...`) instead of a bare `except Exception: pass`.

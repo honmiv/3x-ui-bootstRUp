@@ -405,6 +405,33 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return True, out
         return False, out
 
+def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
+    """Build the remote command that syncs the sub-server repo bundle.
+
+    When ``preserve`` is True, the runtime state files (subs.yml, force-subs.yml,
+    nodes.json) are backed up before the bundle is extracted and restored
+    afterwards, so refreshing the tool scripts never clobbers remote
+    client/override data.
+    """
+    backup = (
+        f"for f in subs.yml force-subs.yml nodes.json; do "
+        f"if [ -f {remote_dir}/sub-server/$f ]; then "
+        f"cp {remote_dir}/sub-server/$f /tmp/sub-server-$f.bak; fi; "
+        f"done"
+    ) if preserve else "true"
+    restore = (
+        f"for f in subs.yml force-subs.yml nodes.json; do "
+        f"if [ -f /tmp/sub-server-$f.bak ]; then "
+        f"cp /tmp/sub-server-$f.bak {remote_dir}/sub-server/$f; rm -f /tmp/sub-server-$f.bak; fi; "
+        f"done"
+    ) if preserve else "true"
+    return (
+        f"mkdir -p {remote_dir} && "
+        f"{backup} && "
+        f"tar -xzf - -C {remote_dir} && "
+        f"{restore}"
+    )
+
 async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
@@ -416,22 +443,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
         bundle_bytes = get_bundle_bytes()
-        sync_cmd = (
-            f"mkdir -p {remote_dir} && "
-            f"if [ \"{env_vars.get('UPDATE_SUB_SERVER', '')}\" = \"1\" ]; then "
-            f"for f in subs.yml force-subs.yml nodes.json; do "
-            f"if [ -f {remote_dir}/sub-server/$f ]; then cp {remote_dir}/sub-server/$f /tmp/sub-server-$f.bak; fi; "
-            f"done; fi && "
-            f"if [ -f {remote_dir}/sub-server/force-subs.yml ]; then "
-            f"cp {remote_dir}/sub-server/force-subs.yml /tmp/force-subs.yml.bak; fi && "
-            f"tar -xzf - -C {remote_dir} && "
-            f"if [ \"{env_vars.get('UPDATE_SUB_SERVER', '')}\" = \"1\" ]; then "
-            f"for f in subs.yml force-subs.yml nodes.json; do "
-            f"if [ -f /tmp/sub-server-$f.bak ]; then cp /tmp/sub-server-$f.bak {remote_dir}/sub-server/$f; rm -f /tmp/sub-server-$f.bak; fi; "
-            f"done; fi && "
-            f"if [ -f /tmp/force-subs.yml.bak ]; then "
-            f"cp /tmp/force-subs.yml.bak {remote_dir}/sub-server/force-subs.yml && rm -f /tmp/force-subs.yml.bak; fi"
-        )
+        sync_cmd = _sub_server_sync_cmd(remote_dir, preserve=(env_vars.get("UPDATE_SUB_SERVER", "") == "1"))
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
             log(f"[ERROR] Failed to transfer files to Subscription Server {host}: {sync_out}", "error")
@@ -815,7 +827,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             if deploy_mode == "restart_sub":
                 log(f"Syncing local tool files to Subscription Server {sub_host}...", "info")
                 bundle_bytes = get_bundle_bytes()
-                sync_cmd = "mkdir -p /opt/3x-ui-bootstRUp && tar -xzf - -C /opt/3x-ui-bootstRUp"
+                sync_cmd = _sub_server_sync_cmd("/opt/3x-ui-bootstRUp", preserve=True)
                 rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
                 if rc != 0:
                     log(f"[ERROR] Failed to transfer tool files to {sub_host}: {sync_out}", "error")

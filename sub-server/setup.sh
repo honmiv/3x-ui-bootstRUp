@@ -243,15 +243,30 @@ prompt_admin() {
     fi
 }
 
+sed_escape_replacement() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//&/\\&}"
+    value="${value//|/\\|}"
+    printf '%s' "$value"
+}
+
 apply_template_values() {
     local target_path="$1"
+    local domain sub_path ru_url foreign_url admin_user admin_pass
+    domain="$(sed_escape_replacement "${DOMAIN}")"
+    sub_path="$(sed_escape_replacement "${SECRET_SUB_PATH}")"
+    ru_url="$(sed_escape_replacement "${RUSSIAN_SUB_URL}")"
+    foreign_url="$(sed_escape_replacement "${FOREIGN_SUB_URL}")"
+    admin_user="$(sed_escape_replacement "${ADMIN_USER}")"
+    admin_pass="$(sed_escape_replacement "${ADMIN_PASSWORD}")"
     sed -i \
-       -e "s|{{DOMAIN}}|${DOMAIN}|g" \
-       -e "s|{{SECRET_SUB_PATH}}|${SECRET_SUB_PATH}|g" \
-       -e "s|{{RUSSIAN_SUB_URL}}|${RUSSIAN_SUB_URL}|g" \
-       -e "s|{{FOREIGN_SUB_URL}}|${FOREIGN_SUB_URL}|g" \
-       -e "s|{{ADMIN_USER}}|${ADMIN_USER}|g" \
-       -e "s|{{ADMIN_PASSWORD}}|${ADMIN_PASSWORD}|g" \
+       -e "s|{{DOMAIN}}|${domain}|g" \
+       -e "s|{{SECRET_SUB_PATH}}|${sub_path}|g" \
+       -e "s|{{RUSSIAN_SUB_URL}}|${ru_url}|g" \
+       -e "s|{{FOREIGN_SUB_URL}}|${foreign_url}|g" \
+       -e "s|{{ADMIN_USER}}|${admin_user}|g" \
+       -e "s|{{ADMIN_PASSWORD}}|${admin_pass}|g" \
        "$target_path"
 }
 

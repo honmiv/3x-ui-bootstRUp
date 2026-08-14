@@ -946,7 +946,7 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
    - `ssh_deployer.py:parse_deployment_results()` parses unstructured text and localized strings (`"Клиент:"`, `"Client:"`, `"3x-UI"`, `vless://`) from remote `setup.sh` stdout.
    - *Goal*: Have remote scripts emit a machine-readable JSON summary block at completion to avoid breaking on script output/locale changes.
 
-4. **Template Substitution Edge Cases (`sed` vs Structured Configs)**:
+4. **Template Substitution Edge Cases (`sed` vs Structured Configs)** — *RESOLVED*::
    - Config templates in `panel/` and `sub-server/` rely on `sed -i "s|{{VAR}}|...|g"`. Special characters (`|`, `&`, `\`) in passwords or secrets can break substitution.
    - 3x-UI inbound configurations are rendered via curl API payload injection rather than file-based templating.
    - *Goal*: Ensure proper escaping in bash scripts or generate configuration files via python/json serialization where applicable.

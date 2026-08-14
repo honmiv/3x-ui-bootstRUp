@@ -169,25 +169,50 @@ get_unique_random_port() {
     echo "$port"
 }
 
+sed_escape_replacement() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//&/\\&}"
+    value="${value//|/\\|}"
+    printf '%s' "$value"
+}
+
 apply_template_values() {
     local target_path="$1"
-    local xui_ver="${XUI_VERSION:-3.6.0}"
+    local xui_ver domain web_base sub_path web_port sub_port caddy_port tcp_port xhttp_port
+    local tcp_priv tcp_pub tcp_sids xhttp_priv xhttp_pub xhttp_sids
+    xui_ver="${XUI_VERSION:-3.6.0}"
+    xui_ver="$(sed_escape_replacement "$xui_ver")"
+    domain="$(sed_escape_replacement "${DOMAIN}")"
+    web_base="$(sed_escape_replacement "${XUI_WEB_BASE_PATH}")"
+    sub_path="$(sed_escape_replacement "${XUI_SUB_PATH}")"
+    web_port="$(sed_escape_replacement "${XUI_WEB_PORT}")"
+    sub_port="$(sed_escape_replacement "${XUI_SUB_PORT}")"
+    caddy_port="$(sed_escape_replacement "${CADDY_GLOBAL_INTERNAL_PORT}")"
+    tcp_port="$(sed_escape_replacement "${TCP_REALITY_INBOUND_PORT}")"
+    xhttp_port="$(sed_escape_replacement "${XHTTP_REALITY_INBOUND_PORT}")"
+    tcp_priv="$(sed_escape_replacement "${TCP_REALITY_PRIVATE_KEY}")"
+    tcp_pub="$(sed_escape_replacement "${TCP_REALITY_PUBLIC_KEY}")"
+    tcp_sids="$(sed_escape_replacement "${TCP_REALITY_SHORT_IDS_JSON_ARRAY}")"
+    xhttp_priv="$(sed_escape_replacement "${XHTTP_REALITY_PRIVATE_KEY}")"
+    xhttp_pub="$(sed_escape_replacement "${XHTTP_REALITY_PUBLIC_KEY}")"
+    xhttp_sids="$(sed_escape_replacement "${XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}")"
     sed -i \
        -e "s|{{XUI_VERSION}}|${xui_ver}|g" \
-       -e "s|{{DOMAIN}}|${DOMAIN}|g" \
-       -e "s|{{XUI_WEB_BASE_PATH}}|${XUI_WEB_BASE_PATH}|g" \
-       -e "s|{{XUI_SUB_PATH}}|${XUI_SUB_PATH}|g" \
-       -e "s|{{XUI_WEB_PORT}}|${XUI_WEB_PORT}|g" \
-       -e "s|{{XUI_SUB_PORT}}|${XUI_SUB_PORT}|g" \
-       -e "s|{{CADDY_GLOBAL_INTERNAL_PORT}}|${CADDY_GLOBAL_INTERNAL_PORT}|g" \
-       -e "s|{{TCP_REALITY_INBOUND_PORT}}|${TCP_REALITY_INBOUND_PORT}|g" \
-       -e "s|{{XHTTP_REALITY_INBOUND_PORT}}|${XHTTP_REALITY_INBOUND_PORT}|g" \
-       -e "s|{{TCP_REALITY_PRIVATE_KEY}}|${TCP_REALITY_PRIVATE_KEY}|g" \
-       -e "s|{{TCP_REALITY_PUBLIC_KEY}}|${TCP_REALITY_PUBLIC_KEY}|g" \
-       -e "s|{{TCP_REALITY_SHORT_IDS_JSON_ARRAY}}|${TCP_REALITY_SHORT_IDS_JSON_ARRAY}|g" \
-       -e "s|{{XHTTP_REALITY_PRIVATE_KEY}}|${XHTTP_REALITY_PRIVATE_KEY}|g" \
-       -e "s|{{XHTTP_REALITY_PUBLIC_KEY}}|${XHTTP_REALITY_PUBLIC_KEY}|g" \
-       -e "s|{{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}}|${XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}|g" \
+       -e "s|{{DOMAIN}}|${domain}|g" \
+       -e "s|{{XUI_WEB_BASE_PATH}}|${web_base}|g" \
+       -e "s|{{XUI_SUB_PATH}}|${sub_path}|g" \
+       -e "s|{{XUI_WEB_PORT}}|${web_port}|g" \
+       -e "s|{{XUI_SUB_PORT}}|${sub_port}|g" \
+       -e "s|{{CADDY_GLOBAL_INTERNAL_PORT}}|${caddy_port}|g" \
+       -e "s|{{TCP_REALITY_INBOUND_PORT}}|${tcp_port}|g" \
+       -e "s|{{XHTTP_REALITY_INBOUND_PORT}}|${xhttp_port}|g" \
+       -e "s|{{TCP_REALITY_PRIVATE_KEY}}|${tcp_priv}|g" \
+       -e "s|{{TCP_REALITY_PUBLIC_KEY}}|${tcp_pub}|g" \
+       -e "s|{{TCP_REALITY_SHORT_IDS_JSON_ARRAY}}|${tcp_sids}|g" \
+       -e "s|{{XHTTP_REALITY_PRIVATE_KEY}}|${xhttp_priv}|g" \
+       -e "s|{{XHTTP_REALITY_PUBLIC_KEY}}|${xhttp_pub}|g" \
+       -e "s|{{XHTTP_REALITY_SHORT_IDS_JSON_ARRAY}}|${xhttp_sids}|g" \
        "$target_path"
 }
 

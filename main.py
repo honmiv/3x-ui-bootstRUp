@@ -138,41 +138,21 @@ def load_backup_config() -> Dict[str, Any]:
                 flat[key] = value
         return flat
 
+    if yaml is None:
+        return {}
+
     try:
         with open(BACKUP_FILE, "r", encoding="utf-8") as f:
             content = f.read()
-        if yaml is not None:
-            loaded = yaml.safe_load(content) or {}
-            data = _flatten_loaded_config(loaded)
-            if data:
-                return _strip_sensitive_values(data)
+        loaded = yaml.safe_load(content) or {}
+        data = _flatten_loaded_config(loaded)
+        if not data:
+            return {}
+        return _strip_sensitive_values(data)
     except Exception:
-        pass
+        return {}
 
-    data = {}
-    try:
-        with open(BACKUP_FILE, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or ":" not in line:
-                    continue
-                k, v = line.split(":", 1)
-                k = k.strip()
-                v = v.strip().strip('"').strip("'")
-                if not v:
-                    continue
-                if v.lower() == "true":
-                    v = True
-                elif v.lower() == "false":
-                    v = False
-                elif v.isdigit():
-                    v = int(v)
-                data[k] = v
-    except Exception:
-        pass
-    return _strip_sensitive_values(data)
-
-def save_backup_config(data: Dict[str, Any]):
+def save_backup_config(data: Dict[str, Any]) -> bool:
     try:
         if yaml is None:
             raise RuntimeError("PyYAML is unavailable")
@@ -245,8 +225,10 @@ def save_backup_config(data: Dict[str, Any]):
         with open(BACKUP_FILE, "w", encoding="utf-8") as f:
             f.write("# Auto-generated setup backup\n")
             yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
-    except Exception:
-        pass
+        return True
+    except Exception as e:
+        log_event(f"[ERROR] Failed to save setup_backup.yml: {e}", "error")
+        return False
 
 def list_backup_files(folder: str = "backups_panel") -> List[Dict[str, Any]]:
     backups_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), folder)
@@ -426,8 +408,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/config":
-            save_backup_config(payload)
-            self.send_json({"ok": True})
+            if save_backup_config(payload):
+                self.send_json({"ok": True})
+            else:
+                self.send_json({"ok": False, "error": "Failed to save setup_backup.yml"}, 500)
             return
 
         if url_path == "/api/ssh/test":

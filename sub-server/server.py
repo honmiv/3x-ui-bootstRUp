@@ -273,6 +273,10 @@ body {
 }
 .status-badge .stats-label {
     color: var(--text-primary);
+    cursor: pointer;
+}
+.status-badge .stats-label:hover {
+    color: #60a5fa;
 }
 .status-badge .stats-divider {
     width: 1px;
@@ -284,8 +288,14 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    cursor: default;
+    cursor: pointer;
     color: var(--text-secondary);
+    border-radius: 999px;
+    transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.status-badge .stat-item:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.07);
 }
 .status-badge .stat-item span:last-child {
     font-variant-numeric: tabular-nums;
@@ -300,14 +310,36 @@ body {
 }
 .status-badge .dot.dot-recent {
     background-color: var(--success-color);
-    box-shadow: 0 0 6px var(--success-color);
+    color: var(--success-color);
+    box-shadow: 0 0 6px currentColor;
 }
 .status-badge .dot.dot-ever {
     background-color: #f59e0b;
-    box-shadow: 0 0 6px #f59e0b;
+    color: #f59e0b;
+    box-shadow: 0 0 6px currentColor;
 }
 .status-badge .dot.dot-never {
     background-color: #64748b;
+    color: #64748b;
+    box-shadow: 0 0 4px currentColor;
+}
+/* Active filter: animated pulsing glow in the status color */
+.status-badge .stat-item.filtering .dot {
+    animation: status-dot-pulse 1.6s ease-in-out infinite;
+}
+.status-badge .stat-item.filtering span:last-child {
+    animation: status-text-pulse 1.6s ease-in-out infinite;
+}
+.status-badge .stat-item.filtering[data-filter="recent"] span:last-child { color: var(--success-color); }
+.status-badge .stat-item.filtering[data-filter="ever"] span:last-child { color: #f59e0b; }
+.status-badge .stat-item.filtering[data-filter="never"] span:last-child { color: #94a3b8; }
+@keyframes status-dot-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 2px currentColor, 0 0 6px currentColor; }
+    50% { transform: scale(1.3); box-shadow: 0 0 8px currentColor, 0 0 18px currentColor; }
+}
+@keyframes status-text-pulse {
+    0%, 100% { text-shadow: 0 0 2px currentColor, 0 0 6px currentColor; }
+    50% { text-shadow: 0 0 5px currentColor, 0 0 14px currentColor; }
 }
 
 .cards-grid {
@@ -1084,12 +1116,16 @@ select option {
                         <span>Логи</span>
                     </button>
                     __AUTH_ACTIONS__
-                    <div class="status-badge" id="client-stats" title="Статистика клиентов по синхронизации">
-                        <span class="stats-label">Клиентов: <span id="count-total">__COUNT_TOTAL__</span></span>
+                    <button type="button" class="btn-sm btn-logs" id="reset-statuses" title="Сбросить статусы синхронизации (очистит лог-файл)" aria-label="Сбросить статусы синхронизации">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        <span>Сбросить статусы</span>
+                    </button>
+                    <div class="status-badge" id="client-stats" title="Статистика клиентов по синхронизации. Нажмите на счётчик, чтобы отфильтровать карточки.">
+                        <span class="stats-label" title="Показать всех клиентов (сбросить фильтр)">Клиентов: <span id="count-total">__COUNT_TOTAL__</span></span>
                         <span class="stats-divider"></span>
-                        <span class="stat-item" title="Синхронизация в теч. последних 24ч"><span class="dot dot-recent"></span><span id="count-recent">__COUNT_RECENT__</span></span>
-                        <span class="stat-item" title="Синхронизация была ранее (&gt;24ч)"><span class="dot dot-ever"></span><span id="count-ever">__COUNT_EVER__</span></span>
-                        <span class="stat-item" title="Синхронизации не было никогда"><span class="dot dot-never"></span><span id="count-never">__COUNT_NEVER__</span></span>
+                        <span class="stat-item" data-filter="recent" title="Синхронизация в теч. последних 24ч · нажмите для фильтра"><span class="dot dot-recent"></span><span id="count-recent">__COUNT_RECENT__</span></span>
+                        <span class="stat-item" data-filter="ever" title="Синхронизация была ранее (&gt;24ч) · нажмите для фильтра"><span class="dot dot-ever"></span><span id="count-ever">__COUNT_EVER__</span></span>
+                        <span class="stat-item" data-filter="never" title="Синхронизации не было никогда · нажмите для фильтра"><span class="dot dot-never"></span><span id="count-never">__COUNT_NEVER__</span></span>
                     </div>
                 </div>
             </div>
@@ -1208,8 +1244,45 @@ function refreshAllCardStates() {
         }
     });
     updateTopStats();
+    filterCards();
 }
 setInterval(refreshAllCardStates, 60000);
+
+let syncFilter = null;
+function cardSyncState(card) {
+    const st = card.querySelector('.client-status[data-client]');
+    if (!st) return null;
+    return getSyncState(CLIENT_ACTIVITIES[st.getAttribute('data-client')]);
+}
+function setSyncFilter(value) {
+    syncFilter = value || null;
+    document.querySelectorAll('.status-badge .stat-item').forEach(item => {
+        item.classList.toggle('filtering', item.getAttribute('data-filter') === syncFilter);
+    });
+    filterCards();
+}
+document.querySelectorAll('.status-badge .stat-item').forEach(item => {
+    item.addEventListener('click', () => {
+        const f = item.getAttribute('data-filter');
+        setSyncFilter(syncFilter === f ? null : f);
+    });
+});
+document.querySelector('.status-badge .stats-label')?.addEventListener('click', () => setSyncFilter(null));
+document.getElementById('reset-statuses')?.addEventListener('click', function () {
+    if (!confirm('Сбросить статусы синхронизации для всех клиентов? Лог-файл будет очищен, статусы станут «Синхронизации не было».')) return;
+    const btn = this;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>…</span>';
+    fetch('__API_RESET__', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+        .then(r => r.json())
+        .then(d => { location.reload(); })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            alert('Не удалось сбросить статусы.');
+        });
+});
 
 function updateLogToggleVisibility() {
     if (!logToggleBtn || !logPanel) return;
@@ -1243,6 +1316,7 @@ function updateCardActivity(a) {
         }
     }
     updateTopStats();
+    filterCards();
 }
 function connectLogs() {
     if (logSource) return;
@@ -1391,7 +1465,10 @@ function filterCards() {
     const query = (document.getElementById('client-search')?.value || '').trim().toLocaleLowerCase();
     document.querySelectorAll('.card').forEach(card => {
         const text = (card.dataset.search || '').toLocaleLowerCase();
-        card.style.display = !query || text.includes(query) ? '' : 'none';
+        const state = cardSyncState(card);
+        const matchesQuery = !query || text.includes(query);
+        const matchesSync = !syncFilter || state === null || state === syncFilter;
+        card.style.display = (matchesQuery && matchesSync) ? '' : 'none';
     });
     document.querySelectorAll('.section-header').forEach(header => {
         const grid = header.nextElementSibling;
@@ -1795,6 +1872,29 @@ def setup_file_logging():
 CLIENT_ACTIVITY: dict = {}
 ACTIVITY_SUBSCRIBERS: set = set()
 ACTIVITY_LOCK = threading.Lock()
+# Incremented on every admin status reset; open SSE streams use it to reset
+# their log-file position after the file is truncated.
+LOG_RESET_EVENT = 0
+
+
+def reset_sync_statuses():
+    """Clear all per-client sync statuses (memory + log file).
+
+    ``CLIENT_ACTIVITY`` is emptied in-place so already-connected SSE streams
+    pick up the change, and LOG_FILE is truncated so the statuses do not come
+    back after a container restart (load_past_activity_from_logs reads it at
+    startup).
+    """
+    global LOG_RESET_EVENT
+    with ACTIVITY_LOCK:
+        CLIENT_ACTIVITY.clear()
+    try:
+        with open(LOG_FILE, "w", encoding="utf-8"):
+            pass
+    except OSError as exc:
+        log.warning("could not truncate %s: %s", LOG_FILE, exc)
+    LOG_RESET_EVENT += 1
+    log.info("sync statuses reset by admin")
 
 
 def get_client_sync_state(client):
@@ -2284,12 +2384,17 @@ class Handler(BaseHTTPRequestHandler):
             f"{SECRET_SUB_PATH}/api/override",
             f"{SECRET_SUB_PATH}/api/client",
             f"{SECRET_SUB_PATH}/api/node",
+            f"{SECRET_SUB_PATH}/api/reset",
         }
         if path not in api_paths:
             log.warning("404 unknown POST path: %s", self.path)
             self.send_error(404)
             return
         if not self._require_auth(api=True):
+            return
+        if path == f"{SECRET_SUB_PATH}/api/reset":
+            reset_sync_statuses()
+            self._send_json(200, {"ok": True})
             return
         length = int(self.headers.get("Content-Length", 0) or 0)
         raw = self.rfile.read(length) if length else b""
@@ -2789,6 +2894,7 @@ class Handler(BaseHTTPRequestHandler):
             .replace("__API_OVERRIDE__", f"/{SECRET_SUB_PATH}/api/override")
             .replace("__API_CLIENT__", f"/{SECRET_SUB_PATH}/api/client")
             .replace("__API_NODE__", f"/{SECRET_SUB_PATH}/api/node")
+            .replace("__API_RESET__", f"/{SECRET_SUB_PATH}/api/reset")
             .replace("__LOGS_URL__", f"/{SECRET_SUB_PATH}/api/logs")
             .replace("__NODES_JSON__", json.dumps(NODES, ensure_ascii=False).replace("</", "<\\/"))
             .encode("utf-8")
@@ -2876,6 +2982,7 @@ class Handler(BaseHTTPRequestHandler):
             tail, last_inode, pos = self._log_tail()
             self._emit_log_events(tail)
             last_active = time.time()
+            last_reset = LOG_RESET_EVENT
             while True:
                 while True:
                     try:
@@ -2884,6 +2991,11 @@ class Handler(BaseHTTPRequestHandler):
                         break
                     self.wfile.write(f"event: activity\ndata: {payload}\n\n".encode("utf-8"))
                 inode, size = self._log_file_info()
+                if LOG_RESET_EVENT != last_reset:
+                    last_reset = LOG_RESET_EVENT
+                    last_inode = inode
+                    pos = 0
+                    last_active = time.time()
                 if inode != last_inode:
                     last_inode = inode
                     pos = 0

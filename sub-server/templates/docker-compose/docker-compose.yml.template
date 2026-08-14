@@ -7,7 +7,6 @@ services:
     restart: unless-stopped
     environment:
       SECRET_SUB_PATH: "{{SECRET_SUB_PATH}}"
-      DATABASE_FILE: "/data/subs.yml"
       FORCE_FILE: "/data/force-subs.yml"
       NODES_FILE: "/data/nodes.json"
       RUSSIAN_SUB_URL: "{{RUSSIAN_SUB_URL}}"
@@ -16,7 +15,6 @@ services:
       ADMIN_PASSWORD: "{{ADMIN_PASSWORD}}"
       PORT: "8000"
     volumes:
-      - ./sub-server/subs.yml:/data/subs.yml:ro
       - ./sub-server/force-subs.yml:/data/force-subs.yml
       - ./sub-server/nodes.json:/data/nodes.json
     networks:

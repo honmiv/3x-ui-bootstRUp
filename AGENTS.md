@@ -373,9 +373,8 @@ sub-server/
 ├── server.py             # Python http.server app (subscription server)
 ├── setup.sh              # Remote deployment script
 ├── restart.sh            # Remote restart script
-├── subs.yml              # (Legacy) Client database, migrated to nodes.json
 ├── force-subs.yml        # Custom subscription overrides (auto-managed)
-├── nodes.json            # Node registry: [{id, name, url, clients[]}] (auto-managed)
+├── nodes.json            # Node registry: [{id, name, url, clients[]}] (single source of truth)
 └── templates/
     ├── docker-compose/
     │   ├── docker-compose.yml.template  # Service definitions
@@ -383,6 +382,10 @@ sub-server/
     └── caddy/
         └── Caddyfile.template       # Reverse proxy config
 ```
+> Note: legacy `subs.yml` was removed; `nodes.json` is now the single source of
+> truth. Old remote deployments may still have a `subs.yml` — server.py reads it
+> once to seed `nodes.json` when the registry is missing/empty, and the backup /
+> sync / rollback helpers preserve it conditionally for backward compatibility.
 
 #### sub-server/server.py - Subscription Server Application
 
@@ -440,13 +443,12 @@ subs-server (Port 8080, Docker port 8000)
 
 **Environment Variables** (passed from main.py):
 ```bash
-DATABASE_FILE            # Path to subs.yml (legacy client db), e.g. ./subs.yml
 FORCE_FILE               # Path to force-subs.yml (overrides), e.g. ./force-subs.yml
 NODES_FILE               # Path to nodes.json (node registry), e.g. ./nodes.json
 SECRET_SUB_PATH          # e.g., subs or secret123
 DOMAIN                   # e.g., sub.example.com
-RUSSIAN_SUB_URL          # e.g., https://proxy-node/subs
-FOREIGN_SUB_URL          # e.g., https://freedom-node/subs
+RUSSIAN_SUB_URL          # e.g., https://proxy-node/subs (fallback only)
+FOREIGN_SUB_URL          # e.g., https://freedom-node/subs (fallback only)
 PUBLIC_URL               # Optional; if unset, derived from X-Forwarded-Proto/Host
 ADMIN_USER              # e.g., admin
 ADMIN_PASSWORD          # Auto-generated or provided
@@ -456,6 +458,9 @@ HOST                     # Listen host, default 0.0.0.0
 PORT                     # Listen port, default 8080 (Docker maps 8000)
 LOG_LEVEL              # INFO, DEBUG (default: INFO)
 ```
+> Note: `RUSSIAN_SUB_URL` / `FOREIGN_SUB_URL` are only used to seed `nodes.json`
+> when the registry is missing/empty. Once `nodes.json` exists it is the single
+> source of truth for node URLs and clients.
 
 **When to Look Here**:
 - Adding subscription filtering or transformation logic
@@ -468,45 +473,44 @@ LOG_LEVEL              # INFO, DEBUG (default: INFO)
 - **Role**: Deploy subscription server to remote VPS
 - **Execution Flow**:
   1. Validate Docker/dependencies (root, docker compose plugin, curl)
-  2. `validate_update_state()`: if `UPDATE_SUB_SERVER=1`, keep existing subs.yml/force-subs.yml/nodes.json
+  2. `validate_update_state()`: if `UPDATE_SUB_SERVER=1`, keep existing nodes.json/force-subs.yml
   3. `load_existing_update_values()`: in update mode, restore SECRET_SUB_PATH, RUSSIAN_SUB_URL, FOREIGN_SUB_URL, ADMIN_USER/PASSWORD, DOMAIN from existing ./working/ configs
   4. Reset ./working directory (compose down first if needed)
   5. Prompt for domain, sub path, subscription URLs, admin credentials (env vars pre-fill)
-  6. Generate subs.yml from environment variables:
-     ```yaml
-     proxy:
-       - client1
-       - client2
-     freedom:
-       - freedom-user
+  6. `create_nodes_json()`: generate nodes.json from environment variables
+     (one entry per node with a subscription URL, clients from `PROXY_CLIENTS` /
+     `FREEDOM_CLIENTS`), e.g.:
+     ```json
+     [
+       {"id": "proxy", "name": "Proxy (РФ)", "url": "https://proxy-node/subs", "clients": ["client1", "client2"]},
+       {"id": "freedom", "name": "Freedom (зарубежье)", "url": "https://freedom-node/subs", "clients": ["freedom-user"]}
+     ]
      ```
   7. Process templates (Caddyfile, docker-compose.yml) via `generate_config()` + sed substitution
   8. Build and start Docker services (`compose up -d --build`)
   9. Wait for SSL certificate (Let's Encrypt, up to 300s)
 
 **Key Environment Variables**:
-- `PROXY_CLIENTS` - Space-separated client list for Russian node
-- `FREEDOM_CLIENTS` - Space-separated client list for foreign node
+- `PROXY_CLIENTS` - Space-separated client list for the proxy (Russian) node
+- `FREEDOM_CLIENTS` - Space-separated client list for the freedom (foreign) node
 - `UPDATE_SUB_SERVER` - `1` preserves existing client/node config (used by `update_sub` mode)
 
-#### sub-server/subs.yml - Client Database
-```yaml
-# Client assignments to proxy groups
-proxy:
-  - end-user
-  - local-client-1
-  - local-client-2
-
-freedom:
-  - foreign-user
-  - international-client
+#### sub-server/nodes.json - Node Registry (single source of truth)
+```json
+[
+  {"id": "proxy", "name": "Proxy (РФ)", "url": "https://proxy-node/subs", "clients": ["end-user", "local-client-1"]},
+  {"id": "freedom", "name": "Freedom (зарубежье)", "url": "https://freedom-node/subs", "clients": ["foreign-user"]}
+]
 ```
 
-**Format**: YAML with two sections (proxy, freedom)
-**Management**: 
-- Auto-generated by setup.sh from environment variables
-- Can be manually edited after deployment
-- **Legacy**: At startup, `load_subs()` parses subs.yml (via PyYAML) and `default_nodes()` builds the `nodes.json` registry from these lists + RUSSIAN_SUB_URL / FOREIGN_SUB_URL; the registry is then the source of truth (see `load_nodes()` fallback logic)
+**Format**: JSON array of nodes; each node has `id`, `name`, `url` (subscription
+base URL) and `clients[]`. Arbitrary nodes/clients are supported.
+**Management**:
+- Generated by `setup.sh` (`create_nodes_json()`) from environment variables
+- Managed via the web UI (`POST /api/client`, `POST /api/node`) which persists to this file
+- **Legacy**: if the file is missing or empty, `server.py` seeds it from
+  `RUSSIAN_SUB_URL`/`FOREIGN_SUB_URL` (optionally migrating client lists from an
+  old `subs.yml`); once written, nodes.json is the only source of truth
 
 #### sub-server/force-subs.yml - Subscription Overrides
 ```yaml
@@ -538,7 +542,7 @@ Sub-Server Node Docker Services:
 │  │   subs-server              │    │
 │  │ • Python 3.12-alpine       │    │
 │  │ • Port 8000 (internal)     │    │
-│  │ • Reads subs.yml           │    │
+│  │ • Reads nodes.json         │    │
 │  │ • Manages force-subs.yml   │    │
 │  │ • Routes to backend nodes  │    │
 │  └────────────────────────────┘    │
@@ -578,8 +582,8 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 
 **Maintenance Operations**:
 - `restart_sub` - Restart containers via ./restart.sh
-- `update_sub` - One-click update: creates a full pre-update backup (subs.yml, force-subs.yml, nodes.json, Caddyfile, SSL certs), then redeploys preserving client/node/override data; aborts if backup fails
-- `backup_sub` - Backup subs.yml, force-subs.yml, nodes.json, Caddyfile, SSL certs
+- `update_sub` - One-click update: creates a full pre-update backup (nodes.json, force-subs.yml, Caddyfile, SSL certs), then redeploys preserving client/node/override data; aborts if backup fails
+- `backup_sub` - Backup nodes.json, force-subs.yml, Caddyfile, SSL certs
 - `rollback_sub` - Restore from backup archive (incl. nodes.json)
 
 ---
@@ -823,7 +827,7 @@ proxy_node:
 2. Stage 2: Deploy proxy node with FOREIGN_SUB_URL
    → Get RUSSIAN_SUB_URL from response
 3. Stage 3: Deploy sub-server with both URLs
-   → subs.yml auto-generated with client lists
+   → nodes.json auto-generated with node URLs + client lists
    → Sub-server routes clients to appropriate backends
 ```
 
@@ -933,12 +937,12 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
    - `nodes.json` remains the JSON node registry (stdlib `json` module).
    - *Remaining debt*: full migration of `subs.yml` → `nodes.json` is tracked separately in item 2.
 
-2. **Schema Divergence: Legacy `subs.yml` vs `nodes.json`**:
-   - `sub-server/server.py` supports arbitrary nodes and clients via `nodes.json`, but `sub-server/setup.sh` and initial deploy templates still generate legacy `subs.yml`.
-   - Web API mutations modify `nodes.json` while `subs.yml` remains desynchronized.
-   - *Goal*: Fully migrate remote setup scripts and backups to use `nodes.json` as the single source of truth.
+2. **Schema Divergence: Legacy `subs.yml` vs `nodes.json`** — *RESOLVED*:
+   - `sub-server/setup.sh` now generates `nodes.json` (`create_nodes_json()`) from `RUSSIAN_SUB_URL`/`FOREIGN_SUB_URL` + `PROXY_CLIENTS`/`FREEDOM_CLIENTS` instead of `subs.yml`; the `subs.yml` volume mount and `DATABASE_FILE` env were removed from the docker-compose template.
+   - `sub-server/server.py` uses `nodes.json` as the single source of truth; the legacy `subs.yml` is only read once to seed `nodes.json` when the registry is missing/empty.
+   - Backups, `update_sub` and `rollback_sub` center on `nodes.json`; the legacy `subs.yml` is preserved conditionally for backward compatibility with old deployments.
 
-3. **Fragile Remote Output Parsing in Deployer**:
+3. **Fragile Remote Output Parsing in Deployer** — *RESOLVED*::
    - `ssh_deployer.py:parse_deployment_results()` parses unstructured text and localized strings (`"Клиент:"`, `"Client:"`, `"3x-UI"`, `vless://`) from remote `setup.sh` stdout.
    - *Goal*: Have remote scripts emit a machine-readable JSON summary block at completion to avoid breaking on script output/locale changes.
 

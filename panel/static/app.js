@@ -815,7 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node configurable">
                             <span class="node-icon">📡</span>
                             <span class="node-title">Сервер подписок</span>
-                            <span class="node-desc">subs.yml + Caddyfile</span>
+                            <span class="node-desc">nodes.json + Caddyfile</span>
                         </div>
                     </div>
                 </div>

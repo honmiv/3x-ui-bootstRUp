@@ -104,10 +104,9 @@ reset_working_dir() {
 
 validate_update_state() {
     [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]] || return 0
-    [[ -f "$SCRIPT_DIR/subs.yml" ]] || die "Cannot update Subscription Server: subs.yml is missing."
+    [[ -f "$SCRIPT_DIR/nodes.json" ]] || die "Cannot update Subscription Server: nodes.json is missing."
     [[ -f "$SCRIPT_DIR/force-subs.yml" ]] || touch "$SCRIPT_DIR/force-subs.yml"
-    [[ -f "$SCRIPT_DIR/nodes.json" ]] || touch "$SCRIPT_DIR/nodes.json"
-    info "Update mode: preserving subs.yml, force-subs.yml and nodes.json."
+    info "Update mode: preserving nodes.json and force-subs.yml."
 }
 
 load_existing_update_values() {
@@ -182,26 +181,51 @@ prompt_subscription_urls() {
     [[ -n "$RUSSIAN_SUB_URL" || -n "$FOREIGN_SUB_URL" ]] || die "At least one subscription URL must be specified."
 }
 
-create_subs_yml() {
-    info "Configuring subs.yml database."
-    cat <<EOF > "$SCRIPT_DIR/subs.yml"
-proxy:
-EOF
-    if [[ -n "${PROXY_CLIENTS:-}" ]]; then
-        for client in $PROXY_CLIENTS; do
-            echo "  - $client" >> "$SCRIPT_DIR/subs.yml"
-        done
-    fi
-    cat <<EOF >> "$SCRIPT_DIR/subs.yml"
+json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    printf '%s' "$s"
+}
 
-freedom:
-EOF
-    if [[ -n "${FREEDOM_CLIENTS:-}" ]]; then
-        for client in $FREEDOM_CLIENTS; do
-            echo "  - $client" >> "$SCRIPT_DIR/subs.yml"
-        done
+create_nodes_json() {
+    info "Configuring nodes.json registry."
+    local entries=()
+    local group_url group_clients items clients_json item client
+
+    build_node() {
+        local node_id="$1" node_name="$2" node_url="$3" node_clients="$4"
+        if [[ -z "$node_url" ]]; then
+            warn "No subscription URL for '${node_id}' node, skipping it."
+            return
+        fi
+        items=()
+        if [[ -n "$node_clients" ]]; then
+            for client in $node_clients; do
+                items+=("$(printf '"%s"' "$(json_escape "$client")")")
+            done
+        fi
+        if [[ ${#items[@]} -gt 0 ]]; then
+            clients_json="$(IFS=','; printf '[%s]' "${items[*]}")"
+        else
+            clients_json="[]"
+        fi
+        entries+=("$(printf '{"id": "%s", "name": "%s", "url": "%s", "clients": %s}' \
+            "$(json_escape "$node_id")" "$(json_escape "$node_name")" "$(json_escape "$node_url")" "$clients_json")")
+    }
+
+    build_node "proxy" "Proxy (РФ)" "${RUSSIAN_SUB_URL:-}" "${PROXY_CLIENTS:-}"
+    build_node "freedom" "Freedom (зарубежье)" "${FOREIGN_SUB_URL:-}" "${FREEDOM_CLIENTS:-}"
+
+    if [[ ${#entries[@]} -eq 0 ]]; then
+        die "At least one node with a subscription URL is required."
     fi
-    touch "$SCRIPT_DIR/nodes.json"
+
+    printf '[%s]\n' "$(IFS=','; printf '%s' "${entries[*]}")" > "$SCRIPT_DIR/nodes.json"
+    success "Node registry written to nodes.json."
 }
 
 prompt_admin() {
@@ -299,8 +323,8 @@ print_results() {
     echo "  Admin login: ${ADMIN_USER}"
     echo "  Admin password: ${ADMIN_PASSWORD}"
     echo
-    echo "Client list (proxy/freedom): $SCRIPT_DIR/subs.yml"
-    echo "After editing subs.yml restart: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"
+    echo "Node registry (clients): $SCRIPT_DIR/nodes.json"
+    echo "After editing nodes.json restart: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"
 }
 
 main() {
@@ -317,7 +341,7 @@ main() {
     if [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]]; then
         info "Keeping existing client and node configuration."
     else
-        create_subs_yml
+        create_nodes_json
     fi
 
     process_templates

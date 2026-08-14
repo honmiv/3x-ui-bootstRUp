@@ -345,9 +345,9 @@ async def _perform_remote_sub_backup(deployer: SSHDeployer, backup_name: str, lo
         "cd \"$WORK_DIR\"\n"
         "rm -rf /tmp/sub_server_backup /tmp/sub_server_backup.tar.gz\n"
         "mkdir -p /tmp/sub_server_backup/working\n"
+        "[ -f \"sub-server/nodes.json\" ] && cp \"sub-server/nodes.json\" /tmp/sub_server_backup/nodes.json || true\n"
         "[ -f \"sub-server/subs.yml\" ] && cp \"sub-server/subs.yml\" /tmp/sub_server_backup/subs.yml || true\n"
         "[ -f \"sub-server/force-subs.yml\" ] && cp \"sub-server/force-subs.yml\" /tmp/sub_server_backup/force-subs.yml || true\n"
-        "[ -f \"sub-server/nodes.json\" ] && cp \"sub-server/nodes.json\" /tmp/sub_server_backup/nodes.json || true\n"
         "[ -f \"working/caddy/Caddyfile\" ] && cp \"working/caddy/Caddyfile\" /tmp/sub_server_backup/working/Caddyfile || true\n"
         "[ -f \"working/docker-compose/docker-compose.yml\" ] && cp \"working/docker-compose/docker-compose.yml\" /tmp/sub_server_backup/working/docker-compose.yml || true\n"
         "[ -d \".caddy_data\" ] && cp -r \".caddy_data\" /tmp/sub_server_backup/.caddy_data || true\n"
@@ -408,10 +408,10 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
 def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
     """Build the remote command that syncs the sub-server repo bundle.
 
-    When ``preserve`` is True, the runtime state files (subs.yml, force-subs.yml,
-    nodes.json) are backed up before the bundle is extracted and restored
-    afterwards, so refreshing the tool scripts never clobbers remote
-    client/override data.
+    When ``preserve`` is True, the runtime state files (nodes.json and
+    force-subs.yml; plus the legacy subs.yml if present) are backed up before
+    the bundle is extracted and restored afterwards, so refreshing the tool
+    scripts never clobbers remote client/override data.
     """
     backup = (
         f"for f in subs.yml force-subs.yml nodes.json; do "

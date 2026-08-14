@@ -454,28 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'proxy_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">1. Получение подписки (Прямо с нод)</div>
-                    <div class="topology-flow">
-                        <div class="topology-node">
-                            <span class="node-icon">📱</span>
-                            <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
-                        </div>
-                        <div class="topology-arrow">
-                            <span class="arrow-label">Запрос</span>
-                            <span class="arrow-label">подписки</span>
-                            <span>➔</span>
-                        </div>
-                        <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
-                            <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="topology-stage">
-                    <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
+                    <div class="topology-stage-title">Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
@@ -572,11 +551,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'freedom_component') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">Место в каскаде — выходной узел (Зарубежье)</div>
+                    <div class="topology-stage-title">Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon">📱</span>
                             <span class="node-title">Клиент</span>
+                            <span class="node-desc">С подпиской</span>
                             <span class="topology-badge topology-badge-ru">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
@@ -586,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node">
                             <span class="node-icon">🖧</span>
                             <span class="node-title">Proxy Node</span>
-                            <span class="node-desc">Уже установлен</span>
+                            <span class="node-desc">Входной сервер</span>
                             <span class="topology-badge topology-badge-ru">🇷🇺</span>
                         </div>
                         <div class="topology-arrow">
@@ -596,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node configurable">
                             <span class="node-icon">🕊️</span>
                             <span class="node-title">Freedom Node</span>
-                            <span class="node-desc">Устанавливается сейчас</span>
+                            <span class="node-desc">Выходной сервер</span>
                             <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
                         </div>
                         <div class="topology-arrow">

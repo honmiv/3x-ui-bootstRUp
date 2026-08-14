@@ -1564,44 +1564,65 @@ body {
     background: rgba(15, 23, 42, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
-    padding: 14px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
     transition: all 0.2s ease;
 }
 .server-card:hover {
     border-color: rgba(255, 255, 255, 0.15);
     background: rgba(15, 23, 42, 0.6);
 }
-.server-card-header {
+.server-card-info {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+.server-card-badge {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 0.72rem;
+    background: var(--primary-color, #3b82f6);
+    color: #ffffff;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 2px;
 }
 .server-card-host {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.95rem;
-    color: #e2e8f0;
+    color: #ffffff;
     word-break: break-all;
+    line-height: 1.25;
 }
 .server-card-details {
     font-size: 0.8rem;
     color: var(--text-secondary);
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
+    margin-top: 2px;
 }
 .server-card-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 30px);
+    grid-template-rows: repeat(2, 30px);
+    gap: 6px;
+    flex-shrink: 0;
 }
 .btn-icon-sm {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid transparent;
     color: var(--text-secondary);
     border-radius: 6px;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1609,8 +1630,8 @@ body {
     transition: all 0.2s;
 }
 .btn-icon-sm svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
 }
 .btn-icon-sm:hover {
     background: rgba(255, 255, 255, 0.1);

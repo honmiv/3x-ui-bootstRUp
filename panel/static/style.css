@@ -1480,6 +1480,44 @@ details.mode-category:not([open]) .category-header::after {
     box-shadow: 0 4px 15px rgba(245, 158, 11, 0.1);
 }
 
+/* Update-available banner */
+@keyframes update-glow {
+    0%, 100% {
+        box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
+    }
+    50% {
+        box-shadow: 0 0 26px rgba(245, 158, 11, 0.55);
+    }
+}
+.update-banner {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    animation: update-glow 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .update-banner {
+        animation: none;
+    }
+}
+.update-banner .update-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.update-banner .btn-dismiss {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+}
+.update-banner .btn-dismiss:hover {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    transform: none;
+}
+
 /* Layout Adjustments */
 body {
     align-items: flex-start;

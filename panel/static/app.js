@@ -2965,6 +2965,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const checkForUpdates = async () => {
+        try {
+            const res = await fetch('/api/update_check', { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || data.update_available !== true) return;
+            const banner = document.getElementById('updateBanner');
+            if (banner) banner.classList.remove('hidden');
+        } catch (e) {
+            // Offline or server restarting - skip silently
+        }
+    };
+
+    const btnBannerDismiss = document.getElementById('btnBannerDismiss');
+    if (btnBannerDismiss) {
+        btnBannerDismiss.addEventListener('click', () => {
+            const banner = document.getElementById('updateBanner');
+            if (banner) banner.classList.add('hidden');
+        });
+    }
+
+    checkForUpdates();
+
     const btnRestart = document.getElementById('btnRestart');
     if (btnRestart) {
         btnRestart.addEventListener('click', async () => {

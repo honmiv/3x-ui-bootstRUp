@@ -20,8 +20,9 @@ from ssh_deployer import SSHDeployer, run_deployment
 
 PORT = 8000
 HOST = "127.0.0.1"
-BACKUP_FILE = os.path.join(os.path.dirname(__file__), "setup_backup.yml")
-SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKUP_FILE = os.path.join(APP_DIR, "setup_backup.yml")
+SERVERS_FILE = os.path.join(APP_DIR, "servers.json")
 
 active_logs: List[Dict[str, str]] = []
 is_deploying = False
@@ -67,6 +68,113 @@ def fetch_xui_versions() -> List[str]:
     XUI_CACHE["data"] = versions
     XUI_CACHE["ts"] = now
     return versions
+
+UPDATE_CHECK_URL = "https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz"
+UPDATE_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0, "err": None, "err_ts": 0.0}
+UPDATE_CACHE_TTL = 300
+UPDATE_ERR_TTL = 60
+EXCLUDED_DIRS = {".git", "__pycache__", ".python_env", "backups_panel", "backups_sub_server"}
+
+
+def _is_code_file(rel: str) -> bool:
+    parts = rel.split("/")
+    if any(p in EXCLUDED_DIRS for p in parts):
+        return False
+    if rel in ("servers.json", "setup_backup.yml") or rel.endswith(".pyc"):
+        return False
+    return True
+
+
+def _is_binary(data: bytes) -> bool:
+    return b"\0" in data[:2048]
+
+
+def _local_code_files() -> Dict[str, bytes]:
+    result: Dict[str, bytes] = {}
+    for dirpath, dirnames, filenames in os.walk(APP_DIR):
+        dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
+        for fn in filenames:
+            full = os.path.join(dirpath, fn)
+            rel = os.path.relpath(full, APP_DIR).replace(os.sep, "/")
+            if not _is_code_file(rel):
+                continue
+            try:
+                with open(full, "rb") as f:
+                    data = f.read()
+            except Exception:
+                continue
+            if _is_binary(data):
+                continue
+            result[rel] = data
+    return result
+
+
+def _remote_code_files() -> Dict[str, bytes]:
+    import io
+    import tarfile
+
+    req = urllib.request.Request(UPDATE_CHECK_URL, headers={"User-Agent": XUI_UA})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = resp.read()
+
+    result: Dict[str, bytes] = {}
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+        for member in tf.getmembers():
+            if not member.isfile():
+                continue
+            parts = member.name.split("/")
+            if len(parts) < 2:
+                continue
+            rel = "/".join(parts[1:])
+            if not _is_code_file(rel):
+                continue
+            fobj = tf.extractfile(member)
+            if fobj is None:
+                continue
+            raw = fobj.read()
+            if _is_binary(raw):
+                continue
+            result[rel] = raw
+    return result
+
+
+def _fingerprint(files: Dict[str, bytes]) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    for rel in sorted(files):
+        h.update(rel.encode("utf-8", "replace"))
+        h.update(b"\0")
+        h.update(files[rel])
+    return h.hexdigest()
+
+
+def check_for_update() -> Dict[str, Any]:
+    now = time.time()
+    if UPDATE_CACHE["data"] is not None and now - UPDATE_CACHE["ts"] < UPDATE_CACHE_TTL:
+        return UPDATE_CACHE["data"]
+    if UPDATE_CACHE["err"] is not None and now - UPDATE_CACHE["err_ts"] < UPDATE_ERR_TTL:
+        return {"update_available": False, "error": UPDATE_CACHE["err"]}
+
+    try:
+        local = _local_code_files()
+        remote = _remote_code_files()
+        local_fp = _fingerprint(local)
+        remote_fp = _fingerprint(remote)
+        result = {
+            "update_available": local_fp != remote_fp,
+            "local_version": local_fp[:12],
+            "latest_version": remote_fp[:12],
+            "files": {"local": len(local), "remote": len(remote)},
+        }
+        UPDATE_CACHE["data"] = result
+        UPDATE_CACHE["ts"] = now
+        UPDATE_CACHE["err"] = None
+        return result
+    except Exception as e:
+        UPDATE_CACHE["err"] = str(e)
+        UPDATE_CACHE["err_ts"] = now
+        return {"update_available": False, "error": str(e)}
 
 def is_cancel_requested() -> bool:
     global cancel_requested
@@ -282,6 +390,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self.send_json({"versions": fetch_xui_versions()})
             except Exception as e:
                 self.send_json({"versions": ["latest", "3.6.0"], "error": str(e)})
+            return
+
+        if url_path == "/api/update_check":
+            self.send_json(check_for_update())
             return
 
         if url_path == "/api/backups":

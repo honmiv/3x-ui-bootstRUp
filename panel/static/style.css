@@ -1613,12 +1613,81 @@ body {
     border-color: rgba(255, 255, 255, 0.15);
     background: rgba(15, 23, 42, 0.6);
 }
+.server-card.is-locked {
+    background: rgba(15, 23, 42, 0.25);
+    border-color: rgba(255, 255, 255, 0.03);
+}
+.server-card.is-locked:hover {
+    background: rgba(15, 23, 42, 0.35);
+    border-color: rgba(255, 255, 255, 0.07);
+}
+.server-card.is-locked .server-card-badge {
+    opacity: 0.65;
+    filter: grayscale(35%);
+}
+.server-card.is-locked .server-card-host {
+    color: var(--text-secondary, #94a3b8);
+}
+.server-card.is-locked .server-card-details {
+    opacity: 0.5;
+}
+.server-card.is-locked .server-card-actions {
+    opacity: 0.3;
+    pointer-events: none;
+}
+.server-card.is-locked .server-card-actions .btn-icon-sm {
+    cursor: not-allowed;
+    filter: grayscale(100%);
+}
 .server-card-info {
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 0;
     flex: 1;
+}
+.server-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 20px;
+}
+.btn-lock-toggle {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary, #94a3b8);
+    border-radius: 5px;
+    width: 22px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    opacity: 0.5;
+    pointer-events: auto !important;
+}
+.btn-lock-toggle svg {
+    width: 13px;
+    height: 13px;
+}
+.btn-lock-toggle:hover {
+    opacity: 1;
+    color: var(--text-primary, #ffffff);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.btn-lock-toggle.locked {
+    opacity: 1;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.28);
+}
+.btn-lock-toggle.locked:hover {
+    background: rgba(245, 158, 11, 0.24);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #fbbf24;
 }
 .server-card-badge {
     display: inline-block;
@@ -1630,7 +1699,6 @@ body {
     border-radius: 4px;
     font-weight: 600;
     line-height: 1.2;
-    margin-bottom: 2px;
 }
 .server-card-host {
     font-weight: 700;

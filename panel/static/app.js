@@ -3302,14 +3302,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let index = 0; index < serversList.length; index++) {
             const srv = serversList[index];
+            const isLocked = !!srv.locked;
             const badge = srv.target_type && typeNames[srv.target_type] 
                 ? `<span class="server-card-badge">${typeNames[srv.target_type]}</span>` 
                 : '';
+            const lockIcon = isLocked
+                ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+            
             const card = document.createElement('div');
-            card.className = 'server-card';
+            card.className = `server-card ${isLocked ? 'is-locked' : ''}`;
             card.innerHTML = `
                 <div class="server-card-info">
-                    ${badge}
+                    <div class="server-card-header">
+                        ${badge}
+                        <button type="button" class="btn-lock-toggle ${isLocked ? 'locked' : ''}" 
+                            title="${isLocked ? 'Разблокировать управление сервером' : 'Заблокировать (защита от случайных действий)'}" 
+                            onclick="window.toggleServerLock(${index})">
+                            ${lockIcon}
+                        </button>
+                    </div>
                     <div class="server-card-host">${srv.host || 'Без IP'}</div>
                     <div class="server-card-details">
                         <span>👤 ${srv.user || 'root'}</span>
@@ -3317,22 +3329,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="server-card-actions">
-                    <button type="button" class="btn-icon-sm" title="Заполнить поля" onclick="window.fillServerData(${index})">
+                    <button type="button" class="btn-icon-sm" title="${isLocked ? 'Сервер заблокирован' : 'Заполнить поля'}" ${isLocked ? 'disabled' : ''} onclick="window.fillServerData(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
                     </button>
-                    <button type="button" class="btn-icon-sm" title="Копировать пароль" onclick="window.copyServerPass(${index})">
+                    <button type="button" class="btn-icon-sm" title="${isLocked ? 'Сервер заблокирован' : 'Копировать пароль'}" ${isLocked ? 'disabled' : ''} onclick="window.copyServerPass(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     </button>
-                    <button type="button" class="btn-icon-sm" title="Редактировать" onclick="window.editServer(${index})">
+                    <button type="button" class="btn-icon-sm" title="${isLocked ? 'Сервер заблокирован' : 'Редактировать'}" ${isLocked ? 'disabled' : ''} onclick="window.editServer(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                     </button>
-                    <button type="button" class="btn-icon-sm danger" title="Удалить" onclick="window.deleteServer(${index})">
+                    <button type="button" class="btn-icon-sm danger" title="${isLocked ? 'Сервер заблокирован' : 'Удалить'}" ${isLocked ? 'disabled' : ''} onclick="window.deleteServer(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     </button>
                 </div>
             `;
             savedServersList.appendChild(card);
         }
+    };
+
+    window.toggleServerLock = async (index) => {
+        const srv = serversList[index];
+        if (!srv) return;
+        const willLock = !srv.locked;
+        srv.locked = willLock;
+        await saveServersToBackend();
+        renderSavedServers();
+        showToast(willLock ? 'Сервер заблокирован от случайных действий' : 'Сервер разблокирован', 'info');
     };
 
     window.applyServerData = async (index, hostId) => {
@@ -3376,6 +3398,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
         const srv = serversList[index];
         if (!srv) return;
+        if (srv.locked) {
+            showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
+            return;
+        }
 
         // Auto-match if target_type is defined and visible
         if (srv.target_type) {
@@ -3448,6 +3474,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyServerPass = async (index) => {
         if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
         const srv = serversList[index];
+        if (!srv) return;
+        if (srv.locked) {
+            showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
+            return;
+        }
         const secret = srv && (srv.enc_pass || srv.enc_key);
         if (secret) {
             const value = await decryptData(secret, cryptoKey);
@@ -3476,6 +3507,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
         const srv = serversList[index];
         if (!srv) return;
+        if (srv.locked) {
+            showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
+            return;
+        }
 
         if (smTargetType) {
             smTargetType.value = srv.target_type || '';
@@ -3525,6 +3560,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteServer = async (index) => {
+        const srv = serversList[index];
+        if (srv && srv.locked) {
+            showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
+            return;
+        }
         if (!await showConfirm('Удалить этот сервер из сохраненных?', 'Удаление сервера', { confirmText: 'Удалить', danger: true, icon: '🗑️' })) return;
         serversList.splice(index, 1);
         if (editingServerIndex !== null) {
@@ -3569,6 +3609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const encPass = await encryptData(plainPass, cryptoKey);
             const encKey = await encryptData(plainKey, cryptoKey);
 
+            const isLocked = (editingServerIndex !== null && serversList[editingServerIndex]) ? !!serversList[editingServerIndex].locked : false;
             const newData = {
                 target_type: smTargetType ? smTargetType.value : '',
                 auth_type: authType,
@@ -3576,7 +3617,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 user: smUser.value.trim() || 'root',
                 port: smPort.value || 22,
                 enc_pass: encPass,
-                enc_key: encKey
+                enc_key: encKey,
+                locked: isLocked
             };
 
             if (editingServerIndex !== null && serversList[editingServerIndex]) {

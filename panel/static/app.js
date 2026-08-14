@@ -3137,6 +3137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let serversList = [];
     let serversLoaded = false;
     let serversLoadError = '';
+    let editingServerIndex = null;
 
     // Crypto functions
     const deriveKey = async (password) => {
@@ -3310,6 +3311,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn-icon-sm primary" title="Заполнить поля" onclick="window.fillServerData(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
                     </button>
+                    <button type="button" class="btn-icon-sm primary" title="Редактировать" onclick="window.editServer(${index})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    </button>
                     <button type="button" class="btn-icon-sm" title="Копировать пароль" onclick="window.copyServerPass(${index})">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     </button>
@@ -3450,9 +3454,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const btnCancelEditServer = document.getElementById('btnCancelEditServer');
+    const btnSaveServerText = document.getElementById('btnSaveServerText');
+
+    const setEditingMode = (index) => {
+        editingServerIndex = index;
+        if (btnSaveServerText) btnSaveServerText.textContent = index === null ? 'Сохранить сервер' : 'Обновить сервер';
+        if (btnCancelEditServer) btnCancelEditServer.style.display = index === null ? 'none' : 'block';
+    };
+
+    window.editServer = async (index) => {
+        if (!cryptoKey) { showToast('Сначала разблокируйте список', 'warning'); return; }
+        const srv = serversList[index];
+        if (!srv) return;
+
+        if (smTargetType) {
+            smTargetType.value = srv.target_type || '';
+            smTargetType.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        smHost.value = srv.host || '';
+        smUser.value = srv.user || 'root';
+        smPort.value = srv.port || 22;
+
+        const authType = srv.auth_type === 'key' ? 'key' : 'password';
+        if (smAuthType) {
+            smAuthType.value = authType;
+            smAuthType.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const pass = srv.enc_pass ? await decryptData(srv.enc_pass, cryptoKey) : '';
+        const key = srv.enc_key ? await decryptData(srv.enc_key, cryptoKey) : '';
+        if (pass === "[Ошибка расшифровки]") {
+            showToast('Неверный PIN-код. Невозможно расшифровать.', 'error');
+            return;
+        }
+        smPass.value = authType === 'key' ? '' : (pass || '');
+        smKey.value = authType === 'key' ? (key || '') : '';
+
+        setEditingMode(index);
+        if (glowRefresher) glowRefresher();
+
+        showToast('Редактирование сервера. Внесите изменения и нажмите «Обновить сервер».', 'success');
+    };
+
+    window.cancelEditServer = () => {
+        setEditingMode(null);
+        if (smTargetType) {
+            smTargetType.value = '';
+            smTargetType.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        smHost.value = '';
+        smPass.value = '';
+        smKey.value = '';
+        smUser.value = 'root';
+        smPort.value = '22';
+        if (smAuthType) {
+            smAuthType.value = 'password';
+            smAuthType.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        showToast('Редактирование отменено', 'success');
+    };
+
     window.deleteServer = async (index) => {
         if (!await showConfirm('Удалить этот сервер из сохраненных?', 'Удаление сервера', { confirmText: 'Удалить', danger: true, icon: '🗑️' })) return;
         serversList.splice(index, 1);
+        if (editingServerIndex !== null) {
+            if (editingServerIndex === index) {
+                setEditingMode(null);
+                if (window.cancelEditServer) window.cancelEditServer();
+            } else if (editingServerIndex > index) {
+                editingServerIndex--;
+            }
+        }
         await saveServersToBackend();
         renderSavedServers();
     };
@@ -3487,7 +3560,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const encPass = await encryptData(plainPass, cryptoKey);
             const encKey = await encryptData(plainKey, cryptoKey);
 
-            serversList.push({
+            const newData = {
                 target_type: smTargetType ? smTargetType.value : '',
                 auth_type: authType,
                 host: host,
@@ -3495,7 +3568,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 port: smPort.value || 22,
                 enc_pass: encPass,
                 enc_key: encKey
-            });
+            };
+
+            if (editingServerIndex !== null && serversList[editingServerIndex]) {
+                serversList[editingServerIndex] = newData;
+            } else {
+                serversList.push(newData);
+            }
+            setEditingMode(null);
             
             await saveServersToBackend();
             
@@ -3523,6 +3603,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             await doSaveServer();
+        });
+    }
+
+    if (btnCancelEditServer) {
+        btnCancelEditServer.addEventListener('click', () => {
+            window.cancelEditServer();
         });
     }
 

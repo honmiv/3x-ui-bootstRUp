@@ -102,6 +102,14 @@ reset_working_dir() {
     success "Working directory ready."
 }
 
+ensure_state_files() {
+    # Bind-mount targets must exist as files on the host, otherwise Docker
+    # creates directories and the container fails to write to them.
+    [[ -f "$SCRIPT_DIR/force-subs.yml" ]] || touch "$SCRIPT_DIR/force-subs.yml"
+    [[ -f "$SCRIPT_DIR/nodes.json" ]] || touch "$SCRIPT_DIR/nodes.json"
+    [[ -f "$SCRIPT_DIR/sub-server.log" ]] || touch "$SCRIPT_DIR/sub-server.log"
+}
+
 validate_update_state() {
     [[ "${UPDATE_SUB_SERVER:-0}" == "1" ]] || return 0
     [[ -f "$SCRIPT_DIR/nodes.json" ]] || die "Cannot update Subscription Server: nodes.json is missing."
@@ -358,6 +366,8 @@ main() {
     else
         create_nodes_json
     fi
+
+    ensure_state_files
 
     process_templates
     start_containers

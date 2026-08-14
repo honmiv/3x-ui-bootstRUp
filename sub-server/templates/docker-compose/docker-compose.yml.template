@@ -9,6 +9,7 @@ services:
       SECRET_SUB_PATH: "{{SECRET_SUB_PATH}}"
       FORCE_FILE: "/data/force-subs.yml"
       NODES_FILE: "/data/nodes.json"
+      LOG_FILE: "/data/sub-server.log"
       RUSSIAN_SUB_URL: "{{RUSSIAN_SUB_URL}}"
       FOREIGN_SUB_URL: "{{FOREIGN_SUB_URL}}"
       ADMIN_USER: "{{ADMIN_USER}}"
@@ -17,6 +18,7 @@ services:
     volumes:
       - ./sub-server/force-subs.yml:/data/force-subs.yml
       - ./sub-server/nodes.json:/data/nodes.json
+      - ./sub-server/sub-server.log:/data/sub-server.log
     networks:
       - sub-caddy-net
 

@@ -10,6 +10,8 @@ POST /<SECRET_SUB_PATH>/api/override - set/clear a custom vless:// override for 
                                        client. Body: {"client": "...", "value": "..."}.
                                        value="" clears the override. Values are stored
                                        in FORCE_FILE as base64.
+GET  /<SECRET_SUB_PATH>/api/logs     - real-time log stream (SSE) tailing LOG_FILE,
+                                       the same output docker logs -f subs-server shows.
 
 The client name is looked up in the node registry (nodes.json):
   - each node has an id, a display name, a subscription base URL and a
@@ -20,6 +22,8 @@ The client name is looked up in the node registry (nodes.json):
 Env vars:
   FORCE_FILE      path to force-subs.yml overrides (default: force-subs.yml)
   NODES_FILE      path to nodes.json registry (default: nodes.json)
+  LOG_FILE        path to a log file tailed by the /api/logs SSE stream
+                  (default: sub-server.log)
   SECRET_SUB_PATH path prefix from the domain root (default: subs)
   RUSSIAN_SUB_URL subscription URL of the Russian node (fallback only)
   FOREIGN_SUB_URL subscription URL of the non-Russian node (fallback only)
@@ -35,6 +39,9 @@ import html
 import json
 import logging
 import os
+import queue
+import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -42,6 +49,7 @@ import urllib.request
 import uuid
 import yaml
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from logging.handlers import RotatingFileHandler
 from urllib.parse import unquote
 
 logging.basicConfig(
@@ -51,9 +59,14 @@ logging.basicConfig(
 )
 log = logging.getLogger("sub-server")
 
+LOG_LINE_RE = re.compile(r"^(\S+ \S+) (\w+) (.*)$")
+LOG_HISTORY_LINES = 200
+LOG_HISTORY_BYTES = 256 * 1024
+
 DATABASE_FILE = os.environ.get("DATABASE_FILE", "subs.yml")
 FORCE_FILE = os.environ.get("FORCE_FILE", "force-subs.yml")
 NODES_FILE = os.environ.get("NODES_FILE", "nodes.json")
+LOG_FILE = os.environ.get("LOG_FILE", "sub-server.log")
 SECRET_SUB_PATH = os.environ.get("SECRET_SUB_PATH", "subs").strip("/")
 RUSSIAN_SUB_URL = os.environ.get("RUSSIAN_SUB_URL", "")
 FOREIGN_SUB_URL = os.environ.get("FOREIGN_SUB_URL", "")
@@ -108,7 +121,7 @@ body {
     display: flex;
     justify-content: center;
 }
-.app-container { width: 100%; max-width: 1140px; }
+.app-container { width: 100%; max-width: 1380px; }
 .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px; }
 .logo-area { display: flex; align-items: center; gap: 12px; }
 .logo-icon { font-size: 2rem; background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 12px; border: 1px solid var(--border-color); }
@@ -218,6 +231,11 @@ body {
 .override-hint { font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; }
 .override-editor-actions { display: flex; gap: 8px; margin-top: 8px; }
 .override-editor-actions .btn-sm.btn-override-save { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.15); }
+.client-status { display: flex; align-items: center; gap: 7px; margin-top: 14px; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex-shrink: 0; }
+.status-dot.st-ok { background: var(--success-color); box-shadow: 0 0 6px var(--success-color); }
+.status-dot.st-err { background: #f87171; box-shadow: 0 0 6px #f87171; }
+.status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note { font-size: 0.78rem; color: var(--text-secondary); margin-top: 6px; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px dashed rgba(255, 255, 255, 0.1); }
 .section-header { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; margin-bottom: 14px; color: var(--text-primary); cursor: pointer; user-select: none; }
 .section-header .chevron { transition: transform 0.2s ease; font-size: 0.8rem; }
@@ -234,6 +252,34 @@ body {
     text-decoration: none;
 }
 .btn-logout:hover { background: rgba(239, 68, 68, 0.32); }
+.dashboard-layout { display: flex; gap: 16px; align-items: flex-start; }
+.dashboard-main { flex: 1; min-width: 0; }
+.btn-logs { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; }
+.log-panel {
+    width: min(380px, 100%); flex-shrink: 0; position: sticky; top: 20px;
+    display: flex; flex-direction: column; max-height: calc(100vh - 40px);
+    background: rgba(2, 6, 23, 0.72); border: 1px solid var(--border-color);
+    border-radius: 14px; overflow: hidden; backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+.log-panel.hidden { display: none; }
+.log-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border-color); font-size: 0.82rem; font-weight: 600; }
+.log-panel-actions { display: flex; align-items: center; gap: 6px; }
+.log-autoscroll { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--text-secondary); cursor: pointer; user-select: none; font-weight: 400; }
+.log-autoscroll input { accent-color: var(--primary-color); cursor: pointer; }
+.log-body {
+    flex: 1; overflow: auto; padding: 10px 12px; min-height: 300px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; line-height: 1.55;
+    background: rgba(0, 0, 0, 0.35);
+}
+.log-line { white-space: pre-wrap; word-break: break-word; color: #cbd5e1; }
+.log-line .lt { color: #64748b; margin-right: 6px; }
+.log-line.L-WARNING { color: #fbbf24; }
+.log-line.L-ERROR { color: #f87171; }
+.log-footer { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 0.7rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); }
+.log-footer .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-color); box-shadow: 0 0 6px var(--success-color); }
+.log-footer.disconnected .dot { background: #f87171; box-shadow: none; }
+@media (max-width: 980px) { .dashboard-layout { flex-direction: column; } .log-panel { width: 100%; position: static; max-height: 420px; } }
 </style>
 </head>
 <body>
@@ -248,16 +294,33 @@ body {
         </div>
         <div class="header-actions">
             __SEARCH__
+            <button type="button" class="btn-sm btn-logs" id="log-toggle">📄 Логи</button>
             __AUTH_ACTIONS__
             <div class="status-badge"><span class="dot"></span><span>__STATUS__</span></div>
         </div>
     </div>
+    <div class="dashboard-layout">
+        <div class="dashboard-main">
 __MANAGEMENT__
     <div class="section-header"><span class="chevron">▾</span>🌐 Подписочные ссылки нод<span class="line"></span></div>
     <div class="cards-grid">
 __NODES__
     </div>
 __SECTIONS__
+        </div>
+        <aside class="log-panel" id="log-panel">
+            <div class="log-panel-header">
+                <span>📄 Логи сервера</span>
+                <div class="log-panel-actions">
+                    <label class="log-autoscroll"><input type="checkbox" id="log-autoscroll" checked> авто-скролл</label>
+                    <button type="button" class="btn-sm" id="log-clear">Очистить</button>
+                    <button type="button" class="btn-sm" id="log-close" title="Скрыть логи" aria-label="Скрыть логи">✕</button>
+                </div>
+            </div>
+            <div class="log-body" id="log-body"></div>
+            <div class="log-footer" id="log-status"><span class="dot"></span><span>подключение к логам…</span></div>
+        </aside>
+    </div>
 </div>
 <div id="editModal" class="edit-modal" hidden>
     <div class="edit-modal-backdrop"></div>
@@ -272,6 +335,68 @@ __SECTIONS__
 </div>
 <script>
 const NODES_DATA = __NODES_JSON__;
+const logPanel = document.getElementById('log-panel');
+const logBody = document.getElementById('log-body');
+const logStatus = document.getElementById('log-status');
+const logAutoScroll = document.getElementById('log-autoscroll');
+let logSource = null;
+function updateCardActivity(a) {
+    if (!a || !a.client) return;
+    const el = document.querySelector('.client-status[data-client="' + CSS.escape(a.client) + '"]');
+    if (!el) return;
+    const dot = el.querySelector('.status-dot');
+    const status = Number(a.status);
+    dot.className = 'status-dot ' + (status >= 200 && status < 300 ? 'st-ok' : 'st-err');
+    let src = '';
+    if (a.node_name) src = 'через «' + a.node_name + '»';
+    else if (a.source === 'force') src = 'через кастом';
+    let bytes = '';
+    if (a.bytes) bytes = a.bytes >= 1024 ? (a.bytes / 1024).toFixed(1) + ' КБ' : a.bytes + ' B';
+    const text = 'Последняя синхронизация: ' + (a.time || '—') + ' · HTTP ' + status
+        + (bytes ? ' · ' + bytes : '') + (src ? ' · ' + src : '');
+    const st = el.querySelector('.status-text');
+    st.textContent = text;
+    st.setAttribute('title', text);
+}
+function connectLogs() {
+    if (logSource) return;
+    logSource = new EventSource('__LOGS_URL__');
+    logSource.onopen = () => {
+        logStatus.classList.remove('disconnected');
+        logStatus.innerHTML = '<span class="dot"></span><span>онлайн · docker logs -f subs-server</span>';
+    };
+    logSource.onerror = () => {
+        logStatus.classList.add('disconnected');
+        logStatus.innerHTML = '<span class="dot"></span><span>соединение потеряно, переподключение…</span>';
+    };
+    logSource.onmessage = (e) => {
+        let data;
+        try { data = JSON.parse(e.data); } catch (err) { return; }
+        const line = document.createElement('div');
+        line.className = 'log-line L-' + (data.level || 'INFO');
+        const ts = document.createElement('span');
+        ts.className = 'lt';
+        ts.textContent = data.time || '';
+        line.appendChild(ts);
+        line.appendChild(document.createTextNode(data.message || ''));
+        logBody.appendChild(line);
+        while (logBody.childElementCount > 1000) logBody.removeChild(logBody.firstChild);
+        if (logAutoScroll.checked) logBody.scrollTop = logBody.scrollHeight;
+    };
+    logSource.addEventListener('activity', (e) => {
+        let a;
+        try { a = JSON.parse(e.data); } catch (err) { return; }
+        updateCardActivity(a);
+    });
+}
+document.getElementById('log-toggle')?.addEventListener('click', () => {
+    logPanel.classList.toggle('hidden');
+});
+document.getElementById('log-close')?.addEventListener('click', () => {
+    logPanel.classList.add('hidden');
+});
+document.getElementById('log-clear')?.addEventListener('click', () => { logBody.innerHTML = ''; });
+connectLogs();
 function copyText(text, btn) {
     const done = () => {
         const old = btn.textContent;
@@ -698,6 +823,50 @@ button:active { transform: translateY(1px); }
 """
 
 
+def setup_file_logging():
+    """Mirror all sub-server logs to a file (the web UI tails this file).
+
+    stdout (captured by ``docker logs -f subs-server``) and the log file stay
+    in sync because the "sub-server" logger propagates to the root handler
+    while also writing to LOG_FILE.
+    """
+    try:
+        directory = os.path.dirname(os.path.abspath(LOG_FILE))
+        os.makedirs(directory, exist_ok=True)
+        handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        log.addHandler(handler)
+    except OSError as exc:
+        log.warning("could not open log file %s: %s", LOG_FILE, exc)
+
+
+# Real-time per-client activity (last sync status), pushed to the web UI via
+# the /api/logs SSE stream as `event: activity`.
+CLIENT_ACTIVITY: dict = {}
+ACTIVITY_SUBSCRIBERS: set = set()
+ACTIVITY_LOCK = threading.Lock()
+
+
+def _record_activity(client, status, bytes_, node, node_name, source):
+    activity = {
+        "client": client,
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "status": status,
+        "bytes": bytes_,
+        "node": node,
+        "node_name": node_name,
+        "source": source,
+    }
+    CLIENT_ACTIVITY[client] = activity
+    payload = json.dumps(activity, ensure_ascii=False)
+    with ACTIVITY_LOCK:
+        for stream_queue in list(ACTIVITY_SUBSCRIBERS):
+            try:
+                stream_queue.put_nowait(payload)
+            except Exception:
+                pass
+
+
 def load_subs(path):
     """Load the legacy client database (subs.yml) with PyYAML.
 
@@ -1027,6 +1196,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_logout()
             return
 
+        if path == f"{SECRET_SUB_PATH}/api/logs":
+            if not self._require_auth(api=True):
+                return
+            self._stream_logs()
+            return
+
         parts = path.split("/")
         if len(parts) == 1 and parts[0] == SECRET_SUB_PATH:
             if not self._require_auth():
@@ -1044,6 +1219,7 @@ class Handler(BaseHTTPRequestHandler):
         if client in FORCE_SUBS:
             body = FORCE_SUBS[client].encode("utf-8")
             log.info("200 %s (force) -> %d bytes", client, len(body))
+            _record_activity(client, 200, len(body), None, GROUP_LABELS["force"], "force")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -1053,12 +1229,14 @@ class Handler(BaseHTTPRequestHandler):
         node = find_client_node(client)
         if not node:
             log.warning("404 unknown client: %s", client)
+            _record_activity(client, 404, 0, None, None, None)
             self.send_error(404)
             return
         base_url = node["url"]
         group = node["id"]
         if not base_url:
             log.error("502 no subscription URL configured for group '%s' (client %s)", group, client)
+            _record_activity(client, 502, 0, group, node["name"], "node")
             self.send_error(502)
             return
         url = f"{base_url.rstrip('/')}/{client}"
@@ -1066,17 +1244,21 @@ class Handler(BaseHTTPRequestHandler):
             body = fetch_subscription(url)
         except urllib.error.HTTPError as e:
             log.error("502 fetch failed for %s (%s): HTTP %s %s (url=%s)", client, group, e.code, e.reason, url)
+            _record_activity(client, 502, 0, group, node["name"], "node")
             self.send_error(502)
             return
         except urllib.error.URLError as e:
             log.error("502 fetch failed for %s (%s): %s (url=%s)", client, group, e.reason, url)
+            _record_activity(client, 502, 0, group, node["name"], "node")
             self.send_error(502)
             return
         except Exception as e:
             log.error("502 fetch failed for %s (%s): %r (url=%s)", client, group, e, url)
+            _record_activity(client, 502, 0, group, node["name"], "node")
             self.send_error(502)
             return
         log.info("200 %s (%s) <- %s (%d bytes)", client, group, url, len(body))
+        _record_activity(client, 200, len(body), group, node["name"], "node")
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -1460,8 +1642,39 @@ class Handler(BaseHTTPRequestHandler):
         )
         p.append('</div>')
 
+        p.append(self._client_status_html(client))
         p.append('</div>')
         return "\n".join(p)
+
+    def _client_status_html(self, client):
+        esc = html.escape
+        activity = CLIENT_ACTIVITY.get(client)
+        if not activity:
+            return (
+                f'<div class="client-status" data-client="{esc(client)}">'
+                '<span class="status-dot"></span>'
+                '<span class="status-text">Нет синхронизаций</span>'
+                '</div>'
+            )
+        status = activity.get("status")
+        dot_class = "st-ok" if isinstance(status, int) and 200 <= status < 300 else "st-err"
+        if activity.get("node_name"):
+            src = f'через «{activity["node_name"]}»'
+        elif activity.get("source") == "force":
+            src = "через кастом"
+        else:
+            src = ""
+        text = (
+            f'Последняя синхронизация: {activity.get("time") or "—"} · HTTP {status}'
+            + (f' · {activity["bytes"]} B' if activity.get("bytes") else "")
+            + (f' · {src}' if src else "")
+        )
+        return (
+            f'<div class="client-status" data-client="{esc(client)}">'
+            f'<span class="status-dot {dot_class}"></span>'
+            f'<span class="status-text" title="{esc(text)}">{esc(text)}</span>'
+            '</div>'
+        )
 
     def _list_html(self):
         sections = self._client_sections() or '<div class="note">Клиенты не настроены.</div>'
@@ -1498,6 +1711,7 @@ class Handler(BaseHTTPRequestHandler):
             .replace("__API_OVERRIDE__", f"/{SECRET_SUB_PATH}/api/override")
             .replace("__API_CLIENT__", f"/{SECRET_SUB_PATH}/api/client")
             .replace("__API_NODE__", f"/{SECRET_SUB_PATH}/api/node")
+            .replace("__LOGS_URL__", f"/{SECRET_SUB_PATH}/api/logs")
             .replace("__NODES_JSON__", json.dumps(NODES, ensure_ascii=False).replace("</", "<\\/"))
             .encode("utf-8")
         )
@@ -1507,6 +1721,110 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _log_tail(self):
+        """Return (recent log lines, file inode, byte size) for the SSE backlog."""
+        try:
+            size = os.path.getsize(LOG_FILE)
+        except OSError:
+            return b"", None, 0
+        start = max(0, size - LOG_HISTORY_BYTES)
+        if start:
+            with open(LOG_FILE, "rb") as f:
+                f.seek(start)
+                data = f.read()
+            first_nl = data.find(b"\n")
+            if first_nl != -1:
+                data = data[first_nl + 1:]
+        else:
+            with open(LOG_FILE, "rb") as f:
+                data = f.read()
+        lines = data.splitlines()
+        tail = b"\n".join(lines[-LOG_HISTORY_LINES:])
+        try:
+            st = os.stat(LOG_FILE)
+            inode, size = st.st_ino, st.st_size
+        except OSError:
+            inode, size = None, 0
+        return tail, inode, size
+
+    def _log_file_info(self):
+        try:
+            st = os.stat(LOG_FILE)
+            return st.st_ino, st.st_size
+        except OSError:
+            return None, 0
+
+    def _emit_log_events(self, raw):
+        if not raw:
+            return
+        text = raw.decode("utf-8", errors="replace")
+        for line in text.splitlines():
+            line = line.rstrip()
+            if not line:
+                continue
+            match = LOG_LINE_RE.match(line)
+            if match:
+                ts, level, msg = match.group(1), match.group(2), match.group(3)
+            else:
+                ts, level, msg = "", "INFO", line
+            payload = json.dumps({"time": ts, "level": level, "message": msg}, ensure_ascii=False)
+            self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+        self.wfile.flush()
+
+    def _stream_logs(self):
+        """Server-Sent Events stream tailing LOG_FILE (equivalent of docker logs -f).
+
+        Emits ``message`` events for log lines and ``activity`` events for
+        per-client subscription activity (drives the card status rows).
+        """
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        stream_queue = queue.Queue()
+        with ACTIVITY_LOCK:
+            ACTIVITY_SUBSCRIBERS.add(stream_queue)
+        try:
+            with ACTIVITY_LOCK:
+                snapshot = [json.dumps(a, ensure_ascii=False) for a in CLIENT_ACTIVITY.values()]
+            for payload in snapshot:
+                self.wfile.write(f"event: activity\ndata: {payload}\n\n".encode("utf-8"))
+
+            tail, last_inode, pos = self._log_tail()
+            self._emit_log_events(tail)
+            last_active = time.time()
+            while True:
+                while True:
+                    try:
+                        payload = stream_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    self.wfile.write(f"event: activity\ndata: {payload}\n\n".encode("utf-8"))
+                inode, size = self._log_file_info()
+                if inode != last_inode:
+                    last_inode = inode
+                    pos = 0
+                if size > pos:
+                    with open(LOG_FILE, "rb") as f:
+                        f.seek(pos)
+                        chunk = f.read(size - pos)
+                    pos = size
+                    self._emit_log_events(chunk)
+                    last_active = time.time()
+                elif time.time() - last_active > 15:
+                    self.wfile.write(b": keep-alive\n\n")
+                    self.wfile.flush()
+                    last_active = time.time()
+                time.sleep(0.7)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            log.info("log stream closed by client")
+        finally:
+            with ACTIVITY_LOCK:
+                ACTIVITY_SUBSCRIBERS.discard(stream_queue)
 
     def _list_subscriptions(self):
         lines = []
@@ -1528,6 +1846,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     global FORCE_SUBS, NODES
+    setup_file_logging()
     FORCE_SUBS = load_force_subs(FORCE_FILE)
     legacy_subs = None
     if nodes_file_is_empty(NODES_FILE):

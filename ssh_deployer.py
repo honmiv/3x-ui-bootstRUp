@@ -24,7 +24,7 @@ def get_bundle_bytes() -> bytes:
             if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root:
                 continue
             for file in files:
-                if file.endswith('.pyc') or file == 'setup_backup.yml':
+                if file.endswith('.pyc') or file == 'setup_backup.yml' or file == 'sub-server.log':
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, repo_dir)
@@ -593,13 +593,13 @@ def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
     scripts never clobbers remote client/override data.
     """
     backup = (
-        f"for f in subs.yml force-subs.yml nodes.json; do "
+        f"for f in subs.yml force-subs.yml nodes.json sub-server.log; do "
         f"if [ -f {remote_dir}/sub-server/$f ]; then "
         f"cp {remote_dir}/sub-server/$f /tmp/sub-server-$f.bak; fi; "
         f"done"
     ) if preserve else "true"
     restore = (
-        f"for f in subs.yml force-subs.yml nodes.json; do "
+        f"for f in subs.yml force-subs.yml nodes.json sub-server.log; do "
         f"if [ -f /tmp/sub-server-$f.bak ]; then "
         f"cp /tmp/sub-server-$f.bak {remote_dir}/sub-server/$f; rm -f /tmp/sub-server-$f.bak; fi; "
         f"done"

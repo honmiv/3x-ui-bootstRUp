@@ -9,6 +9,7 @@ setup_backup.yml
 servers.json
 __pycache__/
 *.pyc
+sub-server.log
 .python_env
 venv
 .DS_Store

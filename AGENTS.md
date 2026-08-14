@@ -412,6 +412,7 @@ subs-server (Port 8080, Docker port 8000)
 | `/{SECRET_SUB_PATH}/api/override` | POST | Set/clear override | Yes | Modifies force-subs.yml |
 | `/{SECRET_SUB_PATH}/api/client` | POST | Add/remove client | Yes | Modifies nodes.json |
 | `/{SECRET_SUB_PATH}/api/node` | POST | Add/remove node | Yes | Modifies nodes.json |
+| `/{SECRET_SUB_PATH}/api/logs` | GET | Real-time log stream (SSE) | Yes | Tails LOG_FILE; emits `message` events for log lines (same output as `docker logs -f subs-server`) and `activity` events for per-client subscription requests (time, HTTP status, bytes, node) |
 
 **Client Routing Logic**:
 1. Admin POSTs override → stored in force-subs.yml
@@ -427,6 +428,8 @@ subs-server (Port 8080, Docker port 8000)
   - QR codes (toggleable) for each subscription URL
   - Copy buttons with visual feedback
   - Override editor with inline base64 encoding
+  - Real-time log viewer (`docker logs -f subs-server` equivalent) in a sticky right-side panel
+  - Per-client status row updated live: last sync time, HTTP status, bytes, node (via SSE `activity` events)
   - Dark theme, responsive design
   - `?raw=1` mode returns a plain newline-separated subscription list (useful for curl/clients)
   
@@ -439,12 +442,13 @@ subs-server (Port 8080, Docker port 8000)
 - **Logging**:
   - INFO level: subscription fetches, overrides, auth attempts
   - Format: `YYYY-MM-DD HH:MM:SS LEVEL message`
-  - Output to stdout (Docker captures it)
+  - Output to stdout (Docker captures it) and mirrored to `LOG_FILE` (rotating, 5 MB × 3); the web UI tails `LOG_FILE` via the `/api/logs` SSE stream
 
 **Environment Variables** (passed from main.py):
 ```bash
 FORCE_FILE               # Path to force-subs.yml (overrides), e.g. ./force-subs.yml
 NODES_FILE               # Path to nodes.json (node registry), e.g. ./nodes.json
+LOG_FILE                 # Path to a log file tailed by the /api/logs SSE stream, e.g. /data/sub-server.log
 SECRET_SUB_PATH          # e.g., subs or secret123
 DOMAIN                   # e.g., sub.example.com
 RUSSIAN_SUB_URL          # e.g., https://proxy-node/subs (fallback only)

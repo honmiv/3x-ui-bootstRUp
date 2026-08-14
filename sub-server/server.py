@@ -108,7 +108,10 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
     --text-secondary: #94a3b8;
     --accent-glow: rgba(59, 130, 246, 0.25);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    height: 100vh;
+    overflow: hidden;
+}
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
@@ -117,14 +120,15 @@ body {
         radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
         radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.8) 0px, rgba(15, 23, 42, 1) 100%);
     color: var(--text-primary);
-    min-height: 100vh;
-    padding: 24px;
-    display: flex;
-    justify-content: center;
+    margin: 0;
+    padding: 0;
 }
 
 /* Global Custom Scrollbars */
 * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) rgba(15, 23, 42, 0.6);
 }
@@ -144,35 +148,94 @@ body {
     background: var(--primary-color);
 }
 
-.app-container { width: 100%; max-width: 1400px; }
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+}
+.app-top-bar {
+    flex-shrink: 0;
+    width: 100%;
+    background: transparent;
+    z-index: 50;
+}
+.top-bar-inner {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 24px 0 24px;
+    box-sizing: border-box;
+}
+.app-body {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+}
+.app-body-inner {
+    width: 100%;
+    max-width: 1400px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 24px 24px 24px;
+    box-sizing: border-box;
+}
+.cards-scroll-area {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 36px;
+    padding-bottom: 40px;
+    padding-right: 6px;
+    box-sizing: border-box;
+    mask-image: linear-gradient(to bottom, transparent 0px, transparent 4px, black 32px, black 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, transparent 4px, black 32px, black 100%);
+}
 .app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
     gap: 16px;
 }
 .logo-area { display: flex; align-items: center; gap: 14px; }
 .logo-icon {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 44px;
+    height: 44px;
     background: rgba(255, 255, 255, 0.05);
-    padding: 10px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
 }
-.app-header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
-.subtitle { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; }
+.app-header h1 {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin: 0;
+}
+.subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    line-height: 1.3;
+}
 .subtitle a { color: var(--primary-color); text-decoration: none; transition: color 0.15s ease; }
 .subtitle a:hover { text-decoration: underline; color: #60a5fa; }
 .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .header-search {
-    width: min(300px, 35vw);
-    height: 38px;
-    padding: 8px 14px;
+    width: min(280px, 35vw);
+    height: 36px;
+    padding: 0 14px;
     border: 1px solid var(--border-color);
     border-radius: 999px;
     outline: none;
@@ -181,6 +244,8 @@ body {
     box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(2, 6, 23, .18);
     font: inherit;
     font-size: .82rem;
+    line-height: 34px;
+    box-sizing: border-box;
     transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 .header-search::placeholder { color: var(--text-secondary); opacity: 1; }
@@ -191,30 +256,58 @@ body {
 }
 
 .status-badge {
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    height: 36px;
     font-size: 0.8rem;
     font-weight: 500;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
-    padding: 6px 14px;
-    border-radius: 20px;
+    padding: 0 14px;
+    border-radius: 999px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    user-select: none;
+}
+.status-badge .stats-label {
+    color: var(--text-primary);
+}
+.status-badge .stats-divider {
+    width: 1px;
+    height: 14px;
+    background: var(--border-color);
+    margin: 0 2px;
+}
+.status-badge .stat-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: default;
+    color: var(--text-secondary);
+}
+.status-badge .stat-item span:last-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 .status-badge .dot {
     width: 8px;
     height: 8px;
-    background-color: var(--success-color);
     border-radius: 50%;
-    box-shadow: 0 0 8px var(--success-color);
+    flex-shrink: 0;
 }
-@keyframes statusPulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.4); opacity: 0.6; }
-    100% { transform: scale(1); opacity: 1; }
+.status-badge .dot.dot-recent {
+    background-color: var(--success-color);
+    box-shadow: 0 0 6px var(--success-color);
 }
-.status-badge .dot.pulsing {
-    animation: statusPulse 1.5s infinite ease-in-out;
+.status-badge .dot.dot-ever {
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b;
+}
+.status-badge .dot.dot-never {
+    background-color: #64748b;
 }
 
 .cards-grid {
@@ -231,8 +324,7 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease;
 }
 .card:hover {
     border-color: rgba(255, 255, 255, 0.16);
@@ -355,7 +447,7 @@ body {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
-    margin: 0 0 24px;
+    margin: 0;
     position: relative;
     z-index: 30;
 }
@@ -432,7 +524,7 @@ select option {
 }
 
 /* Custom Node Select Component */
-.node-select { position: relative; flex: 1; min-width: 0; z-index: 10; display: flex; }
+.node-select { position: relative; width: 100%; flex: 1; min-width: 0; z-index: 10; display: flex; }
 .node-select.open { z-index: 100; }
 .node-select-trigger {
     display: flex;
@@ -619,6 +711,8 @@ select option {
     .management-row { flex-wrap: wrap; }
     .management-row .btn-sm { width: 100%; }
     .header-search { width: 100%; order: 3; }
+    .top-bar-inner { padding: 14px 16px 0 16px; }
+    .app-body-inner { padding: 0 16px 16px 16px; }
 }
 
 .client-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
@@ -714,7 +808,9 @@ select option {
     background: #64748b;
     flex-shrink: 0;
 }
-.status-dot.st-ok { background: var(--success-color); box-shadow: 0 0 6px var(--success-color); }
+.status-dot.st-recent, .status-dot.st-ok { background: var(--success-color); box-shadow: 0 0 6px var(--success-color); }
+.status-dot.st-ever { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.status-dot.st-never { background: #64748b; }
 .status-dot.st-err { background: #f87171; box-shadow: 0 0 6px #f87171; }
 .status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note {
@@ -763,15 +859,19 @@ select option {
 .btn-logout {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    height: 36px;
+    padding: 0 14px;
     border: 1px solid rgba(239, 68, 68, 0.3);
     border-radius: 999px;
     background: rgba(239, 68, 68, 0.15);
     color: #fecaca;
-    padding: 6px 14px;
     font-size: 0.8rem;
     font-weight: 500;
     text-decoration: none;
+    box-sizing: border-box;
+    white-space: nowrap;
     transition: all 0.2s ease;
 }
 .btn-logout:hover {
@@ -779,27 +879,34 @@ select option {
     border-color: rgba(239, 68, 68, 0.5);
     color: #fff;
 }
-.dashboard-layout { display: flex; gap: 18px; align-items: flex-start; }
-.dashboard-main { flex: 1; min-width: 0; }
+.dashboard-layout {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    height: 100%;
+    width: 100%;
+}
 .btn-logs {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    height: 36px;
+    padding: 0 14px;
     border-radius: 999px;
-    padding: 6px 14px;
     font-size: 0.8rem;
+    box-sizing: border-box;
+    white-space: nowrap;
 }
 
 /* Log Panel Sidebar */
 .log-panel {
     width: min(420px, 100%);
     flex-shrink: 0;
-    position: sticky;
-    top: 24px;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 140px);
-    max-height: calc(100vh - 140px);
+    height: 99%;
+    margin-top: 16px;
     background: rgba(15, 23, 42, 0.85);
     border: 1px solid var(--border-color);
     border-radius: 16px;
@@ -947,70 +1054,85 @@ select option {
 }
 .log-footer.disconnected .dot { background: #f87171; box-shadow: none; }
 @media (max-width: 980px) {
-    .dashboard-layout { flex-direction: column; }
-    .log-panel { width: 100%; position: static; max-height: 420px; }
+    .dashboard-layout { flex-direction: column; overflow-y: auto; }
+    .cards-scroll-area { height: auto; overflow-y: visible; flex: none; mask-image: none; -webkit-mask-image: none; padding-top: 20px; }
+    .log-panel { width: 100%; height: 380px; flex-shrink: 0; margin-top: 0; }
 }
 </style>
 </head>
 <body>
-<div class="app-container">
-    <div class="app-header">
-        <div class="logo-area">
-            <span class="logo-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-color); display:block;">
-                    <circle cx="12" cy="12" r="2"/>
-                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
-                </svg>
-            </span>
-            <div>
-                <h1>Сервер подписок</h1>
-                <div class="subtitle">Карточки клиентов · <a href="__RAW_URL__">текстовый список</a></div>
+<div class="app-shell">
+    <header class="app-top-bar">
+        <div class="top-bar-inner">
+            <div class="app-header">
+                <div class="logo-area">
+                    <span class="logo-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-color); display:block;">
+                            <circle cx="12" cy="12" r="2"/>
+                            <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h1>Сервер подписок</h1>
+                        <div class="subtitle">Карточки клиентов · <a href="__RAW_URL__">текстовый список</a></div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    __SEARCH__
+                    <button type="button" class="btn-sm btn-logs" id="log-toggle">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        <span>Логи</span>
+                    </button>
+                    __AUTH_ACTIONS__
+                    <div class="status-badge" id="client-stats" title="Статистика клиентов по синхронизации">
+                        <span class="stats-label">Клиентов: <span id="count-total">__COUNT_TOTAL__</span></span>
+                        <span class="stats-divider"></span>
+                        <span class="stat-item" title="Синхронизация в теч. последних 24ч"><span class="dot dot-recent"></span><span id="count-recent">__COUNT_RECENT__</span></span>
+                        <span class="stat-item" title="Синхронизация была ранее (&gt;24ч)"><span class="dot dot-ever"></span><span id="count-ever">__COUNT_EVER__</span></span>
+                        <span class="stat-item" title="Синхронизации не было никогда"><span class="dot dot-never"></span><span id="count-never">__COUNT_NEVER__</span></span>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="header-actions">
-            __SEARCH__
-            <button type="button" class="btn-sm btn-logs" id="log-toggle">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                <span>Логи</span>
-            </button>
-            __AUTH_ACTIONS__
-            <div class="status-badge"><span class="dot pulsing"></span><span>__STATUS__</span></div>
-        </div>
-    </div>
-    <div class="dashboard-layout">
-        <div class="dashboard-main">
 __MANAGEMENT__
+        </div>
+    </header>
+    <div class="app-body">
+        <div class="app-body-inner">
+            <div class="dashboard-layout">
+                <main class="cards-scroll-area">
     <div class="section-header" role="button" tabindex="0">
-        <span class="chevron"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="chevron closed"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span class="section-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
         <span>Подписочные ссылки нод</span>
         <span class="line"></span>
     </div>
-    <div class="cards-grid">
+    <div class="cards-grid collapsed">
 __NODES__
     </div>
 __SECTIONS__
-        </div>
-        <aside class="log-panel" id="log-panel">
-            <div class="log-panel-header">
-                <div class="log-panel-title">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary-color)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                    <span>Логи сервера</span>
-                </div>
-                <div class="log-panel-actions">
-                    <label class="log-autoscroll"><input type="checkbox" id="log-autoscroll" checked><span>авто-скролл</span></label>
-                    <button type="button" class="btn-sm" id="log-clear" title="Очистить логи">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path></svg>
-                        <span>Очистить</span>
-                    </button>
-                    <button type="button" class="btn-sm log-close-btn" id="log-close" title="Скрыть логи" aria-label="Скрыть логи">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                </div>
+                </main>
+                <aside class="log-panel hidden" id="log-panel">
+                    <div class="log-panel-header">
+                        <div class="log-panel-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary-color)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            <span>Логи сервера</span>
+                        </div>
+                        <div class="log-panel-actions">
+                            <label class="log-autoscroll"><input type="checkbox" id="log-autoscroll" checked><span>авто-скролл</span></label>
+                            <button type="button" class="btn-sm" id="log-clear" title="Очистить логи">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path></svg>
+                                <span>Очистить</span>
+                            </button>
+                            <button type="button" class="btn-sm log-close-btn" id="log-close" title="Скрыть логи" aria-label="Скрыть логи">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="log-body" id="log-body"></div>
+                    <div class="log-footer" id="log-status"><span class="dot"></span><span>подключение к логам…</span></div>
+                </aside>
             </div>
-            <div class="log-body" id="log-body"></div>
-            <div class="log-footer" id="log-status"><span class="dot"></span><span>подключение к логам…</span></div>
-        </aside>
+        </div>
     </div>
 </div>
 <div id="editModal" class="edit-modal" hidden>
@@ -1033,6 +1155,62 @@ const logAutoScroll = document.getElementById('log-autoscroll');
 const logToggleBtn = document.getElementById('log-toggle');
 let logSource = null;
 
+const CLIENT_ACTIVITIES = {};
+document.querySelectorAll('.client-status[data-client]').forEach(el => {
+    const client = el.getAttribute('data-client');
+    const timeStr = el.getAttribute('data-time') || '';
+    const ts = Number(el.getAttribute('data-timestamp')) || 0;
+    if (timeStr) {
+        CLIENT_ACTIVITIES[client] = { client: client, time: timeStr, timestamp: ts };
+    }
+});
+
+function getSyncState(a) {
+    if (!a || !a.time) return 'never';
+    let ts = a.timestamp ? (a.timestamp > 1e11 ? a.timestamp : a.timestamp * 1000) : Date.parse(a.time.replace(' ', 'T'));
+    if (isNaN(ts) || !ts) return 'ever';
+    const now = Date.now();
+    if (now - ts <= 24 * 60 * 60 * 1000 && now - ts >= -60 * 1000) {
+        return 'recent';
+    }
+    return 'ever';
+}
+
+function updateTopStats() {
+    let recent = 0, ever = 0, never = 0;
+    const cards = document.querySelectorAll('.client-status[data-client]');
+    cards.forEach(el => {
+        const client = el.getAttribute('data-client');
+        const act = CLIENT_ACTIVITIES[client];
+        const state = getSyncState(act);
+        if (state === 'recent') recent++;
+        else if (state === 'ever') ever++;
+        else never++;
+    });
+    const rEl = document.getElementById('count-recent');
+    const eEl = document.getElementById('count-ever');
+    const nEl = document.getElementById('count-never');
+    const tEl = document.getElementById('count-total');
+    if (rEl) rEl.textContent = recent;
+    if (eEl) eEl.textContent = ever;
+    if (nEl) nEl.textContent = never;
+    if (tEl) tEl.textContent = (recent + ever + never);
+}
+
+function refreshAllCardStates() {
+    document.querySelectorAll('.client-status[data-client]').forEach(el => {
+        const client = el.getAttribute('data-client');
+        const act = CLIENT_ACTIVITIES[client];
+        const state = getSyncState(act);
+        const dot = el.querySelector('.status-dot');
+        if (dot && !dot.classList.contains('st-err')) {
+            dot.className = 'status-dot st-' + state;
+        }
+    });
+    updateTopStats();
+}
+setInterval(refreshAllCardStates, 60000);
+
 function updateLogToggleVisibility() {
     if (!logToggleBtn || !logPanel) return;
     const isHidden = logPanel.classList.contains('hidden');
@@ -1041,21 +1219,30 @@ function updateLogToggleVisibility() {
 
 function updateCardActivity(a) {
     if (!a || !a.client) return;
+    CLIENT_ACTIVITIES[a.client] = a;
     const el = document.querySelector('.client-status[data-client="' + CSS.escape(a.client) + '"]');
-    if (!el) return;
-    const dot = el.querySelector('.status-dot');
-    const status = Number(a.status);
-    dot.className = 'status-dot ' + (status >= 200 && status < 300 ? 'st-ok' : 'st-err');
-    let src = '';
-    if (a.node_name) src = 'через «' + a.node_name + '»';
-    else if (a.source === 'force') src = 'через кастом';
-    let bytes = '';
-    if (a.bytes) bytes = a.bytes >= 1024 ? (a.bytes / 1024).toFixed(1) + ' КБ' : a.bytes + ' B';
-    const text = 'Последняя синхронизация: ' + (a.time || '—') + ' · HTTP ' + status
-        + (bytes ? ' · ' + bytes : '') + (src ? ' · ' + src : '');
-    const st = el.querySelector('.status-text');
-    st.textContent = text;
-    st.setAttribute('title', text);
+    if (el) {
+        el.setAttribute('data-time', a.time || '');
+        if (a.timestamp) el.setAttribute('data-timestamp', a.timestamp);
+        const dot = el.querySelector('.status-dot');
+        const status = Number(a.status);
+        const isOk = status >= 200 && status < 300;
+        const state = getSyncState(a);
+        dot.className = 'status-dot ' + (isOk ? ('st-' + state) : 'st-err');
+        let src = '';
+        if (a.node_name) src = 'через «' + a.node_name + '»';
+        else if (a.source === 'force') src = 'через кастом';
+        let bytes = '';
+        if (a.bytes) bytes = a.bytes >= 1024 ? (a.bytes / 1024).toFixed(1) + ' КБ' : a.bytes + ' B';
+        const text = 'Последняя синхронизация: ' + (a.time || '—') + (status ? ' · HTTP ' + status : '')
+            + (bytes ? ' · ' + bytes : '') + (src ? ' · ' + src : '');
+        const st = el.querySelector('.status-text');
+        if (st) {
+            st.textContent = text;
+            st.setAttribute('title', text);
+        }
+    }
+    updateTopStats();
 }
 function connectLogs() {
     if (logSource) return;
@@ -1090,13 +1277,24 @@ function connectLogs() {
 }
 logToggleBtn?.addEventListener('click', () => {
     logPanel.classList.toggle('hidden');
+    try {
+        localStorage.setItem('subs_logs_hidden', logPanel.classList.contains('hidden') ? '1' : '0');
+    } catch (e) {}
     updateLogToggleVisibility();
 });
 document.getElementById('log-close')?.addEventListener('click', () => {
     logPanel.classList.add('hidden');
+    try {
+        localStorage.setItem('subs_logs_hidden', '1');
+    } catch (e) {}
     updateLogToggleVisibility();
 });
 document.getElementById('log-clear')?.addEventListener('click', () => { logBody.innerHTML = ''; });
+try {
+    if (localStorage.getItem('subs_logs_hidden') === '0') {
+        logPanel?.classList.remove('hidden');
+    }
+} catch (e) {}
 updateLogToggleVisibility();
 connectLogs();
 
@@ -1271,12 +1469,19 @@ document.addEventListener('click', function (e) {
         const client = editClient.dataset.client;
         const curNode = (NODES_DATA || []).find(n => (n.clients || []).includes(client));
         const opts = (NODES_DATA || []).map(n =>
-            '<option value="' + escAttr(n.id) + '"' + (curNode && n.id === curNode.id ? ' selected' : '') + '>' + escAttr(n.name) + '</option>'
+            '<div class="node-select-option' + (curNode && n.id === curNode.id ? ' selected' : '') + '" data-value="' + escAttr(n.id) + '">' + escAttr(n.name) + '</div>'
         ).join('');
-        const forceOpt = curNode ? '' : '<option value="">Кастом (force-subs)</option>';
+        const forceOpt = curNode ? '' : '<div class="node-select-option selected" data-value="">Кастом (force-subs)</div>';
+        const curName = curNode ? curNode.name : 'Кастом (force-subs)';
+        const curVal = curNode ? curNode.id : '';
+        const nodePicker = '<div class="node-select" id="edit-node-select">'
+            + '<input type="hidden" id="edit-client-node" value="' + escAttr(curVal) + '">'
+            + '<button type="button" class="node-select-trigger"><span>' + escAttr(curName) + '</span>'
+            + '<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
+            + '<div class="node-select-options">' + opts + forceOpt + '</div></div>';
         const body = ''
             + '<div class="edit-modal-field"><label>Имя клиента</label><input id="edit-client-name" value="' + escAttr(client) + '"></div>'
-            + '<div class="edit-modal-field"><label>Нода</label><select id="edit-client-node">' + opts + forceOpt + '</select></div>';
+            + '<div class="edit-modal-field"><label>Нода</label>' + nodePicker + '</div>';
         openEditModal('Редактировать клиента · ' + client, body, {
             save: () => submitManagement('__API_CLIENT__', {
                 action: 'edit',
@@ -1309,18 +1514,32 @@ document.addEventListener('click', function (e) {
     }
 });
 document.getElementById('client-search')?.addEventListener('input', filterCards);
-document.querySelector('.node-select-trigger')?.addEventListener('click', function () {
-    document.getElementById('node-select').classList.toggle('open');
-});
-document.querySelectorAll('.node-select-option').forEach(option => option.addEventListener('click', function () {
-    document.getElementById('client-node').value = this.dataset.value;
-    document.getElementById('client-node-label').textContent = this.textContent;
-    document.querySelectorAll('.node-select-option').forEach(item => item.classList.toggle('selected', item === this));
-    document.getElementById('node-select').classList.remove('open');
-}));
 document.addEventListener('click', function (e) {
-    const picker = document.getElementById('node-select');
-    if (picker && !picker.contains(e.target)) picker.classList.remove('open');
+    const trigger = e.target.closest('.node-select-trigger');
+    if (trigger) {
+        const select = trigger.closest('.node-select');
+        document.querySelectorAll('.node-select.open').forEach(s => {
+            if (s !== select) s.classList.remove('open');
+        });
+        if (select) select.classList.toggle('open');
+        return;
+    }
+    const option = e.target.closest('.node-select-option');
+    if (option) {
+        const select = option.closest('.node-select');
+        if (select) {
+            const input = select.querySelector('input[type="hidden"]');
+            const label = select.querySelector('.node-select-trigger span:first-child');
+            if (input) input.value = option.dataset.value;
+            if (label) label.textContent = option.textContent;
+            select.querySelectorAll('.node-select-option').forEach(item => item.classList.toggle('selected', item === option));
+            select.classList.remove('open');
+        }
+        return;
+    }
+    document.querySelectorAll('.node-select.open').forEach(select => {
+        if (!select.contains(e.target)) select.classList.remove('open');
+    });
 });
 document.getElementById('add-client-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1578,10 +1797,29 @@ ACTIVITY_SUBSCRIBERS: set = set()
 ACTIVITY_LOCK = threading.Lock()
 
 
-def _record_activity(client, status, bytes_, node, node_name, source):
+def get_client_sync_state(client):
+    activity = CLIENT_ACTIVITY.get(client)
+    if not activity or not activity.get("time"):
+        return "never"
+    ts = activity.get("timestamp")
+    if ts is None and activity.get("time"):
+        try:
+            ts = time.mktime(time.strptime(activity["time"], "%Y-%m-%d %H:%M:%S"))
+        except Exception:
+            ts = 0
+    now = time.time()
+    if ts and (now - ts <= 86400):
+        return "recent"
+    return "ever"
+
+
+def _record_activity(client, status, bytes_, node, node_name, source, timestamp=None, ts_str=None):
+    now_ts = timestamp if timestamp is not None else time.time()
+    time_str = ts_str if ts_str is not None else time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now_ts))
     activity = {
         "client": client,
-        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "time": time_str,
+        "timestamp": now_ts,
         "status": status,
         "bytes": bytes_,
         "node": node,
@@ -1596,6 +1834,37 @@ def _record_activity(client, status, bytes_, node, node_name, source):
                 stream_queue.put_nowait(payload)
             except Exception:
                 pass
+
+
+def load_past_activity_from_logs(path):
+    if not os.path.exists(path):
+        return
+    sync_re = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\w+\s+(200|404|502)\s+([^\s\(]+)(?:\s+\(([^)]+)\))?\s*(?:->|<-\s*(\S+))?\s*(?:\(?(\d+)\s*bytes\)?)?")
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                m = sync_re.search(line)
+                if m:
+                    ts_str, status_str, client, group, url, bytes_str = m.groups()
+                    try:
+                        ts = time.mktime(time.strptime(ts_str, "%Y-%m-%d %H:%M:%S"))
+                    except Exception:
+                        ts = 0
+                    status = int(status_str)
+                    bytes_ = int(bytes_str) if bytes_str else 0
+                    node_name = GROUP_LABELS.get("force") if group == "force" else group
+                    CLIENT_ACTIVITY[client] = {
+                        "client": client,
+                        "time": ts_str,
+                        "timestamp": ts,
+                        "status": status,
+                        "bytes": bytes_,
+                        "node": group if group != "force" else None,
+                        "node_name": node_name,
+                        "source": "force" if group == "force" else "node",
+                    }
+    except Exception as exc:
+        log.warning("could not read past activity from log file: %s", exc)
 
 
 def load_subs(path):
@@ -1965,31 +2234,32 @@ class Handler(BaseHTTPRequestHandler):
             return
         base_url = node["url"]
         group = node["id"]
+        node_name = node["name"]
         if not base_url:
-            log.error("502 no subscription URL configured for group '%s' (client %s)", group, client)
-            _record_activity(client, 502, 0, group, node["name"], "node")
+            log.error("502 no subscription URL configured for node '%s' (client %s)", node_name, client)
+            _record_activity(client, 502, 0, group, node_name, "node")
             self.send_error(502)
             return
         url = f"{base_url.rstrip('/')}/{client}"
         try:
             body = fetch_subscription(url)
         except urllib.error.HTTPError as e:
-            log.error("502 fetch failed for %s (%s): HTTP %s %s (url=%s)", client, group, e.code, e.reason, url)
-            _record_activity(client, 502, 0, group, node["name"], "node")
+            log.error("502 fetch failed for %s (%s): HTTP %s %s (url=%s)", client, node_name, e.code, e.reason, url)
+            _record_activity(client, 502, 0, group, node_name, "node")
             self.send_error(502)
             return
         except urllib.error.URLError as e:
-            log.error("502 fetch failed for %s (%s): %s (url=%s)", client, group, e.reason, url)
-            _record_activity(client, 502, 0, group, node["name"], "node")
+            log.error("502 fetch failed for %s (%s): %s (url=%s)", client, node_name, e.reason, url)
+            _record_activity(client, 502, 0, group, node_name, "node")
             self.send_error(502)
             return
         except Exception as e:
-            log.error("502 fetch failed for %s (%s): %r (url=%s)", client, group, e, url)
-            _record_activity(client, 502, 0, group, node["name"], "node")
+            log.error("502 fetch failed for %s (%s): %r (url=%s)", client, node_name, e, url)
+            _record_activity(client, 502, 0, group, node_name, "node")
             self.send_error(502)
             return
-        log.info("200 %s (%s) <- %s (%d bytes)", client, group, url, len(body))
-        _record_activity(client, 200, len(body), group, node["name"], "node")
+        log.info("200 %s (%s) <- %s (%d bytes)", client, node_name, url, len(body))
+        _record_activity(client, 200, len(body), group, node_name, "node")
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -2046,10 +2316,12 @@ class Handler(BaseHTTPRequestHandler):
                 node["clients"].append(client)
             elif action == "delete":
                 node = find_client_node(client)
-                if not node:
+                if not node and client not in FORCE_SUBS:
                     self._send_json(400, {"ok": False, "error": "клиент не найден"})
                     return
-                node["clients"].remove(client)
+                for n in NODES:
+                    while client in n.get("clients", []):
+                        n["clients"].remove(client)
                 if client in FORCE_SUBS:
                     new_force = dict(FORCE_SUBS)
                     new_force.pop(client, None)
@@ -2076,7 +2348,8 @@ class Handler(BaseHTTPRequestHandler):
                     if not target_node:
                         self._send_json(400, {"ok": False, "error": "нода не найдена"})
                         return
-                if new_name != client and (new_name in all_clients() or new_name in FORCE_SUBS):
+                other_clients = {c for n in NODES for c in n.get("clients", []) if c != client}
+                if new_name != client and (new_name in other_clients or (new_name in FORCE_SUBS and not is_force)):
                     self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
                     return
                 if new_name == client and cur_node is target_node:
@@ -2091,10 +2364,12 @@ class Handler(BaseHTTPRequestHandler):
                         self._send_json(500, {"ok": False, "error": f"не удалось обновить override: {exc}"})
                         return
                     FORCE_SUBS = new_force
-                if cur_node:
-                    cur_node["clients"].remove(client)
+                for n in NODES:
+                    while client in n.get("clients", []):
+                        n["clients"].remove(client)
                 if target_node:
-                    target_node["clients"].append(new_name)
+                    if new_name not in target_node["clients"]:
+                        target_node["clients"].append(new_name)
             else:
                 self._send_json(400, {"ok": False, "error": "неизвестное действие"})
                 return
@@ -2265,15 +2540,18 @@ class Handler(BaseHTTPRequestHandler):
         seen = set()
         idx = 0
         for node in NODES:
-            clients = node["clients"]
+            clients = node.get("clients", [])
             if not clients:
                 continue
             cards = []
             for client in clients:
+                if client in seen:
+                    continue
                 cards.append(self._card_html(client, node, base, idx))
                 seen.add(client)
                 idx += 1
-            sections.append(self._section_html(f'Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards)))
+            if cards:
+                sections.append(self._section_html(f'Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards)))
         force_clients = [c for c in sorted(FORCE_SUBS) if c not in seen]
         if force_clients:
             cards = []
@@ -2424,28 +2702,34 @@ class Handler(BaseHTTPRequestHandler):
     def _client_status_html(self, client):
         esc = html.escape
         activity = CLIENT_ACTIVITY.get(client)
-        if not activity:
+        state = get_client_sync_state(client)
+        if state == "never" or not activity:
             return (
-                f'<div class="client-status" data-client="{esc(client)}">'
-                '<span class="status-dot"></span>'
-                '<span class="status-text">Нет синхронизаций</span>'
+                f'<div class="client-status" data-client="{esc(client)}" data-time="" data-timestamp="0">'
+                '<span class="status-dot st-never"></span>'
+                '<span class="status-text">Синхронизации не было</span>'
                 '</div>'
             )
         status = activity.get("status")
-        dot_class = "st-ok" if isinstance(status, int) and 200 <= status < 300 else "st-err"
+        dot_class = f"st-{state}"
+        if isinstance(status, int) and not (200 <= status < 300):
+            dot_class = "st-err"
         if activity.get("node_name"):
             src = f'через «{activity["node_name"]}»'
         elif activity.get("source") == "force":
             src = "через кастом"
         else:
             src = ""
+        time_str = activity.get("time") or "—"
+        ts_val = activity.get("timestamp") or 0
         text = (
-            f'Последняя синхронизация: {activity.get("time") or "—"} · HTTP {status}'
+            f'Последняя синхронизация: {time_str}'
+            + (f' · HTTP {status}' if status else '')
             + (f' · {activity["bytes"]} B' if activity.get("bytes") else "")
             + (f' · {src}' if src else "")
         )
         return (
-            f'<div class="client-status" data-client="{esc(client)}">'
+            f'<div class="client-status" data-client="{esc(client)}" data-time="{esc(time_str)}" data-timestamp="{ts_val}">'
             f'<span class="status-dot {dot_class}"></span>'
             f'<span class="status-text" title="{esc(text)}">{esc(text)}</span>'
             '</div>'
@@ -2454,7 +2738,11 @@ class Handler(BaseHTTPRequestHandler):
     def _list_html(self):
         sections = self._client_sections() or '<div class="note">Клиенты не настроены.</div>'
         nodes = "\n".join(self._node_cards()) or '<div class="note">Подписочные URL нод не настроены.</div>'
-        total = len(all_clients()) + len([c for c in FORCE_SUBS if c not in all_clients()])
+        all_c = list(all_clients()) + [c for c in FORCE_SUBS if c not in all_clients()]
+        total = len(all_c)
+        count_recent = sum(1 for c in all_c if get_client_sync_state(c) == "recent")
+        count_ever = sum(1 for c in all_c if get_client_sync_state(c) == "ever")
+        count_never = sum(1 for c in all_c if get_client_sync_state(c) == "never")
         options = "".join(
             f'<div class="node-select-option" data-value="{html.escape(node["id"], quote=True)}">{html.escape(node["name"])}</div>'
             for node in NODES
@@ -2487,13 +2775,15 @@ class Handler(BaseHTTPRequestHandler):
             '<span>Добавить</span></button></form>'
             '<div id="management-message" class="management-error" hidden></div></div></div>'
         )
-        status = f"Клиентов: {total}"
         body = (
             PAGE_TEMPLATE.replace("__SECTIONS__", sections)
             .replace("__NODES__", nodes)
             .replace("__MANAGEMENT__", management)
             .replace("__SEARCH__", '<input id="client-search" class="header-search" placeholder="поиск" aria-label="поиск">')
-            .replace("__STATUS__", status)
+            .replace("__COUNT_TOTAL__", str(total))
+            .replace("__COUNT_RECENT__", str(count_recent))
+            .replace("__COUNT_EVER__", str(count_ever))
+            .replace("__COUNT_NEVER__", str(count_never))
             .replace("__RAW_URL__", f"/{SECRET_SUB_PATH}?raw=1")
             .replace("__AUTH_ACTIONS__", f'<a class="btn-logout" href="/{SECRET_SUB_PATH}/logout">Выйти</a>' if ADMIN_USER and ADMIN_PASSWORD else "")
             .replace("__API_OVERRIDE__", f"/{SECRET_SUB_PATH}/api/override")
@@ -2506,6 +2796,7 @@ class Handler(BaseHTTPRequestHandler):
         log.info("200 html interface (%d cards)", total)
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -2635,6 +2926,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     global FORCE_SUBS, NODES
     setup_file_logging()
+    load_past_activity_from_logs(LOG_FILE)
     FORCE_SUBS = load_force_subs(FORCE_FILE)
     legacy_subs = None
     if nodes_file_is_empty(NODES_FILE):

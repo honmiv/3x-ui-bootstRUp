@@ -1459,6 +1459,42 @@ details.mode-category:not([open]) .category-header::after {
     gap: 6px;
 }
 .logo-icon svg { display: block; }
+.rocket-svg {  margin-left: 5px; display: block; overflow: visible; transform-box: fill-box; transform-origin: center; transform: rotate(45deg) scaleY(1.22); filter: drop-shadow(1px 3px 3px rgba(15, 23, 42, 0.38)); animation: rocket-bob 3.2s ease-in-out infinite; }
+.rocket-svg-logo { width: 48px; height: 55px; }
+.rocket-svg-logo .rocket-flame,
+.rocket-slot .rocket-flame,
+.node-icon .rocket-flame { transform-box: fill-box; transform-origin: 50% 12%; animation: rocket-flame 1.3s ease-in-out infinite; }
+.rocket-window { transform-box: fill-box; transform-origin: center; animation: rocket-window 3.2s ease-in-out infinite; }
+.rocket-window-roll { transform-box: fill-box; transform-origin: center; animation: rocket-roll-window 2.6s ease-in-out infinite; }
+.rocket-fin-center { transform-box: fill-box; animation: rocket-roll-fin-center 2.6s ease-in-out infinite; }
+.rocket-fin-side { transform-box: fill-box; animation: rocket-roll-fin-side 2.6s ease-in-out infinite; }
+.rocket-exhaust-puff { fill: rgba(203, 213, 225, 0.5); stroke: rgba(148, 163, 184, 0.4); stroke-width: 0.6; transform-box: fill-box; transform-origin: center; animation: rocket-puff 1.5s ease-out infinite; }
+.rocket-exhaust-puff-b { animation-delay: -0.5s; }
+.rocket-exhaust-puff-c { animation-delay: -1s; }
+.rocket-speed-line { fill: none; stroke: #fde047; stroke-width: 0.75; stroke-linecap: round; filter: drop-shadow(0 0 1px rgba(250, 204, 21, 0.25)); transform-box: fill-box; animation: rocket-speed-line 1.2s linear infinite; }
+.rocket-speed-line-b { animation-delay: -0.4s; stroke: #facc15; stroke-width: 0.6; }
+.rocket-speed-line-c { animation-delay: -0.8s; stroke: #fef08a; stroke-width: 0.5; }
+.rocket-speed-line-d { animation-delay: -0.6s; stroke-width: 0.65; }
+.rocket-speed-line-e { animation-delay: -0.2s; stroke: #fef08a; stroke-width: 0.45; }
+.rocket-slot { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; }
+.rocket-slot .rocket-svg { width: 32px; height: 32px; }
+.node-icon .rocket-svg { width: 36px; height: 36px; }
+@keyframes rocket-bob { 0%, 100% { transform: rotate(45deg) scaleY(1.22) translateY(0); } 50% { transform: rotate(45deg) scaleY(1.22) translateY(-5px); } }
+@keyframes rocket-flame { 0%, 100% { transform: scaleY(0.83) scaleX(0.83); opacity: 0.9; } 25% { transform: scaleY(0.87) scaleX(0.86); opacity: 1; } 50% { transform: scaleY(0.83) scaleX(0.87); opacity: 0.95; } 75% { transform: scaleY(0.87) scaleX(0.85); opacity: 1; } }
+@keyframes rocket-window { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.07); opacity: 0.88; } }
+@keyframes rocket-roll-window { 0%, 100% { transform: translateX(4px); } 50% { transform: translateX(-4px); } }
+@keyframes rocket-roll-fin-center { 0%, 100% { transform: translateX(6.5px); } 50% { transform: translateX(-6.5px); } }
+@keyframes rocket-roll-fin-side { 0%, 100% { transform: translateX(-2.5px); } 50% { transform: translateX(2.5px); } }
+@keyframes rocket-puff { 0% { transform: translateY(0) scale(0.5); opacity: 0.6; } 45% { opacity: 0.32; } 100% { transform: translateY(20px) scale(1.35); opacity: 0; } }
+@keyframes rocket-speed-line { 0% { transform: translateY(-8px); opacity: 0; } 18% { opacity: 0.95; } 82% { opacity: 0.82; } 100% { transform: translateY(10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .rocket-svg,
+    .rocket-svg .rocket-flame,
+    .rocket-svg .rocket-window, .rocket-svg .rocket-window-roll, 
+    .rocket-svg .rocket-fin-center, .rocket-svg .rocket-fin-side,
+    .rocket-svg .rocket-exhaust-puff,
+    .rocket-speed-line { animation: none; }
+}
 .btn-tool span svg { display: inline-block; vertical-align: text-bottom; margin-right: 4px; }
 .category-badge svg { display: inline-block; vertical-align: text-bottom; margin-right: 4px; }
 .card-title svg { display: inline-block; vertical-align: text-bottom; margin-right: 6px; }
@@ -2156,4 +2192,3 @@ body {
         transform: translateY(0);
     }
 }
-

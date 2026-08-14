@@ -717,7 +717,7 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 
 4. **Dynamic Domain Migration & Auto-Recovery**:
    - *Problem*: If a VPS domain is blocked by DNS filtering or SNI blocking, recovering from a backup on a new domain traditionally requires manual database edits.
-   - *Solution*: In `recovery` mode, the orchestrator unpacks the `./working/` archive on the VPS and runs regex substitutions across 3x-UI SQLite databases, Caddyfiles, and Nginx configurations, seamlessly replacing the old domain with the new domain before restarting containers.
+   - *Solution*: In `recovery` mode, the orchestrator unpacks the `./working/` archive on the VPS and rewrites the domain in the Caddyfile/Nginx configs via `sed`, then rewrites the domain *inside the running 3x-UI panel through its HTTP API* (CSRF + cookie auth via `docker exec` + `curl` + `jq`, using the panel admin credentials supplied in the recovery form). The API rewrite covers `serverName`, `serverNames[]`, client `add`, `externalProxy[].dest`, `xhttpSettings.host`, and the `subURI` setting, then restarts Xray — so regenerated subscriptions point to the new host without ever touching SQLite.
 
 5. **Decoupled Centralized Subscription Server**:
    - *Problem*: Exposing direct panel subscription links can lead to panel discovery, credential leaks, or hardcoded client config lock-in.
@@ -963,10 +963,11 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
    - `main.py:save_backup_config` now returns a `bool` and logs failures via `log_event` (`[ERROR] Failed to save setup_backup.yml: ...`) instead of a bare `except Exception: pass`.
    - `POST /api/config` returns HTTP 500 with `{"ok": false, "error": ...}` when the save fails, so a broken `setup_backup.yml` is no longer silently dropped.
 
-8. **Recovery Domain Replacement Misses the 3x-UI Database**:
-   - The `recovery` mode only runs `sed` over `working/3x-ui/*.json` (`ssh_deployer.py`), but 3x-UI state lives in a SQLite DB (`working/3x-ui/db/x-ui.db`) — no JSON config files exist there.
-   - As a result `serverName`, `subURI`, and client configs keep the old domain after recovering onto a new domain, so generated subscriptions point to a dead host. AGENTS.md overstates this ("regex substitutions across 3x-UI SQLite databases").
-   - *Goal*: Rewrite the domain inside the SQLite DB (or re-derive subURI/web paths via the panel API after recovery).
+8. **Recovery Domain Replacement Misses the 3x-UI Database** — *RESOLVED*:
+   - `recovery` mode now rewrites the domain *inside the running 3x-UI panel through its HTTP API* (`ssh_deployer.py` → `PANEL_DOMAIN_REWRITE_SCRIPT`, uploaded to the recovered host and run via `docker exec` + `curl` + `jq`): it logs into the panel with the admin credentials supplied in the recovery form (default `admin`/`admin`), updates `subURI` in `panel/api/setting/update`, rewrites `serverName`/`serverNames[]`/client `add`/`externalProxy[].dest`/`xhttpSettings.host` in every inbound via `panel/api/inbounds/update/{id}`, and restarts Xray. No SQLite access is involved.
+   - The useless `sed` over `working/3x-ui/*.json` was removed; the old domain is detected locally from the backup's Caddyfile before upload, and if the domain changed the recovery form *requires* the panel credentials (hard error otherwise, so a half-done recovery with a dead-domain panel is avoided).
+   - Backups from the pre-`panel/` repo layout still contain a compose file that builds caddy from `./templates/docker-compose` (relative to `--project-directory`). As a *legacy fallback* `recovery` now rewrites that caddy `build:` block to `image: ghcr.io/honmiv/caddy-l4:latest` (`LEGACY_COMPOSE_REWRITE_CMD` in `ssh_deployer.py`) — only when the restored compose actually references the old build context — so recovery pulls the published image instead of a ~70s source build and needs no build context. `restart_panel`/`panel_update.sh` keep the `templates -> panel/templates` compatibility symlink fallback (`LEGACY_TEMPLATES_SYMLINK_CMD`) for legacy servers that were never re-recovered. Neither path touches modern deployments.
+   - *Remaining debt*: a failed login mid-recovery aborts after containers are up (the recovery itself is idempotent and can be re-run with correct creds).
 
 9. **Docker Installation & Registry Mirror Logic Duplicated and Inert**:
    - Docker bootstrap is implemented three times: `_ensure_remote_docker` (ssh_deployer.py), `install_docker` (panel/setup.sh), `install_docker` (sub-server/setup.sh).

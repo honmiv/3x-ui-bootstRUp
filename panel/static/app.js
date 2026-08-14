@@ -1374,6 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 recovery_vps_user: document.getElementById('recovery_vps_user') ? document.getElementById('recovery_vps_user').value.trim() || 'root' : 'root',
                 recovery_auth_type: document.getElementById('recovery_auth_type') ? document.getElementById('recovery_auth_type').value : 'password',
                 recovery_backup_file: document.getElementById('recovery_backup_file') ? document.getElementById('recovery_backup_file').value : '',
+                recovery_xui_username: getFieldValueOrDefault('recovery_xui_username'),
 
                 update_vps_host: document.getElementById('update_vps_host') ? document.getElementById('update_vps_host').value.trim() : '',
                 update_vps_port: document.getElementById('update_vps_port') ? parseInt(document.getElementById('update_vps_port').value) || 22 : 22,
@@ -1512,6 +1513,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (has('recovery_vps_password')) setValue('recovery_vps_password', cfg.recovery_vps_password);
                 if (has('recovery_vps_key')) setValue('recovery_vps_key', cfg.recovery_vps_key);
                 setAuthSelect('recovery_auth_type', 'recoveryPassGroup', 'recoveryKeyGroup', cfg.recovery_auth_type, cfg.recovery_vps_key);
+                if (has('recovery_xui_username')) setValue('recovery_xui_username', cfg.recovery_xui_username);
 
                 if (has('update_vps_host')) setValue('update_vps_host', cfg.update_vps_host);
                 if (has('update_vps_port')) setValue('update_vps_port', cfg.update_vps_port);
@@ -2264,6 +2266,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'recovery_vps_port', step: 2, modes: ['recovery'], message: 'Укажите SSH порт сервера для восстановления' },
         { id: 'recovery_vps_user', step: 2, modes: ['recovery'], message: 'Укажите SSH пользователя сервера для восстановления' },
 
+        // --- Recovery: panel admin credentials (needed to rewrite domain via the panel API) ---
+        { id: 'recovery_xui_username', step: 3, modes: ['recovery'], message: 'Укажите логин админа 3X-UI из бэкапа' },
+        { id: 'recovery_xui_password', step: 3, modes: ['recovery'], message: 'Укажите пароль админа 3X-UI из бэкапа' },
+
         // --- Update/restart: host / port / user ---
         { id: 'update_vps_host', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите домен сервера для обновления/перезапуска' },
         { id: 'update_vps_port', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH порт сервера для обновления/перезапуска' },
@@ -2450,6 +2456,8 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.recovery_vps_password = document.getElementById('recovery_vps_password').value;
             payload.recovery_vps_key = document.getElementById('recovery_vps_key').value;
             payload.recovery_backup_file = document.getElementById('recovery_backup_file').value;
+            payload.recovery_xui_username = getFieldValueOrDefault('recovery_xui_username');
+            payload.recovery_xui_password = getFieldValueOrDefault('recovery_xui_password');
         } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
             payload.update_vps_host = document.getElementById('update_vps_host').value.trim();
             payload.update_vps_port = parseInt(document.getElementById('update_vps_port').value) || 22;

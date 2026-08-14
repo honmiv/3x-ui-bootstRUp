@@ -67,6 +67,185 @@ def derive_sub_path(secret: str) -> str:
     return hashlib.md5(f"{secret}-sub".encode('utf-8')).hexdigest()[:16]
 
 
+# Backups created by the pre-"panel/" repo layout reference the caddy build
+# context `./templates/docker-compose` (relative to --project-directory). The
+# current bundle keeps templates under panel/templates/, so as a LEGACY FALLBACK
+# only (when the compose file actually references the old context) bridge the
+# legacy path with a symlink before any `docker compose` run that may rebuild.
+LEGACY_TEMPLATES_SYMLINK_CMD = (
+    "if [ -f \"$COMPOSE_FILE\" ] && grep -qE 'context:[[:space:]]+\\./templates' \"$COMPOSE_FILE\" 2>/dev/null \\\n"
+    "   && [ -d panel/templates ] && [ ! -e templates ]; then\n"
+    "  ln -s panel/templates templates\n"
+    "fi\n"
+)
+
+
+# Legacy fallback for recovery: pre-"panel/" backups build the caddy image from
+# ./templates/docker-compose (source build, needs the Go toolchain + takes ~70s).
+# Modern deployments pull the published ghcr.io/honmiv/caddy-l4:latest image. When
+# the restored compose references the old build context, rewrite the caddy service
+# to use the published image instead, so recovery needs no build context at all.
+LEGACY_COMPOSE_REWRITE_CMD = (
+    "if [ -f \"$COMPOSE_FILE\" ] && grep -qE 'context:[[:space:]]+\\./templates' \"$COMPOSE_FILE\" 2>/dev/null; then\n"
+    "  echo \"[INFO] Legacy caddy build context found in compose; using image ghcr.io/honmiv/caddy-l4:latest...\"\n"
+    "  awk '\n"
+    "    /^[[:space:]]*caddy:[[:space:]]*$/ { print; print \"    image: ghcr.io/honmiv/caddy-l4:latest\"; next }\n"
+    "    /^[[:space:]]*build:[[:space:]]*$/ || /^[[:space:]]*context:[[:space:]]*\\.\\/templates/ || /^[[:space:]]*dockerfile:[[:space:]]*Dockerfile-caddy-l4/ { next }\n"
+    "    { print }\n"
+    "  ' \"$COMPOSE_FILE\" > \"$COMPOSE_FILE.tmp\" && mv \"$COMPOSE_FILE.tmp\" \"$COMPOSE_FILE\"\n"
+    "fi\n"
+)
+
+
+# Runs on the recovered VPS AFTER `docker compose up -d`. Rewrites the domain
+# inside the running 3x-UI panel through its HTTP API (CSRF + cookie auth,
+# docker exec + curl + jq), so no SQLite access is needed. Replaces serverName /
+# client `add` / externalProxy dest / subURI wherever the old domain appears.
+PANEL_DOMAIN_REWRITE_SCRIPT = r'''#!/usr/bin/env bash
+set -e
+
+: "${RECOVERY_OLD_DOMAIN:?RECOVERY_OLD_DOMAIN is required}"
+: "${RECOVERY_NEW_DOM:?RECOVERY_NEW_DOM is required}"
+PANEL_USER="${RECOVERY_PANEL_USER:-admin}"
+PANEL_PASS="${RECOVERY_PANEL_PASS:-admin}"
+
+if [ "$RECOVERY_OLD_DOMAIN" = "$RECOVERY_NEW_DOM" ]; then
+    echo "[INFO] Domain unchanged ($RECOVERY_OLD_DOMAIN); skipping 3x-ui API rewrite."
+    exit 0
+fi
+
+cd /opt/3x-ui-bootstRUp
+CADDY_FILE="working/caddy/Caddyfile"
+if [ ! -f "$CADDY_FILE" ]; then
+    echo "[ERROR] Caddyfile not found in recovered backup."
+    exit 1
+fi
+
+WEB_BASE=$(grep -oE '@web_base_path path /[A-Za-z0-9_-]+' "$CADDY_FILE" | head -n 1 | awk '{print $3}' | tr -d '/' || true)
+SUB_PATH=$(grep -oE '@sub_path path /[A-Za-z0-9_-]+' "$CADDY_FILE" | head -n 1 | awk '{print $3}' | tr -d '/' || true)
+WEB_PORT=$(grep -oE 'reverse_proxy @web_base_path 3xui:[0-9]+' "$CADDY_FILE" | head -n 1 | sed 's/.*://' || true)
+
+if [ -z "$WEB_PORT" ]; then
+    echo "[ERROR] Could not determine 3x-ui web port from Caddyfile."
+    exit 1
+fi
+echo "[INFO] Panel internal web port: ${WEB_PORT} (base path: /${WEB_BASE}/)"
+
+COOKIE=/tmp/recovery_xui_cookie.txt
+
+echo "[INFO] Waiting for 3x-ui panel to become ready..."
+ready=""
+for i in $(seq 1 90); do
+    if docker exec 3xui sh -c "curl -s -o /dev/null http://127.0.0.1:${WEB_PORT}/" 2>/dev/null; then
+        ready="1"
+        break
+    fi
+    sleep 2
+done
+if [ -z "$ready" ]; then
+    echo "[ERROR] 3x-ui panel did not become ready within 180s."
+    exit 1
+fi
+
+docker exec 3xui sh -c "rm -f $COOKIE"
+
+API_PREFIX=""
+LOGIN_HTML=""
+for prefix in "/${WEB_BASE}" ""; do
+    LOGIN_HTML=$(docker exec 3xui sh -c "curl -fsS -c $COOKIE http://127.0.0.1:${WEB_PORT}${prefix}/" 2>/dev/null || true)
+    if [ -n "$LOGIN_HTML" ]; then
+        API_PREFIX="$prefix"
+        break
+    fi
+done
+if [ -z "$API_PREFIX" ]; then
+    echo "[ERROR] Could not reach the 3x-ui login page inside the container."
+    exit 1
+fi
+API_BASE="http://127.0.0.1:${WEB_PORT}${API_PREFIX}"
+echo "[INFO] Reached panel at ${API_BASE}"
+
+CSRF=$(printf '%s' "$LOGIN_HTML" | grep -oP 'csrf-token"\s+content="\K[^"]+' | head -n 1 || true)
+if [ -z "$CSRF" ]; then
+    echo "[ERROR] Could not obtain CSRF token from the login page."
+    exit 1
+fi
+
+ENC_U=$(jq -rn --arg v "$PANEL_USER" '$v | @uri')
+ENC_P=$(jq -rn --arg v "$PANEL_PASS" '$v | @uri')
+
+docker exec 3xui sh -c "curl -fsS -b $COOKIE -c $COOKIE -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' -H 'x-csrf-token: $CSRF' --data 'username=${ENC_U}&password=${ENC_P}' ${API_BASE}/login" >/dev/null 2>&1 || true
+
+PANEL_HTML=$(docker exec 3xui sh -c "curl -fsS -b $COOKIE -c $COOKIE ${API_BASE}/panel/" 2>/dev/null || true)
+CSRF=$(printf '%s' "$PANEL_HTML" | grep -oP 'csrf-token"\s+content="\K[^"]+' | head -n 1 || true)
+if [ -z "$CSRF" ]; then
+    echo "[ERROR] 3x-ui panel login failed. Provide the panel admin credentials from the original deployment (default: admin/admin)."
+    exit 1
+fi
+echo "[INFO] Authenticated to the 3x-ui panel."
+
+# --- Update subURI (subscription base URL) ---
+if [ -n "$SUB_PATH" ]; then
+    echo "[INFO] Updating panel subURI -> https://${RECOVERY_NEW_DOM}/${SUB_PATH}/"
+    SETTINGS=$(docker exec 3xui sh -c "curl -fsS -X POST -b $COOKIE -c $COOKIE -H 'accept: application/json' -H 'x-csrf-token: $CSRF' ${API_BASE}/panel/api/setting/all")
+    SETTINGS_PAYLOAD=$(printf '%s' "$SETTINGS" | jq -r --arg uri "https://${RECOVERY_NEW_DOM}/${SUB_PATH}/" '.obj | .subURI = $uri | to_entries | map("\(.key)=\(.value | tostring | @uri)") | join("&")')
+    printf '%s' "$SETTINGS_PAYLOAD" | docker exec -i 3xui sh -c 'cat > /tmp/recovery_setting_payload.txt'
+    UPDATE_RESP=$(docker exec 3xui sh -c "curl -fsS -b $COOKIE -c $COOKIE -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' -H 'x-csrf-token: $CSRF' --data @/tmp/recovery_setting_payload.txt ${API_BASE}/panel/api/setting/update" 2>/dev/null || true)
+    if printf '%s' "$UPDATE_RESP" | grep -q '"success":true'; then
+        echo "[INFO] Panel settings updated (subURI)."
+    else
+        echo "[WARN] Panel settings update response: $UPDATE_RESP"
+    fi
+fi
+
+# --- Rewrite domain in all inbounds (serverName / client add / externalProxy) ---
+INBOUNDS=$(docker exec 3xui sh -c "curl -fsS -b $COOKIE -c $COOKIE -H 'accept: application/json' -H 'x-csrf-token: $CSRF' ${API_BASE}/panel/api/inbounds/list" 2>/dev/null || true)
+INBOUND_COUNT=$(printf '%s' "$INBOUNDS" | jq -r '.obj | length' 2>/dev/null || echo 0)
+if [ -n "$INBOUND_COUNT" ] && [ "$INBOUND_COUNT" -gt 0 ] 2>/dev/null; then
+    echo "[INFO] Rewriting domain in ${INBOUND_COUNT} inbound(s)."
+    i=0
+    while [ "$i" -lt "$INBOUND_COUNT" ]; do
+        OBJ=$(printf '%s' "$INBOUNDS" | jq -c --arg old "$RECOVERY_OLD_DOMAIN" --arg new "$RECOVERY_NEW_DOM" '.obj['"$i"'] | (def rec: if type == "object" then with_entries(.value |= rec) elif type == "array" then map(rec) elif type == "string" then (split($old) | join($new)) else . end; rec)')
+        ID=$(printf '%s' "$OBJ" | jq -r '.id // empty')
+        if [ -z "$ID" ]; then
+            echo "[WARN] Inbound #$i has no id; skipped."
+            i=$((i+1))
+            continue
+        fi
+        PAYLOAD=$(printf '%s' "$OBJ" | jq -r 'to_entries | map("\(.key)=\(if (.value | type) == "object" or (.value | type) == "array" then (.value | tojson | @uri) else (.value | tostring | @uri) end)") | join("&")')
+        printf '%s' "$PAYLOAD" | docker exec -i 3xui sh -c 'cat > /tmp/recovery_inbound_payload.txt'
+        UPD_RESP=$(docker exec 3xui sh -c "curl -fsS -b $COOKIE -c $COOKIE -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' -H 'x-csrf-token: $CSRF' --data @/tmp/recovery_inbound_payload.txt ${API_BASE}/panel/api/inbounds/update/$ID" 2>/dev/null || true)
+        if printf '%s' "$UPD_RESP" | grep -q '"success":true'; then
+            echo "[INFO] Inbound $ID updated (serverName / client add / externalProxy)."
+        else
+            echo "[WARN] Inbound $ID update response: $UPD_RESP"
+        fi
+        i=$((i+1))
+    done
+else
+    echo "[WARN] No inbounds found via API to update."
+fi
+
+# --- Restart Xray so the new config takes effect ---
+echo "[INFO] Restarting Xray to apply the new domain..."
+XRAY_OK=""
+for XRAY_API in "panel/api/xray" "panel/xray"; do
+    XR_RESP=$(docker exec 3xui sh -c "curl -fsS -X POST -b $COOKIE -c $COOKIE -H 'x-csrf-token: $CSRF' ${API_BASE}/${XRAY_API}/" 2>/dev/null || true)
+    if printf '%s' "$XR_RESP" | grep -q '"success":true'; then
+        XRAY_OK="1"
+        break
+    fi
+done
+if [ -n "$XRAY_OK" ]; then
+    echo "[INFO] Xray restarted successfully."
+else
+    echo "[WARN] Could not restart Xray via API; a manual restart in the panel may be required."
+fi
+
+echo "[OK] Domain rewrite completed: $RECOVERY_OLD_DOMAIN -> $RECOVERY_NEW_DOM"
+'''
+
+
 class SSHDeployer:
     def __init__(self, host: str, port: int = 22, user: str = "root", password: str = "", key_data: str = "", cancel_check: Optional[Callable[[], bool]] = None):
         self.host = host
@@ -532,6 +711,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         password = config.get("recovery_vps_password") if config.get("recovery_vps_password") is not None else config.get("vps_password", "")
         key_data = config.get("recovery_vps_key") if config.get("recovery_vps_key") is not None else config.get("vps_key", "")
         backup_filename = config.get("recovery_backup_file", "").strip()
+        recovery_panel_user = config.get("recovery_xui_username", "").strip() or "admin"
+        recovery_panel_pass = config.get("recovery_xui_password", "").strip() or "admin"
+        recovery_creds_provided = bool(config.get("recovery_xui_username") or config.get("recovery_xui_password"))
 
         if not host:
             log("[ERROR] Target domain host is required for recovery mode.", "error")
@@ -546,6 +728,36 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
         if not os.path.isfile(local_backup_path):
             log(f"[ERROR] Selected backup archive '{backup_filename}' not found in ./backups_panel/", "error")
+            return False, {}
+
+        # Inspect the backup archive locally: old domain + hidden web base path
+        old_domain = ""
+        web_base_path = ""
+        try:
+            with tarfile.open(local_backup_path, "r:*") as tar:
+                for member in tar.getmembers():
+                    if member.name.endswith("Caddyfile"):
+                        ef = tar.extractfile(member)
+                        if ef:
+                            caddy_text = ef.read().decode("utf-8", errors="replace")
+                            m_dom = re.search(r'email 3xui@([A-Za-z0-9.-]+)', caddy_text)
+                            if not m_dom:
+                                m_dom = re.search(r'^([A-Za-z0-9.-]+):[0-9]+', caddy_text, re.MULTILINE)
+                            if m_dom:
+                                old_domain = m_dom.group(1).strip()
+                            m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', caddy_text)
+                            if m_path:
+                                web_base_path = m_path.group(1)
+                        break
+        except Exception:
+            pass
+
+        domain_changed = bool(old_domain) and old_domain.lower() != host.lower()
+        if domain_changed and not recovery_creds_provided:
+            log(f"[ERROR] Domain change detected in the backup (old: '{old_domain}' -> new: '{host}'). "
+                f"Rewriting the domain inside the 3x-UI panel is done via its HTTP API and requires the "
+                f"panel admin credentials. Fill in the 3X-UI login/password fields in the recovery form "
+                f"(default for a fresh deployment is admin/admin).", "error")
             return False, {}
 
         with open(local_backup_path, "rb") as f:
@@ -604,7 +816,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "    echo \"[INFO] Domain change detected from '$OLD_DOMAIN' to '$NEW_DOM'. Updating Caddyfile & configs...\"\n"
                 "    sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"$CADDY_FILE\"\n"
                 "    [ -f \"working/nginx-decoy/default.conf\" ] && sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"working/nginx-decoy/default.conf\" || true\n"
-                "    find working/3x-ui/ -type f -name \"*.json\" -exec sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" {} + 2>/dev/null || true\n"
                 "    rm -rf working/.caddy_data 2>/dev/null || true\n"
                 "    docker volume rm caddy_data 2>/dev/null || true\n"
                 "  fi\n"
@@ -613,6 +824,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "    echo \"RECOVERY_WEB_PATH=$WEB_PATH\"\n"
                 "  fi\n"
                 "fi\n"
+                "\n"
+                + LEGACY_COMPOSE_REWRITE_CMD +
                 "\n"
                 "if [ -f \"$COMPOSE_FILE\" ]; then\n"
                 "  docker compose -f \"$COMPOSE_FILE\" --project-directory . up -d\n"
@@ -627,14 +840,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 log(f"[ERROR] Recovery extraction or container startup failed: {out}", "error")
                 return False, {}
 
-            web_base_path = ""
             m_path_out = re.search(r'RECOVERY_WEB_PATH=([A-Za-z0-9_-]+)', out)
             if m_path_out:
                 web_base_path = m_path_out.group(1)
 
             if not web_base_path:
                 try:
-                    import tarfile
                     with tarfile.open(local_backup_path, "r:*") as tar:
                         for member in tar.getmembers():
                             if member.name.endswith("Caddyfile"):
@@ -647,6 +858,34 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                                         break
                 except Exception:
                     pass
+
+            # Rewrite the domain inside the running 3x-UI panel via its HTTP API
+            # (serverName / client `add` / externalProxy dest / subURI), so the
+            # regenerated subscriptions point to the new host. No SQLite access.
+            if domain_changed:
+                log(f"Rewriting panel domain '{old_domain}' -> '{host}' via the 3x-UI HTTP API...", "info")
+                rc_scr, scr_out = await deployer.exec_command(
+                    "cat > /tmp/panel_domain_rewrite.sh",
+                    lambda m: log(m, "info"),
+                    stdin_data=PANEL_DOMAIN_REWRITE_SCRIPT.encode("utf-8"),
+                )
+                if rc_scr != 0:
+                    log(f"[ERROR] Failed to upload the domain-rewrite script: {scr_out}", "error")
+                    return False, {}
+                rewrite_env = (
+                    f"RECOVERY_OLD_DOMAIN={shlex.quote(old_domain)} "
+                    f"RECOVERY_NEW_DOM={shlex.quote(host)} "
+                    f"RECOVERY_PANEL_USER={shlex.quote(recovery_panel_user)} "
+                    f"RECOVERY_PANEL_PASS={shlex.quote(recovery_panel_pass)}"
+                )
+                rc_rewrite, out_rewrite = await deployer.exec_command(
+                    f"{rewrite_env} bash /tmp/panel_domain_rewrite.sh",
+                    lambda m: log(m, "info"),
+                )
+                if rc_rewrite != 0:
+                    log(f"[ERROR] Panel domain rewrite failed: {out_rewrite}", "error")
+                    return False, {}
+                log("✅ Panel domain rewritten (serverName / client add / subURI).", "success")
 
             xui_url = f"https://{host}/{web_base_path}/" if web_base_path else f"https://{host}/"
 
@@ -788,6 +1027,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     "fi\n"
                     "docker stop 3xui caddy nginx-decoy 2>/dev/null || true\n"
                     "docker rm 3xui caddy nginx-decoy 2>/dev/null || true\n"
+                    + LEGACY_TEMPLATES_SYMLINK_CMD +
                     "docker compose -f \"$COMPOSE_FILE\" --project-directory . up -d\n"
                 )
                 rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))

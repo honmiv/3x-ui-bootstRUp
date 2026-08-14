@@ -48,4 +48,10 @@ awk -v ver="$version" '
 
 mv "$tmp_file" "$compose_file"
 
+# Legacy fallback: only bridge ./templates -> panel/templates when the compose
+# file actually references the old build context (pre-"panel/" repo layout).
+if [[ -f "$compose_file" ]] && grep -qE 'context:[[:space:]]+\./templates' "$compose_file" && [[ -d panel/templates && ! -e templates ]]; then
+  ln -s panel/templates templates
+fi
+
 docker compose -f "$compose_file" --project-directory . up -d 3xui

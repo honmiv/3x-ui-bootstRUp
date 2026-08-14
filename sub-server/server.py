@@ -177,6 +177,21 @@ body {
 .management-row .btn-sm { flex-shrink: 0; }
 .btn-client-delete, .btn-node-delete { color: #fecaca; border-color: rgba(239, 68, 68, .35); padding: 5px 7px; line-height: 1; }
 .btn-client-delete svg, .btn-node-delete svg { width: 16px; height: 16px; display: block; }
+.btn-client-edit, .btn-node-edit { color: #bfdbfe; border-color: rgba(59, 130, 246, .35); padding: 5px 7px; line-height: 1; }
+.btn-client-edit svg, .btn-node-edit svg { width: 16px; height: 16px; display: block; }
+.btn-client-edit:hover, .btn-node-edit:hover { background: rgba(59, 130, 246, .2); }
+.edit-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.edit-modal[hidden] { display: none; }
+.edit-modal-backdrop { position: absolute; inset: 0; background: rgba(2, 6, 23, .6); backdrop-filter: blur(4px); }
+.edit-modal-card { position: relative; width: min(480px, 100%); background: rgba(30, 41, 59, .97); border: 1px solid var(--border-color); border-radius: 14px; padding: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+.edit-modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+.edit-modal-field { margin-bottom: 12px; }
+.edit-modal-field label { display: block; font-size: .78rem; color: var(--text-secondary); margin-bottom: 6px; }
+.edit-modal-field input, .edit-modal-field select { width: 100%; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(15, 23, 42, 0.9); color: var(--text-primary); padding: 9px 11px; font: inherit; font-size: .85rem; }
+.edit-modal-hint { font-size: .74rem; color: var(--text-secondary); margin-top: -4px; margin-bottom: 12px; }
+.edit-modal-field select { appearance: auto; }
+.edit-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+.btn-sm.btn-save { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.18); }
 .node-management { position: relative; }
 .management-error { position: absolute; right: 16px; bottom: 58px; z-index: 100; max-width: calc(100% - 32px); color: #fecaca; border: 1px solid rgba(239, 68, 68, .5); background: rgba(127, 29, 29, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 8px; padding: 8px 10px; font-size: .78rem; box-shadow: 0 8px 24px rgba(127, 29, 29, .25); }
 @media (max-width: 700px) { .management-grid { grid-template-columns: 1fr; } .management-row { flex-wrap: wrap; } .management-row .btn-sm { width: 100%; } .header-search { width: 100%; order: 3; } }
@@ -241,7 +256,19 @@ __NODES__
     </div>
 __SECTIONS__
 </div>
+<div id="editModal" class="edit-modal" hidden>
+    <div class="edit-modal-backdrop"></div>
+    <div class="edit-modal-card">
+        <div class="edit-modal-title" id="editModalTitle">Редактирование</div>
+        <div id="editModalBody"></div>
+        <div class="edit-modal-actions">
+            <button type="button" class="btn-sm" id="editModalCancel">Отмена</button>
+            <button type="button" class="btn-sm btn-save" id="editModalSave">Сохранить</button>
+        </div>
+    </div>
+</div>
 <script>
+const NODES_DATA = __NODES_JSON__;
 function copyText(text, btn) {
     const done = () => {
         const old = btn.textContent;
@@ -300,6 +327,37 @@ function showManagementError(error) {
         window.managementErrorTimer = setTimeout(() => { box.hidden = true; }, 6000);
     }
 }
+function escAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+const editModal = document.getElementById('editModal');
+let editModalState = null;
+function openEditModal(title, body, state) {
+    document.getElementById('editModalTitle').textContent = title;
+    document.getElementById('editModalBody').innerHTML = body;
+    editModalState = state;
+    editModal.hidden = false;
+}
+function closeEditModal() {
+    editModal.hidden = true;
+    editModalState = null;
+}
+document.getElementById('editModalCancel')?.addEventListener('click', closeEditModal);
+document.querySelector('.edit-modal-backdrop')?.addEventListener('click', closeEditModal);
+document.getElementById('editModalSave')?.addEventListener('click', function () {
+    if (!editModalState) return;
+    const btn = this;
+    const old = btn.textContent;
+    btn.textContent = '…';
+    btn.disabled = true;
+    Promise.resolve(editModalState.save())
+        .then(() => location.reload())
+        .catch(err => {
+            btn.textContent = err.message || 'Ошибка';
+            btn.disabled = false;
+            setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2500);
+        });
+});
 function filterCards() {
     const query = (document.getElementById('client-search')?.value || '').trim().toLocaleLowerCase();
     document.querySelectorAll('.card').forEach(card => {
@@ -357,6 +415,45 @@ document.addEventListener('click', function (e) {
         if (!confirm('Удалить клиента и его кастомную подписку?')) return;
         submitManagement('__API_CLIENT__', { action: 'delete', client: deleteClient.dataset.client })
             .then(() => location.reload()).catch(showManagementError);
+        return;
+    }
+    const editNode = e.target.closest('.btn-node-edit');
+    if (editNode) {
+        const node = (NODES_DATA || []).find(n => n.id === editNode.dataset.node);
+        if (!node) return;
+        const body = ''
+            + '<div class="edit-modal-field"><label>Имя ноды</label><input id="edit-node-name" value="' + escAttr(node.name) + '"></div>'
+            + '<div class="edit-modal-field"><label>URL подписки</label><input id="edit-node-url" value="' + escAttr(node.url || '') + '"></div>'
+            + '<div class="edit-modal-hint">Схему (http:// или https://) можно не указывать — https:// добавится автоматически.</div>';
+        openEditModal('Редактировать ноду · ' + node.name, body, {
+            save: () => submitManagement('__API_NODE__', {
+                action: 'edit',
+                node: node.id,
+                name: document.getElementById('edit-node-name').value.trim(),
+                url: document.getElementById('edit-node-url').value.trim()
+            })
+        });
+        return;
+    }
+    const editClient = e.target.closest('.btn-client-edit');
+    if (editClient) {
+        const client = editClient.dataset.client;
+        const curNode = (NODES_DATA || []).find(n => (n.clients || []).includes(client));
+        const opts = (NODES_DATA || []).map(n =>
+            '<option value="' + escAttr(n.id) + '"' + (curNode && n.id === curNode.id ? ' selected' : '') + '>' + escAttr(n.name) + '</option>'
+        ).join('');
+        const forceOpt = curNode ? '' : '<option value="">Кастом (force-subs)</option>';
+        const body = ''
+            + '<div class="edit-modal-field"><label>Имя клиента</label><input id="edit-client-name" value="' + escAttr(client) + '"></div>'
+            + '<div class="edit-modal-field"><label>Нода</label><select id="edit-client-node">' + opts + forceOpt + '</select></div>';
+        openEditModal('Редактировать клиента · ' + client, body, {
+            save: () => submitManagement('__API_CLIENT__', {
+                action: 'edit',
+                client: client,
+                new_name: document.getElementById('edit-client-name').value.trim(),
+                node: document.getElementById('edit-client-node').value
+            })
+        });
         return;
     }
     const deleteNode = e.target.closest('.btn-node-delete');
@@ -624,8 +721,11 @@ def default_nodes(subs):
         ("proxy", GROUP_LABELS["proxy"], RUSSIAN_SUB_URL, "proxy"),
         ("freedom", GROUP_LABELS["freedom"], FOREIGN_SUB_URL, "freedom"),
     ):
+        url = url.rstrip("/")
+        if url and not url.startswith(("http://", "https://")):
+            url = "https://" + url
         if url or subs[group]:
-            nodes.append({"id": node_id, "name": name, "url": url.rstrip("/"), "clients": list(subs[group])})
+            nodes.append({"id": node_id, "name": name, "url": url, "clients": list(subs[group])})
     return nodes
 
 
@@ -647,10 +747,13 @@ def load_nodes(path, subs):
         clients = item.get("clients", [])
         if not isinstance(clients, list):
             clients = []
+        url = str(item["url"]).strip().rstrip("/")
+        if url and not url.startswith(("http://", "https://")):
+            url = "https://" + url
         result.append({
             "id": str(item["id"]),
             "name": str(item["name"]).strip(),
-            "url": str(item["url"]).strip().rstrip("/"),
+            "url": url,
             "clients": [str(client).strip() for client in clients if str(client).strip()],
         })
     return result or default_nodes(subs)
@@ -1028,6 +1131,42 @@ class Handler(BaseHTTPRequestHandler):
                         self._send_json(500, {"ok": False, "error": f"не удалось удалить override: {exc}"})
                         return
                     FORCE_SUBS = new_force
+            elif action == "edit":
+                new_name = (data.get("new_name") or "").strip()
+                target_id = (data.get("node") or "").strip()
+                if not new_name or any(char in new_name for char in "\r\n:/"):
+                    self._send_json(400, {"ok": False, "error": "некорректное имя клиента"})
+                    return
+                cur_node = find_client_node(client)
+                is_force = client in FORCE_SUBS
+                if not cur_node and not is_force:
+                    self._send_json(400, {"ok": False, "error": "клиент не найден"})
+                    return
+                target_node = None
+                if target_id:
+                    target_node = next((item for item in NODES if item["id"] == target_id), None)
+                    if not target_node:
+                        self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                        return
+                if new_name != client and (new_name in all_clients() or new_name in FORCE_SUBS):
+                    self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
+                    return
+                if new_name == client and cur_node is target_node:
+                    self._send_json(200, {"ok": True})
+                    return
+                if new_name != client and client in FORCE_SUBS:
+                    new_force = dict(FORCE_SUBS)
+                    new_force[new_name] = new_force.pop(client)
+                    try:
+                        save_force_subs(new_force)
+                    except OSError as exc:
+                        self._send_json(500, {"ok": False, "error": f"не удалось обновить override: {exc}"})
+                        return
+                    FORCE_SUBS = new_force
+                if cur_node:
+                    cur_node["clients"].remove(client)
+                if target_node:
+                    target_node["clients"].append(new_name)
             else:
                 self._send_json(400, {"ok": False, "error": "неизвестное действие"})
                 return
@@ -1044,8 +1183,10 @@ class Handler(BaseHTTPRequestHandler):
             if action == "add":
                 name = (data.get("name") or "").strip()
                 url = (data.get("url") or "").strip().rstrip("/")
+                if url and not url.startswith(("http://", "https://")):
+                    url = "https://" + url
                 if not name or not url.startswith(("http://", "https://")):
-                    self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (http:// или https://)"})
+                    self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (например: node.example.com/subs)"})
                     return
                 if any(node["name"].casefold() == name.casefold() for node in NODES):
                     self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
@@ -1061,6 +1202,33 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(400, {"ok": False, "error": "сначала удалите клиентов этой ноды"})
                     return
                 NODES.remove(node)
+            elif action == "edit":
+                node_id = (data.get("node") or "").strip()
+                node = next((item for item in NODES if item["id"] == node_id), None)
+                if not node:
+                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                    return
+                name = (data.get("name") or "").strip()
+                url = (data.get("url") or "").strip().rstrip("/")
+                if not name:
+                    name = node["name"]
+                if not url:
+                    url = node["url"]
+                elif not url.startswith(("http://", "https://")):
+                    url = "https://" + url
+                if not name:
+                    self._send_json(400, {"ok": False, "error": "укажите имя ноды"})
+                    return
+                if not url.startswith(("http://", "https://")):
+                    self._send_json(400, {"ok": False, "error": "укажите URL ноды (например: node.example.com/subs)"})
+                    return
+                if name != node["name"] and any(
+                    item["name"].casefold() == name.casefold() and item["id"] != node_id for item in NODES
+                ):
+                    self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                    return
+                node["name"] = name
+                node["url"] = url
             else:
                 self._send_json(400, {"ok": False, "error": "неизвестное действие"})
                 return
@@ -1135,6 +1303,8 @@ class Handler(BaseHTTPRequestHandler):
                 f'<span class="client-name-badge">🌐 {esc(node["name"])}</span>'
                 f'<span style="display:flex;gap:6px;align-items:center">'
                 f'<span class="group-badge">база подписки</span>'
+                f'<button type="button" class="btn-sm btn-node-edit" data-node="{esc(node["id"])}" title="Редактировать ноду" aria-label="Редактировать ноду">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>'
                 f'<button type="button" class="btn-sm btn-node-delete" data-node="{esc(node["id"])}" title="Удалить ноду" aria-label="Удалить ноду">'
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></span></div>'
             )
@@ -1200,9 +1370,11 @@ class Handler(BaseHTTPRequestHandler):
             f'<span class="client-name-badge">👤 {esc(client)}</span>'
             f'<span style="display:flex;gap:6px;align-items:center">'
             f'<span class="group-badge">{esc(node["name"]) if node else GROUP_LABELS["force"]}</span>{force_tag}'
-            + (f'<button type="button" class="btn-sm btn-client-delete" data-client="{esc(client)}" title="Удалить клиента" aria-label="Удалить клиента">'
+            + (f'<button type="button" class="btn-sm btn-client-edit" data-client="{esc(client)}" title="Редактировать клиента" aria-label="Редактировать клиента">'
+               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>'
+               + (f'<button type="button" class="btn-sm btn-client-delete" data-client="{esc(client)}" title="Удалить клиента" aria-label="Удалить клиента">'
                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>' if node else '')
-            + '</span></div>'
+               + '</span></div>')
         )
         p.append('<div class="client-link-grid">')
 
@@ -1296,7 +1468,7 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="management-panel"><div class="management-title">Добавить клиента</div>'
             f'<form class="management-row" id="add-client-form">{node_picker}<input id="new-client" placeholder="Имя нового клиента" required><button class="btn-sm" type="submit">Добавить</button></form></div>'
             '<div class="management-panel node-management"><div class="management-title">Добавить ноду</div>'
-            '<form class="management-row" id="add-node-form"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="https://node.example/subs" required><button class="btn-sm" type="submit">Добавить</button></form>'
+            '<form class="management-row" id="add-node-form"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="node.example/subs" required><button class="btn-sm" type="submit">Добавить</button></form>'
             '<div id="management-message" class="management-error" hidden></div></div></div>'
         )
         status = f"Клиентов: {total}"
@@ -1311,6 +1483,7 @@ class Handler(BaseHTTPRequestHandler):
             .replace("__API_OVERRIDE__", f"/{SECRET_SUB_PATH}/api/override")
             .replace("__API_CLIENT__", f"/{SECRET_SUB_PATH}/api/client")
             .replace("__API_NODE__", f"/{SECRET_SUB_PATH}/api/node")
+            .replace("__NODES_JSON__", json.dumps(NODES, ensure_ascii=False).replace("</", "<\\/"))
             .encode("utf-8")
         )
         log.info("200 html interface (%d cards)", total)

@@ -35,6 +35,8 @@
 
 ## 🚀 Быстрый запуск 3x-ui Deployment Manager'а
 
+### ⚠️ Запускать нужно на вашем личном компьютере
+
 ### 🐧 🍎 Linux / macOS (Bash / Zsh)
 ```bash
 curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz | tar -xz && cd 3x-ui-bootstRUp-master && ./start_3x_ui_deployment_manager.sh

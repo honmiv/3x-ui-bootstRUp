@@ -2244,7 +2244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mode: 'any',
                 fields: ['sub_russian_url', 'sub_foreign_url'],
                 step: 3,
-                modes: ['sub_only', 'cascade_sub'],
+                modes: ['sub_only'],
                 message: 'Укажите хотя бы одну ссылку подписки (RUSSIAN_SUB_URL или FOREIGN_SUB_URL)'
             }
         },

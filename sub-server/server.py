@@ -41,6 +41,7 @@ import logging
 import os
 import queue
 import re
+import secrets
 import threading
 import time
 import urllib.error
@@ -73,7 +74,7 @@ FOREIGN_SUB_URL = os.environ.get("FOREIGN_SUB_URL", "")
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").strip().strip("/")
 ADMIN_USER = os.environ.get("ADMIN_USER", "").strip()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
-AUTH_SESSION_SECRET = os.environ.get("AUTH_SESSION_SECRET", "").strip() or ADMIN_PASSWORD
+AUTH_SESSION_SECRET = os.environ.get("AUTH_SESSION_SECRET", "").strip() or secrets.token_hex(32)
 SESSION_TTL_SECONDS = int(os.environ.get("AUTH_SESSION_TTL", "43200"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
@@ -85,6 +86,11 @@ GROUP_LABELS = {
 }
 
 NODES = []
+FORCE_SUBS = {}
+DATA_LOCK = threading.Lock()
+ACTIVITY_LOCK = threading.Lock()
+LOGIN_LOCK = threading.Lock()
+LOGIN_ATTEMPTS = {}  # ip -> {"count": int, "lockout_until": float, "last_attempt": float}
 
 PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="ru">
@@ -1183,6 +1189,332 @@ __SECTIONS__
     </div>
 </div>
 <script>
+// Lightweight client-side QR generator
+var qrcode = (function() {
+    function QR8bitByte(data) {
+        this.mode = 4; this.data = data; this.parsedData = [];
+        for (var i = 0, l = this.data.length; i < l; i++) {
+            var byteArray = []; var code = this.data.charCodeAt(i);
+            if (code > 0x10000) {
+                byteArray[0] = 0xF0 | ((code & 0x1C0000) >>> 18); byteArray[1] = 0x80 | ((code & 0x3F000) >>> 12);
+                byteArray[2] = 0x80 | ((code & 0xFC0) >>> 6); byteArray[3] = 0x80 | (code & 0x3F);
+            } else if (code > 0x800) {
+                byteArray[0] = 0xE0 | ((code & 0xF000) >>> 12); byteArray[1] = 0x80 | ((code & 0xFC0) >>> 6); byteArray[2] = 0x80 | (code & 0x3F);
+            } else if (code > 0x80) {
+                byteArray[0] = 0xC0 | ((code & 0x7C0) >>> 6); byteArray[1] = 0x80 | (code & 0x3F);
+            } else { byteArray[0] = code; }
+            this.parsedData.push(byteArray);
+        }
+        this.parsedData = Array.prototype.concat.apply([], this.parsedData);
+        if (this.parsedData.length != this.data.length) { this.parsedData.unshift(191); this.parsedData.unshift(187); this.parsedData.unshift(239); }
+    }
+    QR8bitByte.prototype = {
+        getLength: function() { return this.parsedData.length; },
+        write: function(buffer) { for (var i = 0; i < this.parsedData.length; i++) buffer.put(this.parsedData[i], 8); }
+    };
+    var QRUtil = {
+        PATTERN_POSITION_TABLE: [
+            [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50],
+            [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78],
+            [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102],
+            [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122],
+            [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138],
+            [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154],
+            [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]
+        ],
+        G15: (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
+        G18: (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0),
+        G15_MASK: (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1),
+        getBCHTypeInfo: function(d) {
+            var data = d << 10;
+            while (QRUtil.getBCHDigit(data) - QRUtil.getBCHDigit(QRUtil.G15) >= 0) data ^= (QRUtil.G15 << (QRUtil.getBCHDigit(data) - QRUtil.getBCHDigit(QRUtil.G15)));
+            return ((d << 10) | data) ^ QRUtil.G15_MASK;
+        },
+        getBCHTypeNumber: function(d) {
+            var data = d << 12;
+            while (QRUtil.getBCHDigit(data) - QRUtil.getBCHDigit(QRUtil.G18) >= 0) data ^= (QRUtil.G18 << (QRUtil.getBCHDigit(data) - QRUtil.getBCHDigit(QRUtil.G18)));
+            return (d << 12) | data;
+        },
+        getBCHDigit: function(data) { var digit = 0; while (data != 0) { digit++; data >>>= 1; } return digit; },
+        getPatternPosition: function(t) { return QRUtil.PATTERN_POSITION_TABLE[t - 1]; },
+        getMask: function(maskPattern, i, j) {
+            switch (maskPattern) {
+                case 0: return (i + j) % 2 == 0;
+                case 1: return i % 2 == 0;
+                case 2: return j % 3 == 0;
+                case 3: return (i + j) % 3 == 0;
+                case 4: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0;
+                case 5: return (i * j) % 2 + (i * j) % 3 == 0;
+                case 6: return ((i * j) % 2 + (i * j) % 3) % 2 == 0;
+                case 7: return ((i * j) % 3 + (i + j) % 2) % 2 == 0;
+                default: throw new Error("bad maskPattern:" + maskPattern);
+            }
+        },
+        getErrorCorrectPolynomial: function(len) {
+            var a = new QRPolynomial([1], 0);
+            for (var i = 0; i < len; i++) a = a.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0));
+            return a;
+        },
+        getLengthInBits: function(mode, type) {
+            if (1 <= type && type < 10) return mode == 4 ? 8 : (mode == 1 ? 10 : 9);
+            if (type < 27) return mode == 4 ? 16 : (mode == 1 ? 12 : 11);
+            return mode == 4 ? 16 : (mode == 1 ? 14 : 13);
+        },
+        getLostPoint: function(qr) {
+            var n = qr.getModuleCount(), lost = 0;
+            for (var r = 0; r < n; r++) {
+                for (var c = 0; c < n; c++) {
+                    var same = 0, dark = qr.isDark(r, c);
+                    for (var dr = -1; dr <= 1; dr++) {
+                        if (r + dr < 0 || n <= r + dr) continue;
+                        for (var dc = -1; dc <= 1; dc++) {
+                            if (c + dc < 0 || n <= c + dc) continue;
+                            if (dr == 0 && dc == 0) continue;
+                            if (dark == qr.isDark(r + dr, c + dc)) same++;
+                        }
+                    }
+                    if (same > 5) lost += (3 + same - 5);
+                }
+            }
+            for (var r = 0; r < n - 1; r++) {
+                for (var c = 0; c < n - 1; c++) {
+                    var cnt = 0;
+                    if (qr.isDark(r, c)) cnt++; if (qr.isDark(r + 1, c)) cnt++;
+                    if (qr.isDark(r, c + 1)) cnt++; if (qr.isDark(r + 1, c + 1)) cnt++;
+                    if (cnt == 0 || cnt == 4) lost += 3;
+                }
+            }
+            for (var r = 0; r < n; r++) {
+                for (var c = 0; c < n - 6; c++) {
+                    if (qr.isDark(r, c) && !qr.isDark(r, c + 1) && qr.isDark(r, c + 2) && qr.isDark(r, c + 3) && qr.isDark(r, c + 4) && !qr.isDark(r, c + 5) && qr.isDark(r, c + 6)) lost += 40;
+                }
+            }
+            for (var c = 0; c < n; c++) {
+                for (var r = 0; r < n - 6; r++) {
+                    if (qr.isDark(r, c) && !qr.isDark(r + 1, c) && qr.isDark(r + 2, c) && qr.isDark(r + 3, c) && qr.isDark(r + 4, c) && !qr.isDark(r + 5, c) && qr.isDark(r + 6, c)) lost += 40;
+                }
+            }
+            var darkCount = 0;
+            for (var c = 0; c < n; c++) for (var r = 0; r < n; r++) if (qr.isDark(r, c)) darkCount++;
+            return lost + Math.abs(100 * darkCount / n / n - 50) / 5 * 10;
+        }
+    };
+    var QRMath = {
+        glog: function(n) { if (n < 1) throw new Error("glog(" + n + ")"); return QRMath.LOG_TABLE[n]; },
+        gexp: function(n) { while (n < 0) n += 255; while (n >= 256) n -= 255; return QRMath.EXP_TABLE[n]; },
+        EXP_TABLE: new Array(256), LOG_TABLE: new Array(256)
+    };
+    for (var i = 0; i < 8; i++) QRMath.EXP_TABLE[i] = 1 << i;
+    for (var i = 8; i < 256; i++) QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4] ^ QRMath.EXP_TABLE[i - 5] ^ QRMath.EXP_TABLE[i - 6] ^ QRMath.EXP_TABLE[i - 8];
+    for (var i = 0; i < 255; i++) QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]] = i;
+
+    function QRPolynomial(num, shift) {
+        var offset = 0; while (offset < num.length && num[offset] == 0) offset++;
+        this.num = new Array(num.length - offset + shift);
+        for (var i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset];
+    }
+    QRPolynomial.prototype = {
+        get: function(index) { return this.num[index]; },
+        getLength: function() { return this.num.length; },
+        multiply: function(e) {
+            var num = new Array(this.getLength() + e.getLength() - 1);
+            for (var i = 0; i < this.getLength(); i++) for (var j = 0; j < e.getLength(); j++) num[i + j] ^= QRMath.gexp(QRMath.glog(this.get(i)) + QRMath.glog(e.get(j)));
+            return new QRPolynomial(num, 0);
+        },
+        mod: function(e) {
+            if (this.getLength() - e.getLength() < 0) return this;
+            var ratio = QRMath.glog(this.get(0)) - QRMath.glog(e.get(0));
+            var num = new Array(this.getLength());
+            for (var i = 0; i < this.getLength(); i++) num[i] = this.get(i);
+            for (var i = 0; i < e.getLength(); i++) num[i] ^= QRMath.gexp(QRMath.glog(e.get(i)) + ratio);
+            return new QRPolynomial(num, 0).mod(e);
+        }
+    };
+    var QRRSBlock = {
+        RS_BLOCK_TABLE: [
+            [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9], [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
+            [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13], [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
+            [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12], [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15],
+            [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14], [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15],
+            [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13], [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16],
+            [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13], [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15],
+            [4, 133, 107], [8, 59, 37, 1, 60, 38], [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12], [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41], [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13],
+            [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42], [5, 54, 24, 7, 55, 25], [11, 36, 12, 7, 37, 13], [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46], [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16],
+            [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47], [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15], [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44], [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15],
+            [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45], [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14], [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42], [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16]
+        ],
+        getRSBlocks: function(typeNumber, errorCorrectLevel) {
+            var rsBlock = QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + errorCorrectLevel];
+            var length = rsBlock.length / 3, list = [];
+            for (var i = 0; i < length; i++) list.push({ totalCount: rsBlock[i * 3 + 1], dataCount: rsBlock[i * 3 + 2] });
+            return list;
+        }
+    };
+    function QRBitBuffer() { this.buffer = []; this.length = 0; }
+    QRBitBuffer.prototype = {
+        get: function(index) { return ((this.buffer[Math.floor(index / 8)] >>> (7 - index % 8)) & 1) == 1; },
+        put: function(num, length) { for (var i = 0; i < length; i++) this.putBit(((num >>> (length - i - 1)) & 1) == 1); },
+        putBit: function(bit) {
+            var bufIndex = Math.floor(this.length / 8);
+            if (this.buffer.length <= bufIndex) this.buffer.push(0);
+            if (bit) this.buffer[bufIndex] |= (0x80 >>> (this.length % 8));
+            this.length++;
+        }
+    };
+    function QRCode(typeNumber, errorCorrectLevel) {
+        this.typeNumber = typeNumber || 0; this.errorCorrectLevel = errorCorrectLevel !== undefined ? errorCorrectLevel : 0;
+        this.modules = null; this.moduleCount = 0; this.dataCache = null; this.dataList = [];
+    }
+    QRCode.prototype = {
+        addData: function(data) { this.dataList.push(new QR8bitByte(data)); this.dataCache = null; },
+        isDark: function(r, c) { return this.modules[r][c]; },
+        getModuleCount: function() { return this.moduleCount; },
+        make: function() {
+            if (this.typeNumber < 1) {
+                for (var t = 1; t < 40; t++) {
+                    var rsBlocks = QRRSBlock.getRSBlocks(t, this.errorCorrectLevel), total = 0, len = 0;
+                    for (var i = 0; i < rsBlocks.length; i++) total += rsBlocks[i].dataCount;
+                    for (var i = 0; i < this.dataList.length; i++) { len += QRUtil.getLengthInBits(this.dataList[i].mode, t) + this.dataList[i].getLength() * 8; }
+                    if (len <= total * 8) { this.typeNumber = t; break; }
+                }
+            }
+            this.makeImpl(false, this.getBestMaskPattern());
+        },
+        makeImpl: function(test, maskPattern) {
+            this.moduleCount = this.typeNumber * 4 + 17; this.modules = new Array(this.moduleCount);
+            for (var r = 0; r < this.moduleCount; r++) { this.modules[r] = new Array(this.moduleCount); for (var c = 0; c < this.moduleCount; c++) this.modules[r][c] = null; }
+            this.setupPositionProbePattern(0, 0); this.setupPositionProbePattern(this.moduleCount - 7, 0); this.setupPositionProbePattern(0, this.moduleCount - 7);
+            this.setupPositionAdjustPattern(); this.setupTimingPattern(); this.setupTypeInfo(test, maskPattern);
+            if (this.typeNumber >= 7) this.setupTypeNumber(test);
+            if (this.dataCache == null) this.dataCache = QRCode.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+            this.mapData(this.dataCache, maskPattern);
+        },
+        setupPositionProbePattern: function(row, col) {
+            for (var r = -1; r <= 7; r++) {
+                if (row + r <= -1 || this.moduleCount <= row + r) continue;
+                for (var c = -1; c <= 7; c++) {
+                    if (col + c <= -1 || this.moduleCount <= col + c) continue;
+                    if ((0 <= r && r <= 6 && (c == 0 || c == 6)) || (0 <= c && c <= 6 && (r == 0 || r == 6)) || (2 <= r && r <= 4 && 2 <= c && c <= 4)) this.modules[row + r][col + c] = true;
+                    else this.modules[row + r][col + c] = false;
+                }
+            }
+        },
+        getBestMaskPattern: function() {
+            var minLost = 0, pattern = 0;
+            for (var i = 0; i < 8; i++) {
+                this.makeImpl(true, i);
+                var lost = QRUtil.getLostPoint(this);
+                if (i == 0 || minLost > lost) { minLost = lost; pattern = i; }
+            }
+            return pattern;
+        },
+        setupTimingPattern: function() {
+            for (var r = 8; r < this.moduleCount - 8; r++) if (this.modules[r][6] === null) this.modules[r][6] = (r % 2 == 0);
+            for (var c = 8; c < this.moduleCount - 8; c++) if (this.modules[6][c] === null) this.modules[6][c] = (c % 2 == 0);
+        },
+        setupPositionAdjustPattern: function() {
+            var pos = QRUtil.getPatternPosition(this.typeNumber);
+            for (var i = 0; i < pos.length; i++) {
+                for (var j = 0; j < pos.length; j++) {
+                    var row = pos[i], col = pos[j];
+                    if (this.modules[row][col] !== null) continue;
+                    for (var r = -2; r <= 2; r++) {
+                        for (var c = -2; c <= 2; c++) {
+                            if (r == -2 || r == 2 || c == -2 || c == 2 || (r == 0 && c == 0)) this.modules[row + r][col + c] = true;
+                            else this.modules[row + r][col + c] = false;
+                        }
+                    }
+                }
+            }
+        },
+        setupTypeNumber: function(test) {
+            var bits = QRUtil.getBCHTypeNumber(this.typeNumber);
+            for (var i = 0; i < 18; i++) {
+                var mod = (!test && ((bits >> i) & 1) == 1);
+                this.modules[Math.floor(i / 3)][i % 3 + this.moduleCount - 8 - 3] = mod;
+                this.modules[i % 3 + this.moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+            }
+        },
+        setupTypeInfo: function(test, maskPattern) {
+            var data = (this.errorCorrectLevel << 3) | maskPattern, bits = QRUtil.getBCHTypeInfo(data);
+            for (var i = 0; i < 15; i++) {
+                var mod = (!test && ((bits >> i) & 1) == 1);
+                if (i < 6) this.modules[i][8] = mod; else if (i < 8) this.modules[i + 1][8] = mod; else this.modules[this.moduleCount - 15 + i][8] = mod;
+                if (i < 8) this.modules[8][this.moduleCount - i - 1] = mod; else if (i < 9) this.modules[8][15 - i - 1 + 1] = mod; else this.modules[8][15 - i - 1] = mod;
+            }
+            this.modules[this.moduleCount - 8][8] = (!test);
+        },
+        mapData: function(data, maskPattern) {
+            var inc = -1, row = this.moduleCount - 1, bitIndex = 7, byteIndex = 0;
+            for (var col = this.moduleCount - 1; col > 0; col -= 2) {
+                if (col == 6) col--;
+                while (true) {
+                    for (var c = 0; c < 2; c++) {
+                        if (this.modules[row][col - c] === null) {
+                            var dark = false;
+                            if (byteIndex < data.length) dark = (((data[byteIndex] >>> bitIndex) & 1) == 1);
+                            if (QRUtil.getMask(maskPattern, row, col - c)) dark = !dark;
+                            this.modules[row][col - c] = dark;
+                            bitIndex--; if (bitIndex == -1) { byteIndex++; bitIndex = 7; }
+                        }
+                    }
+                    row += inc; if (row < 0 || this.moduleCount <= row) { row -= inc; inc = -inc; break; }
+                }
+            }
+        },
+        createSvgDataUrl: function(cellSize, margin) {
+            cellSize = cellSize || 4; margin = margin !== undefined ? margin : 4;
+            var size = this.getModuleCount() * cellSize + margin * 2;
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">';
+            svg += '<rect width="100%" height="100%" fill="#ffffff"/><path d="';
+            for (var r = 0; r < this.getModuleCount(); r++) {
+                for (var c = 0; c < this.getModuleCount(); c++) {
+                    if (this.isDark(r, c)) {
+                        svg += 'M' + (margin + c * cellSize) + ',' + (margin + r * cellSize) + 'h' + cellSize + 'v' + cellSize + 'h-' + cellSize + 'z ';
+                    }
+                }
+            }
+            svg += '" fill="#000000"/></svg>';
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+    };
+    QRCode.createData = function(typeNumber, errorCorrectLevel, dataList) {
+        var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel), buffer = new QRBitBuffer();
+        for (var i = 0; i < dataList.length; i++) {
+            buffer.put(dataList[i].mode, 4);
+            buffer.put(dataList[i].getLength(), QRUtil.getLengthInBits(dataList[i].mode, typeNumber));
+            dataList[i].write(buffer);
+        }
+        var total = 0; for (var i = 0; i < rsBlocks.length; i++) total += rsBlocks[i].dataCount;
+        if (buffer.length + 4 <= total * 8) buffer.put(0, 4);
+        while (buffer.length % 8 != 0) buffer.putBit(false);
+        while (true) { if (buffer.length >= total * 8) break; buffer.put(0xEC, 8); if (buffer.length >= total * 8) break; buffer.put(0x11, 8); }
+        var offset = 0, maxDc = 0, maxEc = 0, dcdata = new Array(rsBlocks.length), ecdata = new Array(rsBlocks.length);
+        for (var r = 0; r < rsBlocks.length; r++) {
+            var dc = rsBlocks[r].dataCount, ec = rsBlocks[r].totalCount - dc;
+            maxDc = Math.max(maxDc, dc); maxEc = Math.max(maxEc, ec); dcdata[r] = new Array(dc);
+            for (var i = 0; i < dc; i++) dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+            offset += dc;
+            var modPoly = new QRPolynomial(dcdata[r], QRUtil.getErrorCorrectPolynomial(ec).getLength() - 1).mod(QRUtil.getErrorCorrectPolynomial(ec));
+            ecdata[r] = new Array(QRUtil.getErrorCorrectPolynomial(ec).getLength() - 1);
+            for (var i = 0; i < ecdata[r].length; i++) { var modIndex = i + modPoly.getLength() - ecdata[r].length; ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0; }
+        }
+        var totalCode = 0; for (var i = 0; i < rsBlocks.length; i++) totalCode += rsBlocks[i].totalCount;
+        var data = new Array(totalCode), idx = 0;
+        for (var i = 0; i < maxDc; i++) for (var r = 0; r < rsBlocks.length; r++) if (i < dcdata[r].length) data[idx++] = dcdata[r][i];
+        for (var i = 0; i < maxEc; i++) for (var r = 0; r < rsBlocks.length; r++) if (i < ecdata[r].length) data[idx++] = ecdata[r][i];
+        return data;
+    };
+    return {
+        generateSvgDataUrl: function(text, cellSize, margin) {
+            var qr = new QRCode(0, 0);
+            qr.addData(text);
+            qr.make();
+            return qr.createSvgDataUrl(cellSize || 5, margin !== undefined ? margin : 3);
+        }
+    };
+})();
+
 const NODES_DATA = __NODES_JSON__;
 const logPanel = document.getElementById('log-panel');
 const logBody = document.getElementById('log-body');
@@ -1584,6 +1916,18 @@ document.addEventListener('click', function (e) {
         const el = document.querySelector(sel);
         if (!el) return;
         const open = el.classList.toggle('open');
+        if (open) {
+            el.querySelectorAll('.qr-item[data-qr-val]').forEach(item => {
+                const img = item.querySelector('img');
+                if (img && (!img.src || img.src === window.location.href) && item.dataset.qrVal) {
+                    try {
+                        img.src = qrcode.generateSvgDataUrl(item.dataset.qrVal, 5, 3);
+                    } catch (err) {
+                        console.error('QR generation error:', err);
+                    }
+                }
+            });
+        }
         document.querySelectorAll('.btn-qr[data-target="' + sel + '"]').forEach(b => {
             b.classList.toggle('active', open);
         });
@@ -1843,7 +2187,7 @@ button:active { transform: translateY(1px); }
             <span>Войти</span>
         </button>
     </form>
-    <div class="hint">Сессия сохраняется в браузере через защищенный cookie и не требует повторного ввода на каждом действии.</div>
+    <div class="hint">Сессия сохраняется в браузере через защищенный cookie на 12 часов (или до перезапуска контейнера).</div>
 </div>
 </body>
 </html>
@@ -1898,7 +2242,8 @@ def reset_sync_statuses():
 
 
 def get_client_sync_state(client):
-    activity = CLIENT_ACTIVITY.get(client)
+    with ACTIVITY_LOCK:
+            activity = CLIENT_ACTIVITY.get(client)
     if not activity or not activity.get("time"):
         return "never"
     ts = activity.get("timestamp")
@@ -1926,7 +2271,8 @@ def _record_activity(client, status, bytes_, node, node_name, source, timestamp=
         "node_name": node_name,
         "source": source,
     }
-    CLIENT_ACTIVITY[client] = activity
+    with ACTIVITY_LOCK:
+        CLIENT_ACTIVITY[client] = activity
     payload = json.dumps(activity, ensure_ascii=False)
     with ACTIVITY_LOCK:
         for stream_queue in list(ACTIVITY_SUBSCRIBERS):
@@ -1939,7 +2285,7 @@ def _record_activity(client, status, bytes_, node, node_name, source, timestamp=
 def load_past_activity_from_logs(path):
     if not os.path.exists(path):
         return
-    sync_re = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\w+\s+(200|404|502)\s+([^\s\(]+)(?:\s+\(([^)]+)\))?\s*(?:->|<-\s*(\S+))?\s*(?:\(?(\d+)\s*bytes\)?)?")
+    sync_re = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\w+\s+(200|404|502)\s+([^\s\(]+)(?:\s+\((.*)\))?\s*(?:->|<-\s*(\S+))?\s*(?:\(?(\d+)\s*bytes\)?)?")
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             for line in f:
@@ -1953,16 +2299,17 @@ def load_past_activity_from_logs(path):
                     status = int(status_str)
                     bytes_ = int(bytes_str) if bytes_str else 0
                     node_name = GROUP_LABELS.get("force") if group == "force" else group
-                    CLIENT_ACTIVITY[client] = {
-                        "client": client,
-                        "time": ts_str,
-                        "timestamp": ts,
-                        "status": status,
-                        "bytes": bytes_,
-                        "node": group if group != "force" else None,
-                        "node_name": node_name,
-                        "source": "force" if group == "force" else "node",
-                    }
+                    with ACTIVITY_LOCK:
+                        CLIENT_ACTIVITY[client] = {
+                            "client": client,
+                            "time": ts_str,
+                            "timestamp": ts,
+                            "status": status,
+                            "bytes": bytes_,
+                            "node": group if group != "force" else None,
+                            "node_name": node_name,
+                            "source": "force" if group == "force" else "node",
+                        }
     except Exception as exc:
         log.warning("could not read past activity from log file: %s", exc)
 
@@ -2071,11 +2418,11 @@ def nodes_file_is_empty(path):
 
 
 def all_clients():
-    return {client for node in NODES for client in node["clients"]}
+    return {client for node in NODES for client in node.get("clients", [])}
 
 
 def find_client_node(client):
-    return next((node for node in NODES if client in node["clients"]), None)
+    return next((node for node in NODES if client in node.get("clients", [])), None)
 
 
 def load_force_subs(path):
@@ -2140,11 +2487,6 @@ def fetch_subscription(url):
         return resp.read()
 
 
-def qr_img_url(value):
-    data = urllib.parse.quote(value, safe="")
-    return f"https://api.qrserver.com/v1/create-qr-code/?data={data}&size=200x200&margin=6"
-
-
 class Handler(BaseHTTPRequestHandler):
     def _cookie_name(self):
         return f"sub_session_{SECRET_SUB_PATH}"
@@ -2164,7 +2506,7 @@ class Handler(BaseHTTPRequestHandler):
         if not val.startswith("/"):
             return f"/{SECRET_SUB_PATH}"
         # Prevent open redirects to external URLs.
-        if val.startswith("//") or "://" in val:
+        if not val.startswith(f"/{SECRET_SUB_PATH}"):
             return f"/{SECRET_SUB_PATH}"
         return val
 
@@ -2256,7 +2598,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _client_ip(self):
+        xff = self.headers.get("X-Forwarded-For", "").strip()
+        if xff:
+            return xff.split(",")[0].strip()
+        return self.client_address[0] if self.client_address else "unknown"
+
     def _handle_login_post(self):
+        ip = self._client_ip()
+        now = time.time()
+
+        with LOGIN_LOCK:
+            record = LOGIN_ATTEMPTS.get(ip)
+            if record and record.get("lockout_until", 0) > now:
+                remaining = int(record["lockout_until"] - now)
+                self._render_login_page(f"Слишком много неудачных попыток. Попробуйте через {remaining} сек.", self._safe_next_path(f"/{SECRET_SUB_PATH}"))
+                return
+
         length = int(self.headers.get("Content-Length", "0") or 0)
         raw = self.rfile.read(length).decode("utf-8", errors="ignore") if length else ""
         form = urllib.parse.parse_qs(raw, keep_blank_values=True)
@@ -2265,8 +2623,20 @@ class Handler(BaseHTTPRequestHandler):
         next_path = self._safe_next_path(form.get("next", [f"/{SECRET_SUB_PATH}"])[0])
 
         if not self._verify_login_password(user, password):
+            with LOGIN_LOCK:
+                rec = LOGIN_ATTEMPTS.setdefault(ip, {"count": 0, "lockout_until": 0, "last_attempt": now})
+                if now - rec.get("last_attempt", 0) > 300:
+                    rec["count"] = 0
+                rec["count"] += 1
+                rec["last_attempt"] = now
+                if rec["count"] >= 5:
+                    rec["lockout_until"] = now + 300  # 5 min lockout
+                    rec["count"] = 0
             self._render_login_page("Неверный логин или пароль.", next_path)
             return
+
+        with LOGIN_LOCK:
+            LOGIN_ATTEMPTS.pop(ip, None)
 
         self.send_response(302)
         self._set_session_cookie()
@@ -2340,7 +2710,8 @@ class Handler(BaseHTTPRequestHandler):
             _record_activity(client, 502, 0, group, node_name, "node")
             self.send_error(502)
             return
-        url = f"{base_url.rstrip('/')}/{client}"
+        quoted_client = urllib.parse.quote(client, safe='')
+        url = f"{base_url.rstrip('/')}/{quoted_client}"
         try:
             body = fetch_subscription(url)
         except urllib.error.HTTPError as e:
@@ -2400,179 +2771,183 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b""
         try:
             data = json.loads(raw.decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("JSON must be an object")
         except Exception:
             self._send_json(400, {"ok": False, "error": "невалидный JSON"})
             return
 
-        if path == f"{SECRET_SUB_PATH}/api/client":
-            action = (data.get("action") or "").strip()
-            client = (data.get("client") or "").strip()
-            if not client or any(char in client for char in "\r\n:/"):
-                self._send_json(400, {"ok": False, "error": "некорректное имя клиента"})
-                return
-            if action == "add":
-                node = next((item for item in NODES if item["id"] == (data.get("node") or "")), None)
-                if not node:
-                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
+        with DATA_LOCK:
+            if path == f"{SECRET_SUB_PATH}/api/client":
+                action = (data.get("action") or "").strip()
+                client = (data.get("client") or "").strip()
+                reserved = {"login", "logout", "api", "logs", "static"}
+                if not client or any(char in client for char in "\r\n:/") or client in reserved:
+                    self._send_json(400, {"ok": False, "error": "некорректное или зарезервированное имя клиента"})
                     return
-                if client in all_clients() or client in FORCE_SUBS:
-                    self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
-                    return
-                node["clients"].append(client)
-            elif action == "delete":
-                node = find_client_node(client)
-                if not node and client not in FORCE_SUBS:
-                    self._send_json(400, {"ok": False, "error": "клиент не найден"})
-                    return
-                for n in NODES:
-                    while client in n.get("clients", []):
-                        n["clients"].remove(client)
-                if client in FORCE_SUBS:
-                    new_force = dict(FORCE_SUBS)
-                    new_force.pop(client, None)
-                    try:
-                        save_force_subs(new_force)
-                    except OSError as exc:
-                        self._send_json(500, {"ok": False, "error": f"не удалось удалить override: {exc}"})
-                        return
-                    FORCE_SUBS = new_force
-            elif action == "edit":
-                new_name = (data.get("new_name") or "").strip()
-                target_id = (data.get("node") or "").strip()
-                if not new_name or any(char in new_name for char in "\r\n:/"):
-                    self._send_json(400, {"ok": False, "error": "некорректное имя клиента"})
-                    return
-                cur_node = find_client_node(client)
-                is_force = client in FORCE_SUBS
-                if not cur_node and not is_force:
-                    self._send_json(400, {"ok": False, "error": "клиент не найден"})
-                    return
-                target_node = None
-                if target_id:
-                    target_node = next((item for item in NODES if item["id"] == target_id), None)
-                    if not target_node:
+                if action == "add":
+                    node = next((item for item in NODES if item["id"] == (data.get("node") or "")), None)
+                    if not node:
                         self._send_json(400, {"ok": False, "error": "нода не найдена"})
                         return
-                other_clients = {c for n in NODES for c in n.get("clients", []) if c != client}
-                if new_name != client and (new_name in other_clients or (new_name in FORCE_SUBS and not is_force)):
-                    self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
-                    return
-                if new_name == client and cur_node is target_node:
-                    self._send_json(200, {"ok": True})
-                    return
-                if new_name != client and client in FORCE_SUBS:
-                    new_force = dict(FORCE_SUBS)
-                    new_force[new_name] = new_force.pop(client)
-                    try:
-                        save_force_subs(new_force)
-                    except OSError as exc:
-                        self._send_json(500, {"ok": False, "error": f"не удалось обновить override: {exc}"})
+                    if client in all_clients() or client in FORCE_SUBS:
+                        self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
                         return
-                    FORCE_SUBS = new_force
-                for n in NODES:
-                    while client in n.get("clients", []):
-                        n["clients"].remove(client)
-                if target_node:
-                    if new_name not in target_node["clients"]:
-                        target_node["clients"].append(new_name)
-            else:
-                self._send_json(400, {"ok": False, "error": "неизвестное действие"})
+                    node.get("clients", []).append(client)
+                elif action == "delete":
+                    node = find_client_node(client)
+                    if not node and client not in FORCE_SUBS:
+                        self._send_json(400, {"ok": False, "error": "клиент не найден"})
+                        return
+                    for n in NODES:
+                        while client in n.get("clients", []):
+                            n["clients"].remove(client)
+                    if client in FORCE_SUBS:
+                        new_force = dict(FORCE_SUBS)
+                        new_force.pop(client, None)
+                        try:
+                            save_force_subs(new_force)
+                        except OSError as exc:
+                            self._send_json(500, {"ok": False, "error": f"не удалось удалить override: {exc}"})
+                            return
+                        FORCE_SUBS = new_force
+                elif action == "edit":
+                    new_name = (data.get("new_name") or "").strip()
+                    target_id = (data.get("node") or "").strip()
+                    if not new_name or any(char in new_name for char in "\r\n:/"):
+                        self._send_json(400, {"ok": False, "error": "некорректное имя клиента"})
+                        return
+                    cur_node = find_client_node(client)
+                    is_force = client in FORCE_SUBS
+                    if not cur_node and not is_force:
+                        self._send_json(400, {"ok": False, "error": "клиент не найден"})
+                        return
+                    target_node = None
+                    if target_id:
+                        target_node = next((item for item in NODES if item["id"] == target_id), None)
+                        if not target_node:
+                            self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                            return
+                    other_clients = {c for n in NODES for c in n.get("clients", []) if c != client}
+                    if new_name != client and (new_name in other_clients or (new_name in FORCE_SUBS and not is_force)):
+                        self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
+                        return
+                    if new_name == client and cur_node is target_node:
+                        self._send_json(200, {"ok": True})
+                        return
+                    if new_name != client and client in FORCE_SUBS:
+                        new_force = dict(FORCE_SUBS)
+                        new_force[new_name] = new_force.pop(client)
+                        try:
+                            save_force_subs(new_force)
+                        except OSError as exc:
+                            self._send_json(500, {"ok": False, "error": f"не удалось обновить override: {exc}"})
+                            return
+                        FORCE_SUBS = new_force
+                    for n in NODES:
+                        while client in n.get("clients", []):
+                            n["clients"].remove(client)
+                    if target_node:
+                        if new_name not in target_node.get("clients", []):
+                            target_node.get("clients", []).append(new_name)
+                else:
+                    self._send_json(400, {"ok": False, "error": "неизвестное действие"})
+                    return
+                try:
+                    save_nodes()
+                except OSError as exc:
+                    self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
+                    return
+                self._send_json(200, {"ok": True})
                 return
-            try:
-                save_nodes()
-            except OSError as exc:
-                self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
-                return
-            self._send_json(200, {"ok": True})
-            return
 
-        if path == f"{SECRET_SUB_PATH}/api/node":
-            action = (data.get("action") or "").strip()
-            if action == "add":
-                name = (data.get("name") or "").strip()
-                url = (data.get("url") or "").strip().rstrip("/")
-                if url and not url.startswith(("http://", "https://")):
-                    url = "https://" + url
-                if not name or not url.startswith(("http://", "https://")):
-                    self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (например: node.example.com/subs)"})
+            if path == f"{SECRET_SUB_PATH}/api/node":
+                action = (data.get("action") or "").strip()
+                if action == "add":
+                    name = (data.get("name") or "").strip()
+                    url = (data.get("url") or "").strip().rstrip("/")
+                    if url and not url.startswith(("http://", "https://")):
+                        url = "https://" + url
+                    if not name or not url.startswith(("http://", "https://")):
+                        self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (например: node.example.com/subs)"})
+                        return
+                    if any(node["name"].casefold() == name.casefold() for node in NODES):
+                        self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                        return
+                    NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": []})
+                elif action == "delete":
+                    node_id = (data.get("node") or "").strip()
+                    node = next((item for item in NODES if item["id"] == node_id), None)
+                    if not node:
+                        self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                        return
+                    if node.get("clients", []):
+                        self._send_json(400, {"ok": False, "error": "сначала удалите клиентов этой ноды"})
+                        return
+                    NODES.remove(node)
+                elif action == "edit":
+                    node_id = (data.get("node") or "").strip()
+                    node = next((item for item in NODES if item["id"] == node_id), None)
+                    if not node:
+                        self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                        return
+                    name = (data.get("name") or "").strip()
+                    url = (data.get("url") or "").strip().rstrip("/")
+                    if not name:
+                        name = node["name"]
+                    if not url:
+                        url = node["url"]
+                    elif not url.startswith(("http://", "https://")):
+                        url = "https://" + url
+                    if not name:
+                        self._send_json(400, {"ok": False, "error": "укажите имя ноды"})
+                        return
+                    if not url.startswith(("http://", "https://")):
+                        self._send_json(400, {"ok": False, "error": "укажите URL ноды (например: node.example.com/subs)"})
+                        return
+                    if name != node["name"] and any(
+                        item["name"].casefold() == name.casefold() and item["id"] != node_id for item in NODES
+                    ):
+                        self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                        return
+                    node["name"] = name
+                    node["url"] = url
+                else:
+                    self._send_json(400, {"ok": False, "error": "неизвестное действие"})
                     return
-                if any(node["name"].casefold() == name.casefold() for node in NODES):
-                    self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                try:
+                    save_nodes()
+                except OSError as exc:
+                    self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
                     return
-                NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": []})
-            elif action == "delete":
-                node_id = (data.get("node") or "").strip()
-                node = next((item for item in NODES if item["id"] == node_id), None)
-                if not node:
-                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
-                    return
-                if node["clients"]:
-                    self._send_json(400, {"ok": False, "error": "сначала удалите клиентов этой ноды"})
-                    return
-                NODES.remove(node)
-            elif action == "edit":
-                node_id = (data.get("node") or "").strip()
-                node = next((item for item in NODES if item["id"] == node_id), None)
-                if not node:
-                    self._send_json(400, {"ok": False, "error": "нода не найдена"})
-                    return
-                name = (data.get("name") or "").strip()
-                url = (data.get("url") or "").strip().rstrip("/")
-                if not name:
-                    name = node["name"]
-                if not url:
-                    url = node["url"]
-                elif not url.startswith(("http://", "https://")):
-                    url = "https://" + url
-                if not name:
-                    self._send_json(400, {"ok": False, "error": "укажите имя ноды"})
-                    return
-                if not url.startswith(("http://", "https://")):
-                    self._send_json(400, {"ok": False, "error": "укажите URL ноды (например: node.example.com/subs)"})
-                    return
-                if name != node["name"] and any(
-                    item["name"].casefold() == name.casefold() and item["id"] != node_id for item in NODES
-                ):
-                    self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
-                    return
-                node["name"] = name
-                node["url"] = url
-            else:
-                self._send_json(400, {"ok": False, "error": "неизвестное действие"})
+                self._send_json(200, {"ok": True})
                 return
-            try:
-                save_nodes()
-            except OSError as exc:
-                self._send_json(500, {"ok": False, "error": f"не удалось сохранить ноды: {exc}"})
-                return
-            self._send_json(200, {"ok": True})
-            return
 
-        client = (data.get("client") or "").strip()
-        value = (data.get("value") or "").strip()
-        if client not in all_clients() and client not in FORCE_SUBS:
-            self._send_json(400, {"ok": False, "error": f"неизвестный клиент: {client}"})
-            return
-        if value:
-            if not value.startswith("vless://"):
-                self._send_json(400, {"ok": False, "error": "ссылка должна начинаться с vless://"})
+            client = (data.get("client") or "").strip()
+            value = (data.get("value") or "").strip()
+            if client not in all_clients() and client not in FORCE_SUBS:
+                self._send_json(400, {"ok": False, "error": f"неизвестный клиент: {client}"})
                 return
-            new_force = dict(FORCE_SUBS)
-            new_force[client] = encode_override_value(value)
-            action = "set"
-        else:
-            new_force = dict(FORCE_SUBS)
-            new_force.pop(client, None)
-            action = "cleared"
-        try:
-            save_force_subs(new_force)
-        except Exception as e:
-            log.error("failed to save %s: %r", FORCE_FILE, e)
-            self._send_json(500, {"ok": False, "error": f"не удалось сохранить оверрайд: {e}"})
-            return
-        FORCE_SUBS = new_force
-        log.info("override %s for client %s", action, client)
-        self._send_json(200, {"ok": True})
+            if value:
+                if not value.startswith("vless://"):
+                    self._send_json(400, {"ok": False, "error": "ссылка должна начинаться с vless://"})
+                    return
+                new_force = dict(FORCE_SUBS)
+                new_force[client] = encode_override_value(value)
+                action = "set"
+            else:
+                new_force = dict(FORCE_SUBS)
+                new_force.pop(client, None)
+                action = "cleared"
+            try:
+                save_force_subs(new_force)
+            except Exception as e:
+                log.error("failed to save %s: %r", FORCE_FILE, e)
+                self._send_json(500, {"ok": False, "error": f"не удалось сохранить оверрайд: {e}"})
+                return
+            FORCE_SUBS = new_force
+            log.info("override %s for client %s", action, client)
+            self._send_json(200, {"ok": True})
 
     def _send_json(self, code, obj):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -2752,10 +3127,10 @@ class Handler(BaseHTTPRequestHandler):
         p.append('</div>')
 
         qr_items = [
-            f'<div class="qr-item"><img src="{esc(qr_img_url(sub_url))}" alt="QR"><span>Через Сервер подписок</span></div>'
+            f'<div class="qr-item" data-qr-val="{esc(sub_url)}"><img src="" alt="QR"><span>Через Сервер подписок</span></div>'
         ]
         if direct_url:
-            qr_items.append(f'<div class="qr-item"><img src="{esc(qr_img_url(direct_url))}" alt="QR"><span>Прямая ссылка</span></div>')
+            qr_items.append(f'<div class="qr-item" data-qr-val="{esc(direct_url)}"><img src="" alt="QR"><span>Прямая ссылка</span></div>')
         p.append(f'<div class="qr-panel" id="{qr_panel_id}">' + "".join(qr_items) + '</div>')
 
         override_raw = FORCE_SUBS.get(client)
@@ -2806,7 +3181,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _client_status_html(self, client):
         esc = html.escape
-        activity = CLIENT_ACTIVITY.get(client)
+        with ACTIVITY_LOCK:
+            activity = CLIENT_ACTIVITY.get(client)
         state = get_client_sync_state(client)
         if state == "never" or not activity:
             return (
@@ -3020,9 +3396,9 @@ class Handler(BaseHTTPRequestHandler):
     def _list_subscriptions(self):
         lines = []
         for node in NODES:
-            for client in node["clients"]:
+            for client in node.get("clients", []):
                 if node["url"]:
-                    lines.append(f"{node['url']}/{client}")
+                    lines.append(f"{node['url'].rstrip('/')}/{client}")
         body = ("\n".join(lines) + "\n").encode("utf-8")
         log.info("200 subscription list (%d urls)", len(lines))
         self.send_response(200)

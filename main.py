@@ -3,6 +3,7 @@ import json
 import mimetypes
 import os
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -24,6 +25,10 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKUP_FILE = os.path.join(APP_DIR, "setup_backup.yml")
 SERVERS_FILE = os.path.join(APP_DIR, "servers.json")
 
+DEPLOY_LOCK = threading.Lock()
+LOG_CONDITION = threading.Condition(DEPLOY_LOCK)
+CACHE_LOCK = threading.Lock()
+
 active_logs: List[Dict[str, str]] = []
 is_deploying = False
 deploy_status = "idle"
@@ -41,8 +46,9 @@ def _xui_ver_key(tag: str) -> List[int]:
 
 def fetch_xui_versions() -> List[str]:
     now = time.time()
-    if XUI_CACHE["data"] is not None and now - XUI_CACHE["ts"] < 300:
-        return XUI_CACHE["data"]
+    with CACHE_LOCK:
+        if XUI_CACHE["data"] is not None and now - XUI_CACHE["ts"] < 300:
+            return list(XUI_CACHE["data"])
 
     req = urllib.request.Request(XUI_TOKEN_URL, headers={"User-Agent": XUI_UA})
     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -65,15 +71,16 @@ def fetch_xui_versions() -> List[str]:
         versions.remove("latest")
         versions.insert(0, "latest")
 
-    XUI_CACHE["data"] = versions
-    XUI_CACHE["ts"] = now
+    with CACHE_LOCK:
+        XUI_CACHE["data"] = versions
+        XUI_CACHE["ts"] = now
     return versions
 
 UPDATE_CHECK_URL = "https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz"
 UPDATE_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0, "err": None, "err_ts": 0.0}
 UPDATE_CACHE_TTL = 300
 UPDATE_ERR_TTL = 60
-EXCLUDED_DIRS = {".git", "__pycache__", ".python_env", "backups_panel", "backups_sub_server"}
+EXCLUDED_DIRS = {".git", "__pycache__", ".python_env", "backups_panel", "backups_sub_server", "working", "backup"}
 
 
 def _is_code_file(rel: str) -> bool:
@@ -151,10 +158,11 @@ def _fingerprint(files: Dict[str, bytes]) -> str:
 
 def check_for_update() -> Dict[str, Any]:
     now = time.time()
-    if UPDATE_CACHE["data"] is not None and now - UPDATE_CACHE["ts"] < UPDATE_CACHE_TTL:
-        return UPDATE_CACHE["data"]
-    if UPDATE_CACHE["err"] is not None and now - UPDATE_CACHE["err_ts"] < UPDATE_ERR_TTL:
-        return {"update_available": False, "error": UPDATE_CACHE["err"]}
+    with CACHE_LOCK:
+        if UPDATE_CACHE["data"] is not None and now - UPDATE_CACHE["ts"] < UPDATE_CACHE_TTL:
+            return dict(UPDATE_CACHE["data"])
+        if UPDATE_CACHE["err"] is not None and now - UPDATE_CACHE["err_ts"] < UPDATE_ERR_TTL:
+            return {"update_available": False, "error": UPDATE_CACHE["err"]}
 
     try:
         local = _local_code_files()
@@ -167,22 +175,25 @@ def check_for_update() -> Dict[str, Any]:
             "latest_version": remote_fp[:12],
             "files": {"local": len(local), "remote": len(remote)},
         }
-        UPDATE_CACHE["data"] = result
-        UPDATE_CACHE["ts"] = now
-        UPDATE_CACHE["err"] = None
+        with CACHE_LOCK:
+            UPDATE_CACHE["data"] = result
+            UPDATE_CACHE["ts"] = now
+            UPDATE_CACHE["err"] = None
         return result
     except Exception as e:
-        UPDATE_CACHE["err"] = str(e)
-        UPDATE_CACHE["err_ts"] = now
+        with CACHE_LOCK:
+            UPDATE_CACHE["err"] = str(e)
+            UPDATE_CACHE["err_ts"] = now
         return {"update_available": False, "error": str(e)}
 
 def is_cancel_requested() -> bool:
-    global cancel_requested
-    return cancel_requested
+    with DEPLOY_LOCK:
+        return cancel_requested
 
 def log_event(message: str, level: str = "info"):
-    global active_logs
-    active_logs.append({"message": message, "level": level})
+    with LOG_CONDITION:
+        active_logs.append({"message": message, "level": level})
+        LOG_CONDITION.notify_all()
 
 def cli_ext() -> str:
     ext = os.environ.get("XUI_CLI_EXT", "").strip().lstrip(".").lower()
@@ -284,15 +295,15 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                 "proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
                 "proxy_auth_type", "proxy_xui_username", "proxy_xui_password",
                 "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list",
-                "proxy_xui_version"
+                "foreign_sub_url", "proxy_xui_version"
             ),
             "standard_node": pick("vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"),
             "sub_server": pick(
                 "sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password",
                 "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path",
                 "sub_russian_url", "sub_foreign_url", "sub_proxy_clients",
-                "sub_freedom_clients", "sub_admin_user", "sub_same_as_proxy",
-                "sub_backup_name"
+                "sub_freedom_clients", "sub_admin_user", "sub_backup_name",
+                "rollback_sub_backup_file"
             ),
             "backup_node": pick(
                 "backup_vps_host", "backup_vps_port", "backup_vps_user",
@@ -301,7 +312,7 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
             "recovery_node": pick(
                 "recovery_vps_host", "recovery_vps_port", "recovery_vps_user",
                 "recovery_vps_password", "recovery_vps_key", "recovery_auth_type",
-                "recovery_backup_file"
+                "recovery_backup_file", "recovery_xui_username"
             ),
             "panel_and_clients": pick(
                 "xui_username", "xui_password", "sub_secret", "client_tcp_list",
@@ -406,12 +417,14 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/status":
-            self.send_json({
-                "deploying": is_deploying,
-                "status": deploy_status,
-                "logs_count": len(active_logs),
-                "result": deploy_result
-            })
+            with DEPLOY_LOCK:
+                status_payload = {
+                    "deploying": is_deploying,
+                    "status": deploy_status,
+                    "logs_count": len(active_logs),
+                    "result": dict(deploy_result)
+                }
+            self.send_json(status_payload)
             return
 
         if url_path == "/api/servers":
@@ -435,35 +448,37 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
             sent_index = 0
             while True:
-                if sent_index < len(active_logs):
-                    item = active_logs[sent_index]
+                with LOG_CONDITION:
+                    while is_deploying and sent_index >= len(active_logs):
+                        LOG_CONDITION.wait(timeout=1.0)
+
+                    new_items = list(active_logs[sent_index:])
+                    still_deploying = is_deploying
+                    final_status = deploy_status
+
+                for item in new_items:
                     event_data = f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
                     try:
                         self.wfile.write(event_data.encode('utf-8'))
                         self.wfile.flush()
                         sent_index += 1
                     except Exception:
-                        break
-                else:
-                    if not is_deploying and sent_index >= len(active_logs):
-                        done_item = {
-                            "message": "[DONE] Installation process completed.",
-                            "level": "success",
-                            "event": "done",
-                            "status": deploy_status
-                        }
-                        event_data = f"data: {json.dumps(done_item, ensure_ascii=False)}\n\n"
-                        try:
-                            self.wfile.write(event_data.encode('utf-8'))
-                            self.wfile.flush()
-                        except Exception:
-                            pass
-                        break
+                        return
+
+                if not still_deploying and sent_index >= len(active_logs):
+                    done_item = {
+                        "message": "[DONE] Installation process completed.",
+                        "level": "success",
+                        "event": "done",
+                        "status": final_status
+                    }
+                    event_data = f"data: {json.dumps(done_item, ensure_ascii=False)}\n\n"
                     try:
-                        import time
-                        time.sleep(0.5)
+                        self.wfile.write(event_data.encode('utf-8'))
+                        self.wfile.flush()
                     except Exception:
-                        break
+                        pass
+                    break
             return
 
         if url_path == "/":
@@ -476,7 +491,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
             base_dir = os.path.join(os.path.dirname(__file__), "panel", "static")
             target_file = os.path.abspath(os.path.join(base_dir, url_path.lstrip("/")))
 
-        if not target_file.startswith(base_dir) or not os.path.isfile(target_file):
+        if not (target_file == base_dir or target_file.startswith(base_dir + os.sep)) or not os.path.isfile(target_file):
             self.send_response(404)
             self.end_headers()
             self.wfile.write(b"404 Not Found")
@@ -550,16 +565,22 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
             try:
                 ok, msg = loop.run_until_complete(run_test())
-                loop.close()
                 self.send_json({"ok": ok, "message": msg})
             except Exception as e:
                 self.send_json({"ok": False, "message": f"Test exception: {str(e)}"})
+            finally:
+                loop.close()
             return
 
         if url_path == "/api/deploy/stop":
-            if is_deploying:
-                cancel_requested = True
-                deploy_status = "cancelled"
+            with DEPLOY_LOCK:
+                if is_deploying:
+                    cancel_requested = True
+                    deploy_status = "cancelled"
+                    already_running = True
+                else:
+                    already_running = False
+            if already_running:
                 log_event("[CANCEL] Отмена процесса затребована пользователем...", "warning")
                 self.send_json({"ok": True, "message": "Deployment cancellation requested"})
             else:
@@ -567,41 +588,43 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/deploy":
-            if is_deploying:
-                self.send_json({"ok": False, "message": "Deployment already in progress"}, 400)
-                return
+            with DEPLOY_LOCK:
+                if is_deploying:
+                    self.send_json({"ok": False, "message": "Deployment already in progress"}, 400)
+                    return
+
+                cancel_requested = False
+                active_logs.clear()
+                deploy_result = {}
+                is_deploying = True
+                deploy_status = "running"
+                LOG_CONDITION.notify_all()
 
             save_backup_config(payload)
 
-            cancel_requested = False
-            active_logs = []
-            deploy_result = {}
-            is_deploying = True
-            deploy_status = "running"
-
             def start_deploy_bg(cfg):
                 global is_deploying, deploy_status, deploy_result, cancel_requested
-                import importlib
-                import ssh_deployer
-                importlib.reload(ssh_deployer)
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    success, res_data = loop.run_until_complete(ssh_deployer.run_deployment(cfg, log_event, cancel_check=is_cancel_requested))
-                    if cancel_requested:
-                        deploy_status = "cancelled"
-                        deploy_result = {}
-                    else:
-                        deploy_status = "completed" if success else "failed"
-                        deploy_result = res_data if success else {}
+                    success, res_data = loop.run_until_complete(run_deployment(cfg, log_event, cancel_check=is_cancel_requested))
+                    with LOG_CONDITION:
+                        if cancel_requested:
+                            deploy_status = "cancelled"
+                            deploy_result = {}
+                        else:
+                            deploy_status = "completed" if success else "failed"
+                            deploy_result = res_data if success else {}
                 except Exception as e:
                     log_event(f"Unhandled deploy exception: {str(e)}", "error")
-                    deploy_status = "failed"
+                    with LOG_CONDITION:
+                        deploy_status = "failed"
                 finally:
-                    is_deploying = False
+                    with LOG_CONDITION:
+                        is_deploying = False
+                        LOG_CONDITION.notify_all()
                     loop.close()
 
-            import threading
             t = threading.Thread(target=start_deploy_bg, args=(payload,), daemon=True)
             t.start()
 
@@ -609,14 +632,14 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/update_sources":
-            if is_deploying:
-                self.send_json({"ok": False, "message": "Нельзя обновлять исходники во время развертывания"}, 400)
-                return
+            with DEPLOY_LOCK:
+                if is_deploying:
+                    self.send_json({"ok": False, "message": "Нельзя обновлять исходники во время развертывания"}, 400)
+                    return
 
             self.send_json({"ok": True, "message": "Запуск обновления исходников..."})
 
             def run_update_bg():
-                import time
                 time.sleep(0.5)
                 script_path = cli_script_path("update_sources")
                 if script_path:
@@ -624,22 +647,21 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 time.sleep(0.5)
                 os._exit(0)
 
-            import threading
             t = threading.Thread(target=run_update_bg, daemon=True)
             t.start()
             return
 
         if url_path == "/api/restart":
-            if is_deploying:
-                self.send_json({"ok": False, "message": "Нельзя перезапустить сервер во время развертывания"}, 400)
-                return
+            with DEPLOY_LOCK:
+                if is_deploying:
+                    self.send_json({"ok": False, "message": "Нельзя перезапустить сервер во время развертывания"}, 400)
+                    return
 
             self.send_json({"ok": True, "message": "Перезапуск сервера..."})
 
             server_ref = self.server
 
             def run_restart_bg():
-                import time
                 time.sleep(0.3)
                 try:
                     server_ref.socket.close()
@@ -651,22 +673,21 @@ class WebUIHandler(BaseHTTPRequestHandler):
                     launch_script(script_path)
                 os._exit(0)
 
-            import threading
             t = threading.Thread(target=run_restart_bg, daemon=True)
             t.start()
             return
 
         if url_path == "/api/shutdown":
-            if is_deploying:
-                self.send_json({"ok": False, "message": "Нельзя выключить сервер во время развертывания"}, 400)
-                return
+            with DEPLOY_LOCK:
+                if is_deploying:
+                    self.send_json({"ok": False, "message": "Нельзя выключить сервер во время развертывания"}, 400)
+                    return
 
             self.send_json({"ok": True, "message": "Выключение сервера..."})
 
             server_ref = self.server
 
             def run_shutdown_bg():
-                import time
                 time.sleep(0.3)
                 try:
                     server_ref.socket.close()
@@ -675,7 +696,6 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 time.sleep(0.2)
                 os._exit(0)
 
-            import threading
             t = threading.Thread(target=run_shutdown_bg, daemon=True)
             t.start()
             return

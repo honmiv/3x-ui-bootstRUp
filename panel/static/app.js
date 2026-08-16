@@ -204,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyRadio = document.getElementById('auth_type_key');
     const passGroup = document.getElementById('passGroup');
     const keyGroup = document.getElementById('keyGroup');
-    const subSameAsProxy = document.getElementById('sub_same_as_proxy');
 
     const ensureSubAdminFields = () => {
         if (document.getElementById('sub_admin_user') && document.getElementById('sub_admin_password')) return;
@@ -357,7 +356,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const showQrModal = (title, url) => {
         qrModalTitle.textContent = title;
         qrModalUrl.textContent = url;
-        qrModalImg.src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=250x250`;
+        if (typeof qrcode !== 'undefined' && qrcode.generateSvgDataUrl) {
+            try {
+                qrModalImg.src = qrcode.generateSvgDataUrl(url, 6, 3);
+            } catch (e) {
+                console.error('QR generation error:', e);
+            }
+        }
         qrModal.classList.add('active');
     };
 
@@ -1353,6 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 proxy_sub_secret: getFieldValueOrDefault('proxy_sub_secret'),
                 proxy_client_tcp_list: document.getElementById('proxy_client_tcp_list').value.trim(),
                 proxy_client_xhttp_list: document.getElementById('proxy_client_xhttp_list').value.trim(),
+                foreign_sub_url: document.getElementById('foreign_sub_url') ? document.getElementById('foreign_sub_url').value.trim() : '',
 
                 sub_vps_host: document.getElementById('sub_vps_host').value.trim(),
                 sub_vps_port: parseInt(document.getElementById('sub_vps_port').value) || 22,
@@ -1365,7 +1371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_proxy_clients: document.getElementById('sub_proxy_clients').value.trim(),
                 sub_freedom_clients: document.getElementById('sub_freedom_clients').value.trim(),
                 sub_admin_user: getFieldValueOrDefault('sub_admin_user'),
-                sub_same_as_proxy: subSameAsProxy ? subSameAsProxy.checked : true,
+                rollback_sub_backup_file: document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '',
 
                 backup_vps_host: document.getElementById('backup_vps_host') ? document.getElementById('backup_vps_host').value.trim() : '',
                 backup_vps_port: document.getElementById('backup_vps_port') ? parseInt(document.getElementById('backup_vps_port').value) || 22 : 22,
@@ -1501,7 +1507,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (has('sub_freedom_clients')) setValue('sub_freedom_clients', cfg.sub_freedom_clients);
                 if (has('sub_admin_user')) setValue('sub_admin_user', cfg.sub_admin_user);
                 if (document.getElementById('sub_admin_password')) document.getElementById('sub_admin_password').value = '';
-                if (has('sub_same_as_proxy') && subSameAsProxy) subSameAsProxy.checked = !!cfg.sub_same_as_proxy;
 
                 if (has('backup_vps_host')) setValue('backup_vps_host', cfg.backup_vps_host);
                 if (has('backup_vps_port')) setValue('backup_vps_port', cfg.backup_vps_port);
@@ -2572,12 +2577,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const eventSource = new EventSource('/api/deploy/logs');
             eventSource.onmessage = (event) => {
-                const item = JSON.parse(event.data);
-                if (item.event === 'done') {
-                    eventSource.close();
-                    checkFinalStatus(mode, payload);
-                } else {
-                    appendLog(item.message, item.level || 'info');
+                try {
+                    const item = JSON.parse(event.data);
+                    if (item.event === 'done') {
+                        eventSource.close();
+                        checkFinalStatus(mode, payload);
+                    } else {
+                        appendLog(item.message, item.level || 'info');
+                    }
+                } catch (e) {
+                    console.error('Failed to parse SSE event data:', e);
                 }
             };
             eventSource.onerror = () => {
@@ -2644,37 +2653,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const renderPanelBlock = (title, icon, url, user, pass, userLabel = 'Логин администратора', passLabel = 'Пароль администратора', passSecret = true, urlLabel = 'Адрес панели (URL)', linkUrl = '') => {
                     const realLink = linkUrl || url;
+                    const escTitle = escapeHtml(title || '');
+                    const escUrl = escapeHtml(url || '');
+                    const escRealLink = escapeHtml(realLink || '');
+                    const escUser = escapeHtml(user || '');
+                    const escPass = escapeHtml(pass || '');
+                    const escUrlLabel = escapeHtml(urlLabel || '');
+                    const escUserLabel = escapeHtml(userLabel || '');
+                    const escPassLabel = escapeHtml(passLabel || '');
+
                     const block = document.createElement('div');
                     block.className = 'panel-info-block';
                     block.innerHTML = `
                         <div class="panel-info-header">
                             <span class="panel-icon">${icon}</span>
-                            <span class="panel-title-text">${title}</span>
+                            <span class="panel-title-text">${escTitle}</span>
                         </div>
                         <div class="summary-grid">
                             ${url ? `
                             <div class="summary-item full-width">
-                                <span class="summary-label">${urlLabel}</span>
+                                <span class="summary-label">${escUrlLabel}</span>
                                 <div class="val-code-wrapper">
-                                    <a href="${realLink}" target="_blank" class="val-code link">${url}</a>
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${url}">📋 Copy</button>
+                                    <a href="${escRealLink}" target="_blank" class="val-code link">${escUrl}</a>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUrl}">📋 Copy</button>
                                 </div>
                             </div>` : ''}
                             ${user ? `
                             <div class="summary-item">
-                                <span class="summary-label">${userLabel}</span>
+                                <span class="summary-label">${escUserLabel}</span>
                                 <div class="val-code-wrapper">
-                                    <span class="val-code">${user}</span>
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${user}">📋 Copy</button>
+                                    <span class="val-code">${escUser}</span>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUser}">📋 Copy</button>
                                 </div>
                             </div>` : ''}
                             ${pass ? `
                             <div class="summary-item">
-                                <span class="summary-label">${passLabel}</span>
+                                <span class="summary-label">${escPassLabel}</span>
                                 <div class="val-code-wrapper">
-                                    ${passSecret ? `<span class="val-code secret-val" data-secret="${pass}">••••••••</span>` : `<span class="val-code">${pass}</span>`}
+                                    ${passSecret ? `<span class="val-code secret-val" data-secret="${escPass}">••••••••</span>` : `<span class="val-code">${escPass}</span>`}
                                     ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret">👁️</button>` : ''}
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${pass}">📋 Copy</button>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escPass}">📋 Copy</button>
                                 </div>
                             </div>` : ''}
                         </div>
@@ -2837,19 +2855,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const card = document.createElement('div');
                     card.className = 'client-card';
 
-                    const groupTag = client.group ? ` (${client.group})` : '';
+                    const groupTag = client.group ? ` (${escapeHtml(client.group)})` : '';
                     let html = `
                         <div class="client-header">
-                            <span class="client-name-badge">👤 Клиент: ${client.name}${groupTag}</span>
+                            <span class="client-name-badge">👤 Клиент: ${escapeHtml(client.name || '')}${groupTag}</span>
                         </div>
                         <div class="client-link-group">
                     `;
 
                     if (client.sub_server_url) {
+                        const escSubServer = escapeHtml(client.sub_server_url);
                         html += `
                             <div class="client-link-label">📡 Подписка через Сервер подписок</div>
                             <div class="client-link-row">
-                                <span class="client-link-text">${client.sub_server_url}</span>
+                                <span class="client-link-text">${escSubServer}</span>
                                 <button type="button" class="btn-sm btn-copy-sub-server">📋 Копировать</button>
                                 <button type="button" class="btn-sm btn-qr-sub-server">📱 QR</button>
                             </div>
@@ -2857,10 +2876,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (client.sub_url) {
+                        const escSubUrl = escapeHtml(client.sub_url);
                         html += `
                             <div class="client-link-label">🔗 Прямая ссылка подписки</div>
                             <div class="client-link-row">
-                                <span class="client-link-text">${client.sub_url}</span>
+                                <span class="client-link-text">${escSubUrl}</span>
                                 <button type="button" class="btn-sm btn-copy-sub">📋 Копировать</button>
                                 <button type="button" class="btn-sm btn-qr-sub">📱 QR</button>
                             </div>
@@ -2868,10 +2888,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (client.tcp_url) {
+                        const escTcp = escapeHtml(client.tcp_url);
                         html += `
                             <div class="client-link-label">⚡ VLESS TCP Reality</div>
                             <div class="client-link-row">
-                                <span class="client-link-text">${client.tcp_url}</span>
+                                <span class="client-link-text">${escTcp}</span>
                                 <button type="button" class="btn-sm btn-copy-tcp">📋 Копировать</button>
                                 <button type="button" class="btn-sm btn-qr-tcp">📱 QR</button>
                             </div>
@@ -2879,10 +2900,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (client.xhttp_url) {
+                        const escXhttp = escapeHtml(client.xhttp_url);
                         html += `
                             <div class="client-link-label">🚀 VLESS XHTTP Reality</div>
                             <div class="client-link-row">
-                                <span class="client-link-text">${client.xhttp_url}</span>
+                                <span class="client-link-text">${escXhttp}</span>
                                 <button type="button" class="btn-sm btn-copy-xhttp">📋 Копировать</button>
                                 <button type="button" class="btn-sm btn-qr-xhttp">📱 QR</button>
                             </div>
@@ -3104,48 +3126,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const masterPasswordModal = document.getElementById('masterPasswordModal');
     const btnCancelMasterPassword = document.getElementById('btnCancelMasterPassword');
-    const pinInputs = document.querySelectorAll('.pin-digit');
+    const btnSubmitMasterPassword = document.getElementById('btnSubmitMasterPassword');
+    const masterPasswordInput = document.getElementById('masterPasswordInput');
 
-    if (pinInputs.length > 0) {
-        const checkAutoSubmit = () => {
-            const pass = Array.from(pinInputs).map(i => i.value).join('');
-            if (/^\d{5}$/.test(pass)) {
+    if (masterPasswordInput) {
+        masterPasswordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
                 submitMasterPassword();
             }
-        };
+        });
+    }
 
-        pinInputs.forEach((input, index) => {
-            input.addEventListener('input', (e) => {
-                if (e.target.value.length > 1) {
-                    e.target.value = e.target.value.slice(0, 1);
-                }
-                if (e.target.value && !/^\d$/.test(e.target.value)) {
-                    e.target.value = '';
-                    return;
-                }
-                if (e.target.value && index < pinInputs.length - 1) {
-                    pinInputs[index + 1].focus();
-                }
-                checkAutoSubmit();
-            });
-            
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                    pinInputs[index - 1].focus();
-                    pinInputs[index - 1].value = '';
-                } else if (e.key === 'Enter') {
-                    submitMasterPassword();
-                }
-            });
-            
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text').trim();
-                if (/^\d{5}$/.test(text)) {
-                    pinInputs.forEach((inp, i) => inp.value = text[i]);
-                    checkAutoSubmit();
-                }
-            });
+    if (btnSubmitMasterPassword) {
+        btnSubmitMasterPassword.addEventListener('click', () => {
+            submitMasterPassword();
         });
     }
 
@@ -3155,8 +3149,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let serversLoadError = '';
     let editingServerIndex = null;
 
-    // Crypto functions
-    const deriveKey = async (password) => {
+    // Crypto functions (V2: 600k iterations with auto-migration from legacy V1: 100k)
+    const deriveKeyV2 = async (password) => {
+        const enc = new TextEncoder();
+        const keyMaterial = await window.crypto.subtle.importKey(
+            "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+        );
+        return window.crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: enc.encode("3x-ui-salt-v2"), iterations: 600000, hash: "SHA-256" },
+            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+    };
+
+    const deriveKeyV1 = async (password) => {
         const enc = new TextEncoder();
         const keyMaterial = await window.crypto.subtle.importKey(
             "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
@@ -3167,6 +3172,16 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     };
 
+    const getPayloadVersion = (encryptedBase64) => {
+        if (!encryptedBase64) return 2;
+        try {
+            const parsed = JSON.parse(atob(encryptedBase64));
+            return parsed.v || 1;
+        } catch (e) {
+            return 1;
+        }
+    };
+
     const encryptData = async (text, key) => {
         if (!text) return "";
         const enc = new TextEncoder();
@@ -3174,7 +3189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const encrypted = await window.crypto.subtle.encrypt(
             { name: "AES-GCM", iv: iv }, key, enc.encode(text)
         );
-        return btoa(JSON.stringify({ iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) }));
+        return btoa(JSON.stringify({ v: 2, iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) }));
     };
 
     const decryptData = async (encryptedBase64, key) => {
@@ -3241,9 +3256,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const promptMasterPassword = (saveAfterUnlock = false) => {
         pendingSaveAfterPin = saveAfterUnlock;
         masterPasswordModal.classList.add('active');
-        if (pinInputs.length > 0) {
-            pinInputs.forEach(inp => inp.value = '');
-            setTimeout(() => pinInputs[0].focus(), 100);
+        const masterPasswordInput = document.getElementById('masterPasswordInput');
+        if (masterPasswordInput) {
+            masterPasswordInput.value = '';
+            setTimeout(() => masterPasswordInput.focus(), 100);
         }
     };
 
@@ -3280,7 +3296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             savedServersList.innerHTML = `
                 <div style="text-align: center; padding: 20px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px; border: 1px dashed var(--border-color);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <div style="margin-bottom: 15px; font-size: 0.95rem; color: var(--text-secondary);">Хранилище серверов защищено PIN-кодом</div>
+                    <div style="margin-bottom: 15px; font-size: 0.95rem; color: var(--text-secondary);">Хранилище серверов защищено мастер-паролем</div>
                     <button type="button" class="btn btn-primary" id="btnUnlockStorage" style="width: 100%;">
                         Разблокировать
                     </button>
@@ -3327,9 +3343,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${lockIcon}
                         </button>
                     </div>
-                    <div class="server-card-host">${srv.host || 'Без IP'}</div>
+                    <div class="server-card-host">${escapeHtml(srv.host || 'Без IP')}</div>
                     <div class="server-card-details">
-                        <span>👤 ${srv.user || 'root'}</span>
+                        <span>👤 ${escapeHtml(srv.user || 'root')}</span>
                         <span>🔌 ${srv.port || 22}</span>
                     </div>
                 </div>
@@ -3669,28 +3685,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const submitMasterPassword = async () => {
-        const pass = Array.from(pinInputs).map(i => i.value).join('');
-        if (!/^\d{5}$/.test(pass)) {
-            showToast('PIN-код должен состоять ровно из 5 цифр!', 'warning');
+        const inputEl = document.getElementById('masterPasswordInput');
+        const pass = inputEl ? inputEl.value.trim() : '';
+        if (!pass) {
+            showToast('Введите мастер-пароль или PIN!', 'warning');
             return;
         }
-        const tmpKey = await deriveKey(pass);
-        
+
+        const keyV2 = await deriveKeyV2(pass);
+        const keyV1 = await deriveKeyV1(pass);
+
         if (serversList.length > 0) {
             const testSrv = serversList.find(s => s.enc_pass || s.enc_key);
             if (testSrv) {
-                const testSecret = await decryptData(testSrv.enc_pass || testSrv.enc_key, tmpKey);
-                if (testSecret === "[Ошибка расшифровки]") {
-                    showToast('Неверный PIN-код!', 'error');
-                    pinInputs.forEach(inp => inp.value = '');
-                    if (pinInputs.length > 0) pinInputs[0].focus();
+                const sampleField = testSrv.enc_pass || testSrv.enc_key;
+                const sampleVer = getPayloadVersion(sampleField);
+
+                let matchedVersion = null;
+
+                if (sampleVer === 2) {
+                    const tryV2 = await decryptData(sampleField, keyV2);
+                    if (tryV2 !== "[Ошибка расшифровки]") {
+                        matchedVersion = 2;
+                    }
+                } else {
+                    const tryV1 = await decryptData(sampleField, keyV1);
+                    if (tryV1 !== "[Ошибка расшифровки]") {
+                        matchedVersion = 1;
+                    } else {
+                        const tryV2 = await decryptData(sampleField, keyV2);
+                        if (tryV2 !== "[Ошибка расшифровки]") {
+                            matchedVersion = 2;
+                        }
+                    }
+                }
+
+                if (!matchedVersion) {
+                    showToast('Неверный мастер-пароль / PIN!', 'error');
+                    if (inputEl) {
+                        inputEl.value = '';
+                        inputEl.focus();
+                    }
                     return;
+                }
+
+                // Seamless auto-migration: if opened with legacy V1 key, upgrade all secrets to V2
+                if (matchedVersion === 1) {
+                    let migratedCount = 0;
+                    for (let srv of serversList) {
+                        if (srv.enc_pass && getPayloadVersion(srv.enc_pass) === 1) {
+                            const plain = await decryptData(srv.enc_pass, keyV1);
+                            if (plain && plain !== "[Ошибка расшифровки]") {
+                                srv.enc_pass = await encryptData(plain, keyV2);
+                                migratedCount++;
+                            }
+                        }
+                        if (srv.enc_key && getPayloadVersion(srv.enc_key) === 1) {
+                            const plain = await decryptData(srv.enc_key, keyV1);
+                            if (plain && plain !== "[Ошибка расшифровки]") {
+                                srv.enc_key = await encryptData(plain, keyV2);
+                                migratedCount++;
+                            }
+                        }
+                    }
+                    if (migratedCount > 0) {
+                        await saveServersToBackend();
+                        showToast('🔒 Хранилище серверов успешно обновлено на усиленный формат V2 (PBKDF2 600k)!', 'success');
+                    }
                 }
             }
         }
-        
-        cryptoKey = tmpKey;
+
+        cryptoKey = keyV2;
         masterPasswordModal.classList.remove('active');
+        if (inputEl) inputEl.value = '';
 
         if (pendingSaveAfterPin) {
             pendingSaveAfterPin = false;

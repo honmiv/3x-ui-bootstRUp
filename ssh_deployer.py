@@ -21,10 +21,10 @@ def get_bundle_bytes() -> bytes:
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for root, dirs, files in os.walk(repo_dir):
-            if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root:
+            if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root or 'backups_panel' in root or 'backups_sub_server' in root:
                 continue
             for file in files:
-                if file.endswith('.pyc') or file == 'setup_backup.yml' or file == 'sub-server.log':
+                if file.endswith('.pyc') or file in ('setup_backup.yml', 'sub-server.log', 'servers.json', 'force-subs.yml', 'nodes.json', 'subs.yml'):
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, repo_dir)
@@ -337,6 +337,7 @@ class SSHDeployer:
                         proc.terminate()
                         try:
                             proc.kill()
+                            await proc.wait()
                         except Exception:
                             pass
                     except Exception:
@@ -417,6 +418,7 @@ class SSHDeployer:
                         proc.terminate()
                         try:
                             proc.kill()
+                            await proc.wait()
                         except Exception:
                             pass
                     except Exception:
@@ -447,102 +449,85 @@ class SSHDeployer:
 
 
 
-async def _perform_remote_backup(deployer: SSHDeployer, backup_name: str, log: Callable[[str, str], None]) -> tuple[bool, str, float]:
+async def _perform_remote_backup(
+    deployer: SSHDeployer,
+    backup_name: str,
+    log: Callable[[str, str], None],
+    target: str = "panel"
+) -> tuple[bool, str, float]:
     """Create a backup archive on the remote server, download it locally via SCP, and clean up.
 
-    Returns (success, local_backup_path, file_size_mb).
+    Args:
+        deployer: SSHDeployer instance.
+        backup_name: Target filename for the backup archive.
+        log: Log callback.
+        target: "panel" (default) or "sub_server".
+
+    Returns:
+        (success, local_backup_path, file_size_mb)
     """
-    import datetime as _dt
+    is_sub = (target == "sub_server")
+    folder_name = "backups_sub_server" if is_sub else "backups_panel"
+    desc_label = "sub-server config" if is_sub else "panel"
 
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    backups_dir = os.path.join(repo_root, "backups_panel")
+    backups_dir = os.path.join(repo_root, folder_name)
     os.makedirs(backups_dir, exist_ok=True)
     local_backup_path = os.path.join(backups_dir, backup_name)
 
-    log("Creating backup archive on remote server...", "info")
-    remote_script = (
-        "set -e\n"
-        "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
-        "if [ ! -d \"$WORK_DIR\" ]; then\n"
-        "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
-        "fi\n"
-        "cd \"$WORK_DIR\"\n"
-        "rm -rf /tmp/remote_server_backup /tmp/server_backup.tar.gz\n"
-        "if [ -f \"panel_backup.sh\" ]; then\n"
-        "  bash panel_backup.sh /tmp/remote_server_backup\n"
-        "else\n"
-        "  mkdir -p /tmp/remote_server_backup\n"
-        "  [ -d \"working/3x-ui\" ] && cp -r working/3x-ui /tmp/remote_server_backup/3x-ui || true\n"
-        "  [ -d \"working/3xui\" ] && cp -r working/3xui /tmp/remote_server_backup/3xui || true\n"
-        "  [ -d \"working/docker-compose\" ] && cp -r working/docker-compose /tmp/remote_server_backup/docker-compose || true\n"
-        "  [ -d \"working/nginx-decoy\" ] && cp -r working/nginx-decoy /tmp/remote_server_backup/nginx-decoy || true\n"
-        "  [ -d \"working/caddy\" ] && cp -r working/caddy /tmp/remote_server_backup/caddy || true\n"
-        "fi\n"
-        "tar -czf /tmp/server_backup.tar.gz -C /tmp/remote_server_backup .\n"
-        "rm -rf /tmp/remote_server_backup\n"
-    )
+    log(f"Creating {desc_label} backup archive on remote server...", "info")
+
+    if is_sub:
+        remote_script = (
+            "set -e\n"
+            "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+            "if [ ! -d \"$WORK_DIR\" ]; then\n"
+            "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+            "fi\n"
+            "cd \"$WORK_DIR\"\n"
+            "rm -rf /tmp/backup_stage /tmp/server_backup.tar.gz\n"
+            "mkdir -p /tmp/backup_stage/working\n"
+            "[ -f \"sub-server/nodes.json\" ] && cp \"sub-server/nodes.json\" /tmp/backup_stage/nodes.json || true\n"
+            "[ -f \"sub-server/subs.yml\" ] && cp \"sub-server/subs.yml\" /tmp/backup_stage/subs.yml || true\n"
+            "[ -f \"sub-server/force-subs.yml\" ] && cp \"sub-server/force-subs.yml\" /tmp/backup_stage/force-subs.yml || true\n"
+            "[ -f \"working/caddy/Caddyfile\" ] && cp \"working/caddy/Caddyfile\" /tmp/backup_stage/working/Caddyfile || true\n"
+            "[ -f \"working/docker-compose/docker-compose.yml\" ] && cp \"working/docker-compose/docker-compose.yml\" /tmp/backup_stage/working/docker-compose.yml || true\n"
+            "[ -d \".caddy_data\" ] && cp -r \".caddy_data\" /tmp/backup_stage/.caddy_data || true\n"
+            "tar -czf /tmp/server_backup.tar.gz -C /tmp/backup_stage .\n"
+            "rm -rf /tmp/backup_stage\n"
+        )
+    else:
+        remote_script = (
+            "set -e\n"
+            "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+            "if [ ! -d \"$WORK_DIR\" ]; then\n"
+            "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
+            "fi\n"
+            "cd \"$WORK_DIR\"\n"
+            "rm -rf /tmp/backup_stage /tmp/server_backup.tar.gz\n"
+            "if [ -f \"panel_backup.sh\" ]; then\n"
+            "  bash panel_backup.sh /tmp/backup_stage\n"
+            "else\n"
+            "  mkdir -p /tmp/backup_stage\n"
+            "  [ -d \"working/3x-ui\" ] && cp -r working/3x-ui /tmp/backup_stage/3x-ui || true\n"
+            "  [ -d \"working/3xui\" ] && cp -r working/3xui /tmp/backup_stage/3xui || true\n"
+            "  [ -d \"working/docker-compose\" ] && cp -r working/docker-compose /tmp/backup_stage/docker-compose || true\n"
+            "  [ -d \"working/nginx-decoy\" ] && cp -r working/nginx-decoy /tmp/backup_stage/nginx-decoy || true\n"
+            "  [ -d \"working/caddy\" ] && cp -r working/caddy /tmp/backup_stage/caddy || true\n"
+            "fi\n"
+            "tar -czf /tmp/server_backup.tar.gz -C /tmp/backup_stage .\n"
+            "rm -rf /tmp/backup_stage\n"
+        )
 
     rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
     if rc != 0:
         log(f"[ERROR] Remote backup creation failed: {out}", "error")
         return False, "", 0.0
 
-    log(f"⬇️ Downloading backup archive via SCP to ./backups_panel/{backup_name}...", "info")
+    log(f"⬇️ Downloading backup archive via SCP to ./{folder_name}/{backup_name}...", "info")
     rc_scp, scp_out = await deployer.download_file("/tmp/server_backup.tar.gz", local_backup_path, lambda m: log(m, "info"))
 
-    # Cleanup remote archive
     await deployer.exec_command("rm -f /tmp/server_backup.tar.gz")
-
-    if rc_scp != 0 or not os.path.exists(local_backup_path):
-        log(f"[ERROR] SCP download failed: {scp_out}", "error")
-        return False, "", 0.0
-
-    file_size_bytes = os.path.getsize(local_backup_path)
-    file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-
-    return True, local_backup_path, file_size_mb
-
-
-async def _perform_remote_sub_backup(deployer: SSHDeployer, backup_name: str, log: Callable[[str, str], None]) -> tuple[bool, str, float]:
-    """Create a backup archive of the subscription server config on the remote host,
-    download it locally via SCP, and clean up.
-
-    Returns (success, local_backup_path, file_size_mb).
-    """
-    repo_root = os.path.dirname(os.path.abspath(__file__))
-    backups_dir = os.path.join(repo_root, "backups_sub_server")
-    os.makedirs(backups_dir, exist_ok=True)
-    local_backup_path = os.path.join(backups_dir, backup_name)
-
-    log("Creating sub-server config backup archive on remote server...", "info")
-    remote_script = (
-        "set -e\n"
-        "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
-        "if [ ! -d \"$WORK_DIR\" ]; then\n"
-        "  if [ -d \"./working\" ]; then WORK_DIR=\".\"; else WORK_DIR=\"$(pwd)\"; fi\n"
-        "fi\n"
-        "cd \"$WORK_DIR\"\n"
-        "rm -rf /tmp/sub_server_backup /tmp/sub_server_backup.tar.gz\n"
-        "mkdir -p /tmp/sub_server_backup/working\n"
-        "[ -f \"sub-server/nodes.json\" ] && cp \"sub-server/nodes.json\" /tmp/sub_server_backup/nodes.json || true\n"
-        "[ -f \"sub-server/subs.yml\" ] && cp \"sub-server/subs.yml\" /tmp/sub_server_backup/subs.yml || true\n"
-        "[ -f \"sub-server/force-subs.yml\" ] && cp \"sub-server/force-subs.yml\" /tmp/sub_server_backup/force-subs.yml || true\n"
-        "[ -f \"working/caddy/Caddyfile\" ] && cp \"working/caddy/Caddyfile\" /tmp/sub_server_backup/working/Caddyfile || true\n"
-        "[ -f \"working/docker-compose/docker-compose.yml\" ] && cp \"working/docker-compose/docker-compose.yml\" /tmp/sub_server_backup/working/docker-compose.yml || true\n"
-        "[ -d \".caddy_data\" ] && cp -r \".caddy_data\" /tmp/sub_server_backup/.caddy_data || true\n"
-        "tar -czf /tmp/sub_server_backup.tar.gz -C /tmp/sub_server_backup .\n"
-        "rm -rf /tmp/sub_server_backup\n"
-    )
-
-    rc, out = await deployer.exec_command(f"bash -c {shlex.quote(remote_script)}", lambda m: log(m, "info"))
-    if rc != 0:
-        log(f"[ERROR] Remote sub-server backup creation failed: {out}", "error")
-        return False, "", 0.0
-
-    log(f"⬇️ Downloading sub-server backup archive via SCP to ./backups_sub_server/{backup_name}...", "info")
-    rc_scp, scp_out = await deployer.download_file("/tmp/sub_server_backup.tar.gz", local_backup_path, lambda m: log(m, "info"))
-
-    await deployer.exec_command("rm -f /tmp/sub_server_backup.tar.gz")
 
     if rc_scp != 0 or not os.path.exists(local_backup_path):
         log(f"[ERROR] SCP download failed: {scp_out}", "error")
@@ -575,7 +560,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
         
         env_str_parts = []
         for k, v in env_vars.items():
-            if v:
+            if v is not None:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)
         remote_cmd = f"cd {shlex.quote(remote_dir)} && {env_str} bash panel/setup.sh"
@@ -631,7 +616,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
         log(f"Executing sub-server/setup.sh script on {host}...", "info")
         env_str_parts = []
         for k, v in env_vars.items():
-            if v:
+            if v is not None:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)
         remote_cmd = f"cd {shlex.quote(remote_dir)} && {env_str} bash sub-server/setup.sh"
@@ -648,12 +633,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     if not deploy_mode:
         deploy_mode = "cascade" if config.get("is_cascade", False) else "single"
 
-    email = config.get("email", "").strip()
     xui_username = config.get("xui_username", "").strip()
     xui_password = config.get("xui_password", "").strip()
     xui_version = config.get("xui_version", "").strip() or "3.6.0"
-    xui_web_port = config.get("xui_web_port", "").strip()
-    xui_sub_port = config.get("xui_sub_port", "").strip()
     sub_secret = config.get("sub_secret", "").strip()
 
     # Remote Server Backup Mode
@@ -814,8 +796,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "  fi\n"
                 "  if [ -n \"$OLD_DOMAIN\" ] && [ \"$OLD_DOMAIN\" != \"$NEW_DOM\" ]; then\n"
                 "    echo \"[INFO] Domain change detected from '$OLD_DOMAIN' to '$NEW_DOM'. Updating Caddyfile & configs...\"\n"
-                "    sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"$CADDY_FILE\"\n"
-                "    [ -f \"working/nginx-decoy/default.conf\" ] && sed -i \"s/$OLD_DOMAIN/$NEW_DOM/g\" \"working/nginx-decoy/default.conf\" || true\n"
+                "    ESC_OLD=$(printf '%s\\n' \"$OLD_DOMAIN\" | sed -e 's/[\\/&]/\\\\&/g')\n"
+                "    ESC_NEW=$(printf '%s\\n' \"$NEW_DOM\" | sed -e 's/[\\/&]/\\\\&/g')\n"
+                "    sed -i \"s/$ESC_OLD/$ESC_NEW/g\" \"$CADDY_FILE\"\n"
+                "    [ -f \"working/nginx-decoy/default.conf\" ] && sed -i \"s/$ESC_OLD/$ESC_NEW/g\" \"working/nginx-decoy/default.conf\" || true\n"
                 "    rm -rf working/.caddy_data 2>/dev/null || true\n"
                 "    docker volume rm caddy_data 2>/dev/null || true\n"
                 "  fi\n"
@@ -1096,8 +1080,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
                 pre_backup_name = f"{sub_host}_pre-update_{now_str}.tar.gz"
                 log("📦 Creating full pre-update backup before changing Subscription Server files...", "info")
-                bk_ok, bk_local_path, file_size_mb = await _perform_remote_sub_backup(
-                    deployer, pre_backup_name, log
+                bk_ok, bk_local_path, file_size_mb = await _perform_remote_backup(
+                    deployer, pre_backup_name, log, target="sub_server"
                 )
                 if not bk_ok:
                     log("[ERROR] Update aborted because the pre-update backup could not be created.", "error")
@@ -1137,7 +1121,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     raw_backup_name = f"{raw_backup_name}.tar.gz"
                 backup_name = os.path.basename(raw_backup_name)
 
-                bk_ok, bk_local_path, file_size_mb = await _perform_remote_sub_backup(deployer, backup_name, log)
+                bk_ok, bk_local_path, file_size_mb = await _perform_remote_backup(deployer, backup_name, log, target="sub_server")
                 if not bk_ok:
                     return False, {}
 
@@ -1244,7 +1228,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     # Standalone Subscription Server Mode
     if deploy_mode == "sub_only":
         sub_host = config.get("sub_vps_host", "").strip() or config.get("vps_host", "").strip()
-        sub_port = int(config.get("sub_vps_port", config.get("vps_port", 22)))
+        sub_port = int(config.get("sub_vps_port") or config.get("vps_port") or 22)
         sub_user = config.get("sub_vps_user", "").strip() or config.get("vps_user", "root").strip()
         sub_password = config.get("sub_vps_password", config.get("vps_password", ""))
         sub_key = config.get("sub_vps_key", config.get("vps_key", ""))
@@ -1321,7 +1305,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     if deploy_mode in ["single", "proxy_only", "freedom_only", "freedom_component"]:
         host = config.get("vps_host", "").strip()
-        port = int(config.get("vps_port", 22))
+        port = int(config.get("vps_port") or 22)
         user = config.get("vps_user", "root").strip()
         password = config.get("vps_password", "")
         key_data = config.get("vps_key", "")
@@ -1344,12 +1328,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
         env_vars = {
             "DOMAIN": host,
-            "EMAIL": email,
             "USERNAME": xui_username,
             "USER_PASSWORD": xui_password,
             "XUI_VERSION": xui_version,
-            "XUI_WEB_PORT": xui_web_port,
-            "XUI_SUB_PORT": xui_sub_port,
             "SECRET_PHRASE": sub_secret,
             "CLIENTS_TCP_LIST": clients_tcp_str,
             "CLIENTS_XHTTP_LIST": clients_xhttp_str,
@@ -1374,7 +1355,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     # Cascade modes: "cascade" or "cascade_sub"
     freedom_host = config.get("freedom_host", "").strip()
-    freedom_port = int(config.get("freedom_port", 22))
+    freedom_port = int(config.get("freedom_port") or 22)
     freedom_user = config.get("freedom_user", "root").strip()
     freedom_password = config.get("freedom_password", "")
     freedom_key = config.get("freedom_key", "")
@@ -1385,7 +1366,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     freedom_xui_version = config.get("freedom_xui_version", "").strip() or xui_version
 
     proxy_host = config.get("proxy_host", "").strip()
-    proxy_port = int(config.get("proxy_port", 22))
+    proxy_port = int(config.get("proxy_port") or 22)
     proxy_user = config.get("proxy_user", "root").strip()
     proxy_password = config.get("proxy_password", "")
     proxy_key = config.get("proxy_key", "")
@@ -1408,12 +1389,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     log("╚════════════════════════════════════════════╝", "info")
     freedom_env = {
         "DOMAIN": freedom_host,
-        "EMAIL": email,
         "USERNAME": freedom_xui_user,
         "USER_PASSWORD": freedom_xui_pass,
         "XUI_VERSION": freedom_xui_version,
-        "XUI_WEB_PORT": xui_web_port,
-        "XUI_SUB_PORT": xui_sub_port,
         "SECRET_PHRASE": freedom_secret,
         "CLIENTS_TCP_LIST": "",
         "CLIENTS_XHTTP_LIST": freedom_client,
@@ -1443,12 +1421,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     log("╚════════════════════════════════════════════╝", "info")
     proxy_env = {
         "DOMAIN": proxy_host,
-        "EMAIL": email,
         "USERNAME": proxy_xui_user,
         "USER_PASSWORD": proxy_xui_pass,
         "XUI_VERSION": proxy_xui_version,
-        "XUI_WEB_PORT": xui_web_port,
-        "XUI_SUB_PORT": xui_sub_port,
         "SECRET_PHRASE": proxy_secret,
         "CLIENTS_TCP_LIST": proxy_clients_tcp_str,
         "CLIENTS_XHTTP_LIST": proxy_clients_xhttp_str,
@@ -1493,7 +1468,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log("╚════════════════════════════════════════════╝", "info")
 
         sub_host = config.get("sub_vps_host", "").strip()
-        sub_port = int(config.get("sub_vps_port", 22))
+        sub_port = int(config.get("sub_vps_port") or 22)
         sub_user = config.get("sub_vps_user", "root").strip() or "root"
         sub_password = config.get("sub_vps_password", "")
         sub_key = config.get("sub_vps_key", "")

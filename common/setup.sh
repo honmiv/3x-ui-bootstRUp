@@ -23,19 +23,28 @@ wait_for_lock() {
     local pm="$1"
     case "$pm" in
         apt)
+            local attempts=0
             while pgrep -f "apt-get|dpkg" &>/dev/null; do
+                ((attempts++))
+                if [[ $attempts -gt 300 ]]; then die "Timeout waiting for apt"; fi
                 warn "${MSG_APT_LOCKED:-apt/dpkg is locked by another process. Waiting.}"
                 sleep 5
             done
             ;;
         dnf|yum)
+            local attempts=0
             while pgrep -f "$pm|rpm" &>/dev/null; do
+                ((attempts++))
+                if [[ $attempts -gt 300 ]]; then die "Timeout waiting for dnf"; fi
                 warn "${MSG_DNF_LOCKED:-dnf/rpm is locked by another process. Waiting.}"
                 sleep 5
             done
             ;;
         pacman)
+            local attempts=0
             while [[ -f /var/lib/pacman/db.lck ]]; do
+                ((attempts++))
+                if [[ $attempts -gt 300 ]]; then die "Timeout waiting for pacman"; fi
                 warn "${MSG_PACMAN_LOCKED:-pacman is locked by db.lck. Waiting.}"
                 sleep 5
             done
@@ -100,10 +109,11 @@ install_docker() {
 
     docker compose version &>/dev/null || die "${MSG_DOCKER_COMPOSE_ERR:-Docker compose plugin unavailable.}"
 
-    echo -e "${YELLOW}${MSG_DOCKER_MIRRORS:-Configuring Docker registry mirror fallback}${NC}"
-    mkdir -p /etc/docker && cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/daemon.json" /etc/docker/daemon.json
-
-    restart_docker || die "${MSG_DOCKER_RESTART_ERR:-Failed to restart Docker service to apply registry mirror.}"
+    if ! grep -q "dh-mirror.gitverse.ru" /etc/docker/daemon.json 2>/dev/null; then
+        echo -e "${YELLOW}${MSG_DOCKER_MIRRORS:-Configuring Docker registry mirror fallback}${NC}"
+        mkdir -p /etc/docker && cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/daemon.json" /etc/docker/daemon.json
+        restart_docker || die "${MSG_DOCKER_RESTART_ERR:-Failed to restart Docker service to apply registry mirror.}"
+    fi
 
     success "${MSG_DOCKER_READY:-Docker is available and running.}"
 }

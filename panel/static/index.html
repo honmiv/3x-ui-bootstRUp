@@ -1372,18 +1372,14 @@
     <!-- Master Password Modal -->
     <div id="masterPasswordModal" class="modal-overlay">
         <div class="modal-card">
-            <h2>Секретный PIN-код</h2>
-            <p>Введите 5-значный PIN-код для защиты ваших серверов. Он будет использоваться для надежного шифрования
-                паролей (AES-GCM).</p>
-            <div class="pin-inputs" style="margin-top: 25px; display: flex; gap: 10px; justify-content: center;">
-                <input type="password" class="pin-digit" maxlength="1" inputmode="numeric">
-                <input type="password" class="pin-digit" maxlength="1" inputmode="numeric">
-                <input type="password" class="pin-digit" maxlength="1" inputmode="numeric">
-                <input type="password" class="pin-digit" maxlength="1" inputmode="numeric">
-                <input type="password" class="pin-digit" maxlength="1" inputmode="numeric">
+            <h2>Мастер-пароль хранилища</h2>
+            <p>Введите мастер-пароль (или ваш старый 5-значный PIN) для доступа к серверам. Защищено алгоритмом AES-GCM (PBKDF2-SHA256, 600 000 итераций).</p>
+            <div style="margin-top: 20px;">
+                <input type="password" id="masterPasswordInput" class="form-input" placeholder="Введите пароль или PIN" autocomplete="current-password" style="width: 100%; text-align: center; font-size: 1.1rem; padding: 10px 14px;">
             </div>
-            <div style="margin-top: 25px; display: flex; justify-content: center;">
+            <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: center;">
                 <button type="button" class="btn" id="btnCancelMasterPassword">Отмена</button>
+                <button type="button" class="btn btn-primary" id="btnSubmitMasterPassword">Разблокировать</button>
             </div>
         </div>
     </div>
@@ -1421,6 +1417,7 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <script src="/resources/rocket/rocket.js"></script>
+    <script src="/resources/qrcode/qrcode.min.js"></script>
     <script src="app.js"></script>
 </body>
 

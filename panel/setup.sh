@@ -88,7 +88,7 @@ prompt_required() {
     local value=""
 
     while [[ -z "$value" ]]; do
-        prompt_input "$prompt" value
+        prompt_input "$prompt" value || die "Unexpected end of input (EOF)."
         [[ -z "$value" ]] && warn "$error_message"
     done
 
@@ -103,7 +103,7 @@ prompt_choice() {
     local value=""
 
     while true; do
-        prompt_input "$prompt" value
+        prompt_input "$prompt" value || die "Unexpected end of input (EOF)."
         if [[ "$value" =~ $allowed_pattern ]]; then
             printf -v "$res_var" "%s" "$value"
             return
@@ -161,7 +161,7 @@ get_unique_random_port() {
             fi
         done
 
-        if [[ "$already_chosen" -eq 1 || "$(is_port_busy "$port")" ]]; then
+        if [[ "$already_chosen" -eq 1 ]] || is_port_busy "$port"; then
             ((port++))
             [[ "$port" -gt 65535 ]] && port=49152
         else
@@ -327,6 +327,7 @@ load_messages() {
     MSG_PANEL_USER_CONFIGURING="Configuring panel user."
     MSG_PANEL_USER_READY="Panel user configured."
     MSG_INBOUND_ADDING="Adding inbound: %s."
+    MSG_INBOUND_ERR="Failed to add inbound to 3x-UI panel."
     MSG_CLIENT_ADDING="Adding VPN client."
     MSG_CLIENT_READY="VPN client added."
     MSG_RESULTS_TITLE="Done"
@@ -484,6 +485,10 @@ generate_reality_keys() {
     XHTTP_REALITY_PRIVATE_KEY=$(echo "$xhttp_keys" | grep "PrivateKey:"          | awk '{print $2}' | tr -d '\r')
     XHTTP_REALITY_PUBLIC_KEY=$(echo  "$xhttp_keys" | grep "Password (PublicKey):" | awk '{print $3}' | tr -d '\r')
     XHTTP_REALITY_SHORT_IDS_JSON_ARRAY="[\"$(openssl rand -hex 2)\", \"$(openssl rand -hex 2)\", \"$(openssl rand -hex 2)\", \"$(openssl rand -hex 2)\"]"
+
+    if [[ -z "$TCP_REALITY_PRIVATE_KEY" || -z "$TCP_REALITY_PUBLIC_KEY" || -z "$XHTTP_REALITY_PRIVATE_KEY" || -z "$XHTTP_REALITY_PUBLIC_KEY" ]]; then
+        die "Failed to generate Reality keypairs from XRay core."
+    fi
     success "$MSG_KEYS_READY"
 }
 
@@ -1033,6 +1038,8 @@ add_inbound() {
         -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
         -H "x-csrf-token: ${CSRF_TOKEN}" \
         --data-raw "$payload"
+
+    grep -q '"success":true' ./working/add-inbound-response.json || die "$MSG_INBOUND_ERR"
 }
 
 add_client() {

@@ -294,7 +294,6 @@ print_results() {
     echo
     echo "Panel: https://${DOMAIN}/${SECRET_SUB_PATH}"
     echo "  Admin login: ${ADMIN_USER}"
-    echo "  Admin password: ${ADMIN_PASSWORD}"
     echo
     echo "Node registry (clients): $SCRIPT_DIR/nodes.json"
     echo "After editing nodes.json restart: docker compose -f $DOCKER_COMPOSE_FILE restart subs-server"

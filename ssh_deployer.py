@@ -16,9 +16,9 @@ ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
 
-def get_bundle_bytes() -> bytes:
+def get_bundle_bytes(source_dir: str | None = None) -> bytes:
     buf = io.BytesIO()
-    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_dir = source_dir or os.path.dirname(os.path.abspath(__file__))
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for root, dirs, files in os.walk(repo_dir):
             if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root or 'backups_panel' in root or 'backups_sub_server' in root:
@@ -65,6 +65,19 @@ def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]
 
 def derive_sub_path(secret: str) -> str:
     return hashlib.md5(f"{secret}-sub".encode('utf-8')).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
+# Backend URL resolvers — overrideable entry-points for sub-server URLs.
+# ---------------------------------------------------------------------------
+
+def resolve_sub_server_urls(
+    proxy_sub_url: str,
+    freedom_sub_url: str,
+) -> Tuple[str, str, Dict[str, str]]:
+    """Resolve backend subscription URLs for the sub-server.
+    Returns (russian_url, freedom_url, extra_env)."""
+    return proxy_sub_url, freedom_sub_url, {}
 
 
 # Backups created by the pre-"panel/" repo layout reference the caddy build
@@ -539,7 +552,7 @@ async def _perform_remote_backup(
     return True, local_backup_path, file_size_mb
 
 
-async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
+async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to {host}:{port}...", "info")
@@ -549,7 +562,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return False, ""
 
         log(f"Syncing local files to {host}...", "info")
-        bundle_bytes = get_bundle_bytes()
+        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir)
         sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
@@ -596,7 +609,7 @@ def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
         f"{restore}"
     )
 
-async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> tuple[bool, str]:
+async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to Subscription Server on {host}:{port}...", "info")
@@ -606,7 +619,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return False, ""
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
-        bundle_bytes = get_bundle_bytes()
+        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir)
         sync_cmd = _sub_server_sync_cmd(remote_dir, preserve=(env_vars.get("UPDATE_SUB_SERVER", "") == "1"))
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
@@ -626,6 +639,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
         return False, out
 
 async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> Tuple[bool, Dict[str, Any]]:
+    bundle_dir = config.get("bundle_source_dir")
     def log(msg: str, level: str = "info"):
         log_callback(msg, level)
 
@@ -1247,10 +1261,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log(f"Starting deployment of Subscription Server on {sub_host}...", "info")
         sub_admin_user = config.get("sub_admin_user", "").strip()
         sub_admin_password = config.get("sub_admin_password", "").strip()
+        sub_proxy_url, sub_foreign_url, _ = resolve_sub_server_urls(sub_russian_url, sub_foreign_url)
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
-            "RUSSIAN_SUB_URL": sub_russian_url,
+            "RUSSIAN_SUB_URL": sub_proxy_url,
             "FOREIGN_SUB_URL": sub_foreign_url,
             "PROXY_CLIENTS": " ".join(proxy_clients),
             "FREEDOM_CLIENTS": " ".join(freedom_clients),
@@ -1258,7 +1273,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "ADMIN_PASSWORD": sub_admin_password
         }
 
-        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
+        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
         if not ok_sub:
             log("[ERROR] Failed to deploy Subscription Server.", "error")
             return False, {}
@@ -1325,9 +1340,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             node_type_choice = "2"
 
         foreign_sub_url = config.get("foreign_sub_url", "").strip() if deploy_mode == "proxy_only" else ""
+        target_domain = config.get("domain", "").strip() or host
 
         env_vars = {
-            "DOMAIN": host,
+            "DOMAIN": target_domain,
             "USERNAME": xui_username,
             "USER_PASSWORD": xui_password,
             "XUI_VERSION": xui_version,
@@ -1338,17 +1354,18 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "NODE_TYPE_CHOICE": node_type_choice,
             "FOREIGN_SUB_URL": foreign_sub_url
         }
-        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check)
+
+        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
         
-        final_xui_url = parsed_xui_url or f"https://{host}/{web_base_path}/"
+        final_xui_url = parsed_xui_url or f"https://{target_domain}/{web_base_path}/"
         result_data = {
             "deploy_mode": deploy_mode,
             "xui_url": final_xui_url,
             "xui_username": xui_username,
             "xui_password": xui_password,
             "sub_secret": sub_secret,
-            "domain": host,
+            "domain": target_domain,
             "clients": parsed_clients
         }
         return ok, result_data
@@ -1380,6 +1397,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     proxy_clients_tcp_str = " ".join([name.strip() for name in re.split(r'[\s,]+', proxy_tcp_raw) if name.strip()])
     proxy_clients_xhttp_str = " ".join([name.strip() for name in re.split(r'[\s,]+', proxy_xhttp_raw) if name.strip()])
 
+    freedom_host_for_ssh = config.get("freedom_host_for_ssh", "").strip()
+    proxy_host_for_ssh = config.get("proxy_host_for_ssh", "").strip()
+
     total_stages = "3" if deploy_mode == "cascade_sub" else "2"
 
     log("╔════════════════════════════════════════════╗", "info")
@@ -1398,7 +1418,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "CASCADE_CHOICE": "y",
         "NODE_TYPE_CHOICE": "1"
     }
-    ok1, out1 = await _deploy_node(freedom_host, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check)
+
+    ok1, out1 = await _deploy_node(freedom_host_for_ssh, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
@@ -1431,7 +1452,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "NODE_TYPE_CHOICE": "2",
         "FOREIGN_SUB_URL": freedom_sub_url
     }
-    ok2, out2 = await _deploy_node(proxy_host, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check)
+
+    ok2, out2 = await _deploy_node(proxy_host_for_ssh, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
@@ -1497,18 +1519,23 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_admin_user = config.get("sub_admin_user", "").strip()
         sub_admin_password = config.get("sub_admin_password", "").strip()
 
+        resolved_proxy, resolved_freedom, extra_sub_env = resolve_sub_server_urls(
+            proxy_node_sub_base, freedom_node_sub_base,
+        )
+
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
-            "RUSSIAN_SUB_URL": proxy_node_sub_base,
-            "FOREIGN_SUB_URL": freedom_node_sub_base,
+            "RUSSIAN_SUB_URL": resolved_proxy,
+            "FOREIGN_SUB_URL": resolved_freedom,
             "PROXY_CLIENTS": " ".join(proxy_client_names),
             "FREEDOM_CLIENTS": " ".join(freedom_client_names),
             "ADMIN_USER": sub_admin_user,
-            "ADMIN_PASSWORD": sub_admin_password
+            "ADMIN_PASSWORD": sub_admin_password,
+            **extra_sub_env,
         }
 
-        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check)
+        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
         if not ok3:
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}

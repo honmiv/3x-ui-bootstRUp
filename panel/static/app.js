@@ -2491,6 +2491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             payload.freedom_host = document.getElementById('freedom_host').value.trim();
+            payload.freedom_host_for_ssh = payload.freedom_host;
             payload.freedom_port = parseInt(document.getElementById('freedom_port').value) || 22;
             payload.freedom_user = document.getElementById('freedom_user').value.trim() || 'root';
             payload.freedom_password = document.getElementById('freedom_password').value;
@@ -2502,6 +2503,7 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.freedom_client_name = document.getElementById('freedom_client_name').value.trim() || 'local-proxy-node-client';
 
             payload.proxy_host = document.getElementById('proxy_host').value.trim();
+            payload.proxy_host_for_ssh = payload.proxy_host;
             payload.proxy_port = parseInt(document.getElementById('proxy_port').value) || 22;
             payload.proxy_user = document.getElementById('proxy_user').value.trim() || 'root';
             payload.proxy_password = document.getElementById('proxy_password').value;

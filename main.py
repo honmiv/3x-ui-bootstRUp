@@ -286,13 +286,13 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
         payload = {
             "common": pick("deploy_mode", "is_cascade"),
             "freedom_node": pick(
-                "freedom_host", "freedom_port", "freedom_user", "freedom_password",
+                "freedom_host", "freedom_host_for_ssh", "freedom_port", "freedom_user", "freedom_password",
                 "freedom_key", "freedom_auth_type", "freedom_xui_username",
                 "freedom_xui_password", "freedom_sub_secret", "freedom_client_name",
                 "freedom_xui_version"
             ),
             "proxy_node": pick(
-                "proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
+                "proxy_host", "proxy_host_for_ssh", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
                 "proxy_auth_type", "proxy_xui_username", "proxy_xui_password",
                 "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list",
                 "foreign_sub_url", "proxy_xui_version"

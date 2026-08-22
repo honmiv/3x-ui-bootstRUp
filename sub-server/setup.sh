@@ -45,8 +45,13 @@ is_valid_domain() {
 
 reset_working_dir() {
     info "Preparing ./working directory."
+    # Clean up any orphaned containers to ensure a clean slate in case of crash-loops or interrupted deployments
+    docker rm -f subs-server sub-caddy caddy 2>/dev/null || true
+    # Docker Engine might have recreated missing host paths as directories while crash-looping
+    rm -rf "$SCRIPT_DIR/nodes.json" "$SCRIPT_DIR/force-subs.yml" "$SCRIPT_DIR/sub-server.log"
+
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
-        compose down
+        compose down 2>/dev/null || true
     fi
     rm -rf "./working" && mkdir -p "./working"
     success "Working directory ready."
@@ -253,32 +258,15 @@ generate_config() {
     success "Configurations generated in $target_dir"
 }
 
-process_templates() {
-    section "Generating configuration"
-    generate_config "./sub-server/templates" "./working"
-}
+
+source "${SCRIPT_DIR}/process_templates.sh"
 
 start_containers() {
     section "Starting containers"
     compose up -d --build
 }
 
-wait_for_ssl() {
-    local cert_timeout=300 cert_counter=0
-    section "Waiting for SSL certificate"
-
-    while ! curl -s --connect-timeout 2 --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}:443" -o /dev/null; do
-        if [[ "$cert_counter" -ge "$cert_timeout" ]]; then
-            warn "Check logs: docker compose -f $DOCKER_COMPOSE_FILE logs caddy"
-            die "SSL certificate was not obtained within $cert_timeout seconds."
-        fi
-        printf "\r${YELLOW}[..]${NC} Validating SSL certificate %s %s/%s" "$(show_spinner "$cert_counter")" "$cert_counter" "$cert_timeout"
-        sleep 1
-        ((cert_counter++))
-    done
-    echo
-    success "SSL certificate is active."
-}
+source "${SCRIPT_DIR}/wait_for_ssl.sh"
 
 show_spinner() {
     local counter=$1

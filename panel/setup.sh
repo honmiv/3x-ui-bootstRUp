@@ -252,8 +252,10 @@ show_spinner() {
 
 reset_working_dir() {
     info "$MSG_WORKDIR_RESET"
+    # Clean up any orphaned containers to ensure a clean slate in case of crash-loops or interrupted deployments
+    docker rm -f "$PANEL_CONTAINER" caddy nginx-decoy 2>/dev/null || true
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
-        compose down
+        compose down 2>/dev/null || true
     fi
     rm -rf ./working && mkdir -p ./working
     success "$MSG_WORKDIR_READY"
@@ -492,10 +494,7 @@ generate_reality_keys() {
     success "$MSG_KEYS_READY"
 }
 
-process_templates() {
-    section "$MSG_PROCESSING"
-    generate_config "./panel/templates" "./working"
-}
+source "${SCRIPT_DIR}/process_templates.sh"
 
 wait_for_3xui_ready() {
     local target="$1" timeout=60 counter=0
@@ -522,11 +521,7 @@ wait_for_3xui_http() {
     wait_for_3xui_ready "$url" panel_exec curl -fsSL "$url" -o /dev/null
 }
 
-wait_for_3xui_tcp() {
-    local port="$1"
-    local target="tcp://127.0.0.1:${port}"
-    wait_for_3xui_ready "$target" panel_exec bash -c "true >/dev/tcp/127.0.0.1/${port}"
-}
+source "${SCRIPT_DIR}/wait_for_3xui_tcp.sh"
 
 panel_api_request() {
     local endpoint="$1"
@@ -617,128 +612,7 @@ update_xray_routing() {
     if [[ "$NODE_TYPE" == "freedom" ]]; then
         info "$MSG_XRAY_ROUTING_UPDATING"
 
-        local xray_json
-        xray_json=$(jq -c . << 'EOF'
-{
-  "inbounds": [
-    {
-      "listen": "127.0.0.1",
-      "port": 62789,
-      "protocol": "tunnel",
-      "settings": {
-        "rewriteAddress": "127.0.0.1"
-      },
-      "tag": "api"
-    }
-  ],
-  "outbounds": [
-    {
-      "tag": "direct",
-      "protocol": "freedom",
-      "settings": {
-        "domainStrategy": "AsIs",
-        "finalRules": [
-          {
-            "action": "block",
-            "ip": [
-              "geoip:private"
-            ]
-          },
-          {
-            "action": "allow"
-          }
-        ]
-      }
-    },
-    {
-      "tag": "blocked",
-      "protocol": "blackhole",
-      "settings": {}
-    }
-  ],
-  "routing": {
-    "rules": [
-      {
-        "type": "field",
-        "inboundTag": [
-          "api"
-        ],
-        "outboundTag": "api"
-      },
-      {
-        "type": "field",
-        "ip": [
-          "geoip:private"
-        ],
-        "outboundTag": "blocked"
-      },
-      {
-        "type": "field",
-        "enabled": true,
-        "protocol": [
-          "bittorrent"
-        ],
-        "outboundTag": "blocked"
-      },
-      {
-        "type": "field",
-        "enabled": true,
-        "ip": [
-          "geoip:ru"
-        ],
-        "outboundTag": "blocked"
-      },
-      {
-        "type": "field",
-        "enabled": true,
-        "domain": [
-          "geosite:category-ru"
-        ],
-        "outboundTag": "blocked"
-      }
-    ],
-    "domainStrategy": "AsIs"
-  },
-  "log": {
-    "access": "none",
-    "dnsLog": false,
-    "error": "",
-    "loglevel": "warning",
-    "maskAddress": ""
-  },
-  "policy": {
-    "system": {
-      "statsInboundDownlink": true,
-      "statsInboundUplink": true,
-      "statsOutboundDownlink": false,
-      "statsOutboundUplink": false
-    },
-    "levels": {
-      "0": {
-        "statsUserDownlink": true,
-        "statsUserUplink": true
-      }
-    }
-  },
-  "api": {
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService",
-      "RoutingService"
-    ],
-    "tag": "api"
-  },
-  "metrics": {
-    "listen": "127.0.0.1:11111",
-    "tag": "metrics_out"
-  },
-  "stats": {}
-}
-EOF
-)
-        echo "$xray_json" > ./working/xray_template.json
-        compose cp ./working/xray_template.json 3xui:/tmp/xray_template.json
+        compose cp ./working/3x-ui/xray-freedom.json 3xui:/tmp/xray_template.json
 
         panel_api_request "${api_path}/update" "./working/xray_update_result.json" \
             -H 'content-type: application/x-www-form-urlencoded; charset=UTF-8' \
@@ -787,137 +661,10 @@ EOF
             fi
 
             if [[ -z "$sub_outbound_tag" ]]; then
-                sub_outbound_tag="sub1-vless-xhttp-reality-russian-node"
+                sub_outbound_tag="sub1-vless-xhttp-reality-local-proxy-node-client"
             fi
 
-            local xray_proxy_json
-            xray_proxy_json=$(jq -c \
-                --arg xhttp_in "in-${XHTTP_REALITY_INBOUND_PORT}-xhttp" \
-                --arg tcp_in "in-${TCP_REALITY_INBOUND_PORT}-tcp" \
-                --arg sub_tag "$sub_outbound_tag" \
-                '.routing.rules = [
-                  {
-                    "type": "field",
-                    "inboundTag": ["api"],
-                    "outboundTag": "api"
-                  },
-                  {
-                    "type": "field",
-                    "ip": ["geoip:private"],
-                    "outboundTag": "blocked"
-                  },
-                  {
-                    "type": "field",
-                    "enabled": true,
-                    "protocol": ["bittorrent"],
-                    "outboundTag": "blocked"
-                  },
-                  {
-                    "type": "field",
-                    "enabled": true,
-                    "ip": ["geoip:ru"],
-                    "outboundTag": "direct"
-                  },
-                  {
-                    "type": "field",
-                    "enabled": true,
-                    "domain": ["geosite:category-ru"],
-                    "outboundTag": "direct"
-                  },
-                  {
-                    "type": "field",
-                    "enabled": true,
-                    "inboundTag": [$tcp_in],
-                    "outboundTag": $sub_tag
-                  },
-                  {
-                    "type": "field",
-                    "enabled": true,
-                    "inboundTag": [$xhttp_in],
-                    "outboundTag": $sub_tag
-                  }
-                ]' << 'EOF'
-{
-  "inbounds": [
-    {
-      "listen": "127.0.0.1",
-      "port": 62789,
-      "protocol": "tunnel",
-      "settings": {
-        "rewriteAddress": "127.0.0.1"
-      },
-      "tag": "api"
-    }
-  ],
-  "outbounds": [
-    {
-      "tag": "direct",
-      "protocol": "freedom",
-      "settings": {
-        "domainStrategy": "AsIs",
-        "finalRules": [
-          {
-            "action": "block",
-            "ip": [
-              "geoip:private"
-            ]
-          },
-          {
-            "action": "allow"
-          }
-        ]
-      }
-    },
-    {
-      "tag": "blocked",
-      "protocol": "blackhole",
-      "settings": {}
-    }
-  ],
-  "routing": {
-    "rules": [],
-    "domainStrategy": "AsIs"
-  },
-  "log": {
-    "access": "none",
-    "dnsLog": false,
-    "error": "",
-    "loglevel": "warning",
-    "maskAddress": ""
-  },
-  "policy": {
-    "system": {
-      "statsInboundDownlink": true,
-      "statsInboundUplink": true,
-      "statsOutboundDownlink": false,
-      "statsOutboundUplink": false
-    },
-    "levels": {
-      "0": {
-        "statsUserDownlink": true,
-        "statsUserUplink": true
-      }
-    }
-  },
-  "api": {
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService",
-      "RoutingService"
-    ],
-    "tag": "api"
-  },
-  "metrics": {
-    "listen": "127.0.0.1:11111",
-    "tag": "metrics_out"
-  },
-  "stats": {}
-}
-EOF
-            )
-
-            echo "$xray_proxy_json" > ./working/xray_template.json
+            sed "s/{{SUB_OUTBOUND_TAG}}/${sub_outbound_tag}/g" ./working/3x-ui/xray-proxy.json > ./working/xray_template.json
             compose cp ./working/xray_template.json 3xui:/tmp/xray_template.json
 
             panel_api_request "${api_path}/update" "./working/xray_update_result.json" \
@@ -944,7 +691,7 @@ EOF
 
 start_container() {
     local service="$1"
-    compose down "$service"
+    compose rm -sf "$service" 2>/dev/null
     compose up -d "$service"
 }
 
@@ -955,27 +702,10 @@ start_3xui() {
 
 start_caddy() {
     section "$MSG_FINAL_LAUNCH"
-    start_container "caddy"
+    compose up -d
 }
 
-wait_for_ssl() {
-    local cert_timeout=300 cert_counter=0
-    section "$MSG_WAIT_SSL"
-
-    while ! curl -s --connect-timeout 2 --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}:443" -o /dev/null; do
-        if [[ "$cert_counter" -ge "$cert_timeout" ]]; then
-            warn "$MSG_SSL_LOGS_HINT"
-            die "$(printf "$MSG_SSL_TIMEOUT" "$cert_timeout")"
-        fi
-        printf "\r${YELLOW}${MSG_SSL_VALIDATING}${NC}" "$(show_spinner "$cert_counter")" "$cert_counter" "$cert_timeout"
-        sleep 1
-        ((cert_counter++))
-    done
-
-    printf "\r\033[K"
-    success "$(printf "$MSG_SSL_SUCCESS" "$cert_counter")"
-    echo
-}
+source "${SCRIPT_DIR}/wait_for_ssl.sh"
 
 panel_login() {
     local enc_user enc_pass
@@ -1074,30 +804,7 @@ add_interactive_client() {
 
 
 
-build_sub_and_connect_urls() {
-    local client_name_enc
-    client_name_enc=$(url_encode "$CLIENT_EMAIL")
-
-    CLIENT_SUBSCRIPTION_URL="https://${DOMAIN}/${XUI_SUB_PATH}/${client_name_enc}"
-
-    info "$MSG_SUB_FETCHING"
-
-    local raw_sub_data
-    raw_sub_data=$(curl -sL -k -H "User-Agent: go-http-client/1.1" "$CLIENT_SUBSCRIPTION_URL" | base64 -d 2>/dev/null)
-
-    if [[ -z "$raw_sub_data" ]]; then
-        die "$MSG_SUB_FETCH_ERR"
-    fi
-
-    CLIENT_VLESS_TCP_URL=$(echo "$raw_sub_data" | grep "type=tcp" || true)
-    CLIENT_VLESS_XHTTP_URL=$(echo "$raw_sub_data" | grep "type=xhttp" || true)
-
-    if [[ -z "$CLIENT_VLESS_TCP_URL" && -z "$CLIENT_VLESS_XHTTP_URL" ]]; then
-        die "$MSG_SUB_EXTRACT_ERR"
-    fi
-
-    success "$MSG_SUB_FETCH_SUCCESS"
-}
+source "${SCRIPT_DIR}/build_sub_and_connect_urls.sh"
 
 install_ssh_login_notice() {
     cat > /etc/profile.d/3x-ui.sh <<EOF

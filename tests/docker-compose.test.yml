@@ -1,0 +1,223 @@
+services:
+  # ============================================================================
+  # Shared Destination & Traffic Echo Target
+  # ============================================================================
+  echo-server:
+    image: python:3.12-alpine
+    container_name: echo-server
+    hostname: echo.test
+    networks:
+      testnet:
+        aliases:
+          - echo.test
+          - ru.test
+    ports:
+      - "80:80"
+    volumes:
+      - ./vpn/echo_server.py:/app/echo_server.py:ro
+    working_dir: /app
+    command: ["python3", "echo_server.py"]
+
+  # ============================================================================
+  # STACK 1: Freedom Only (Single Node)
+  # ============================================================================
+  vps-freedom-only:
+    build:
+      context: .
+      dockerfile: Dockerfile.vps
+    image: test-vps:latest
+    container_name: vps-freedom-only
+    hostname: freedom-only.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - freedom-only.test
+    ports:
+      - "2221:22"
+      - "8441:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-freedom-only-docker:/var/lib/docker
+
+  # ============================================================================
+  # STACK 2: Proxy Only (+ Foreign Backend Node)
+  # ============================================================================
+  vps-proxy-foreign:
+    image: test-vps:latest
+    container_name: vps-proxy-foreign
+    hostname: proxy-foreign.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - proxy-foreign.test
+    ports:
+      - "2225:22"
+      - "8445:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-proxy-foreign-docker:/var/lib/docker
+
+  vps-proxy-only:
+    image: test-vps:latest
+    container_name: vps-proxy-only
+    hostname: proxy-only.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - proxy-only.test
+    ports:
+      - "2222:22"
+      - "8442:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-proxy-only-docker:/var/lib/docker
+
+  # ============================================================================
+  # STACK 3: Sub Server Only (+ Foreign Node)
+  # ============================================================================
+  vps-sub-foreign:
+    image: test-vps:latest
+    container_name: vps-sub-foreign
+    hostname: sub-foreign.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - sub-foreign.test
+    ports:
+      - "2226:22"
+      - "8446:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-sub-foreign-docker:/var/lib/docker
+
+  vps-sub-only:
+    image: test-vps:latest
+    container_name: vps-sub-only
+    hostname: sub-only.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - sub-only.test
+    ports:
+      - "2223:22"
+      - "8555:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-sub-only-docker:/var/lib/docker
+
+  # ============================================================================
+  # STACK 4: Cascade (2-Stage: Freedom + Proxy)
+  # ============================================================================
+  vps-cascade-freedom:
+    image: test-vps:latest
+    container_name: vps-cascade-freedom
+    hostname: cascade-freedom.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - cascade-freedom.test
+    ports:
+      - "2231:22"
+      - "8451:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-cascade-freedom-docker:/var/lib/docker
+
+  vps-cascade-proxy:
+    image: test-vps:latest
+    container_name: vps-cascade-proxy
+    hostname: cascade-proxy.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - cascade-proxy.test
+    ports:
+      - "2232:22"
+      - "8452:443"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-cascade-proxy-docker:/var/lib/docker
+
+  # ============================================================================
+  # STACK 5: Cascade + Sub (3-Stage: Freedom + Proxy + Sub-Server)
+  # ============================================================================
+  vps-cascadesub-freedom:
+    image: test-vps:latest
+    container_name: vps-cascadesub-freedom
+    hostname: cascadesub-freedom.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - cascadesub-freedom.test
+    ports:
+      - "2241:22"
+      - "8081:80"
+      - "8461:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-cascadesub-freedom-docker:/var/lib/docker
+
+  vps-cascadesub-proxy:
+    image: test-vps:latest
+    container_name: vps-cascadesub-proxy
+    hostname: cascadesub-proxy.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - cascadesub-proxy.test
+    ports:
+      - "2242:22"
+      - "8082:80"
+      - "8462:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-cascadesub-proxy-docker:/var/lib/docker
+
+  vps-cascadesub-sub:
+    image: test-vps:latest
+    container_name: vps-cascadesub-sub
+    hostname: cascadesub-sub.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - cascadesub-sub.test
+    ports:
+      - "2243:22"
+      - "8083:80"
+      - "8463:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-cascadesub-sub-docker:/var/lib/docker
+
+volumes:
+  vps-freedom-only-docker:
+  vps-proxy-foreign-docker:
+  vps-proxy-only-docker:
+  vps-sub-foreign-docker:
+  vps-sub-only-docker:
+  vps-cascade-freedom-docker:
+  vps-cascade-proxy-docker:
+  vps-cascadesub-freedom-docker:
+  vps-cascadesub-proxy-docker:
+  vps-cascadesub-sub-docker:
+
+networks:
+  testnet:
+    name: testnet
+    driver: bridge

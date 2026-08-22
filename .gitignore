@@ -13,3 +13,5 @@ sub-server.log
 .python_env
 venv
 .DS_Store
+tests/.cache/
+*.tartests/working/

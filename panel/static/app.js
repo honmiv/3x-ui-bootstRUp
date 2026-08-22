@@ -25,14 +25,14 @@ function showToast(message, type = 'info', duration = 3500) {
     toast.className = `toast toast-${type}`;
 
     const icons = {
-        success: '✓',
-        error: '✕',
-        danger: '✕',
-        warning: '⚠️',
-        info: 'ℹ️'
+        success: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polyline points="20 6 9 17 4 12"/></svg>',
+        error: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        danger: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        warning: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        info: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
     };
 
-    const iconStr = icons[type] || 'ℹ️';
+    const iconStr = icons[type] || '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
 
     toast.innerHTML = `
         <div class="toast-icon">${iconStr}</div>
@@ -91,13 +91,13 @@ function showConfirm(message, title = 'Подтверждение', options = {}
             cancelText = 'Отмена',
             danger = false,
             type = danger ? 'danger' : 'info',
-            icon = danger ? '⚠️' : (options.icon || '❓'),
+            icon = danger ? '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : (options.icon || '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'),
             hideCancel = false
         } = options;
 
         titleEl.textContent = title;
-        msgEl.textContent = message;
-        iconEl.textContent = icon;
+        msgEl.innerHTML = message;
+        iconEl.innerHTML = icon;
         confirmBtn.textContent = confirmText;
         cancelBtn.textContent = cancelText;
 
@@ -154,7 +154,7 @@ function showAlert(message, title = 'Уведомление', type = 'info') {
         confirmText: 'ОК',
         hideCancel: true,
         type: type,
-        icon: type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ️')
+        icon: type === 'success' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polyline points="20 6 9 17 4 12"/></svg>' : (type === 'error' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>')
     });
 }
 
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropdown.innerHTML = '';
 
                 if (!files || files.length === 0) {
-                    selectedSpan.textContent = `Архивы бэкапов не найдены в ./${folder}/`;
+                    selectedSpan.innerHTML = `Архивы бэкапов не найдены в ./${folder}/`;
                     dropdown.innerHTML = `<div class="custom-select-option text-muted" style="padding:10px; color:#94a3b8;">Архивы не найдены в ./${folder}/</div>`;
                     return;
                 }
@@ -286,10 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const div = document.createElement('div');
                     div.className = 'custom-select-option';
                     div.style.cssText = 'padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;';
-                    div.innerHTML = `<div><strong>📦 ${f.name}</strong><br><small style="color:#94a3b8">${f.mtime}</small></div><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${f.size}</span>`;
+                    div.innerHTML = `<div><strong><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${f.name}</strong><br><small style="color:#94a3b8">${f.mtime}</small></div><span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${f.size}</span>`;
                     div.addEventListener('click', () => {
                         select.value = f.name;
-                        selectedSpan.textContent = `${f.name} (${f.size})`;
+                        selectedSpan.innerHTML = `${f.name} (${f.size})`;
                         dropdown.classList.add('hidden');
                         document.querySelectorAll(`#${dropdownId} .custom-select-option`).forEach(el => el.classList.remove('selected'));
                         div.classList.add('selected');
@@ -369,13 +369,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyToClipboard = (text, btnEl) => {
         navigator.clipboard.writeText(text).then(() => {
             const origText = btnEl.textContent;
-            btnEl.textContent = '✅';
+            btnEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg>';
             setTimeout(() => { btnEl.textContent = origText; }, 2000);
         }).catch(() => {
             const btnCopyLogs = document.getElementById('btnCopyLogs');
             if (btnCopyLogs) {
-                btnCopyLogs.textContent = '❌ Ошибка';
-                setTimeout(() => { btnCopyLogs.textContent = '📋 Копировать лог'; }, 2000);
+                btnCopyLogs.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка';
+                setTimeout(() => { btnCopyLogs.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать лог'; }, 2000);
             }
         });
     };
@@ -413,20 +413,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">1. Получение подписки</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Запрос</span>
                             <span class="arrow-label">подписки</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                             <span class="node-title">VPS Сервер</span>
                             <span class="node-desc">3X-UI Панель</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                     </div>
                 </div>
@@ -434,28 +434,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">2. Обход блокировок</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
                             <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                             <span class="node-title">VPS Сервер</span>
                             <span class="node-desc">3X-UI Панель</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Выход</span>
                             <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🌍</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                             <span class="node-title">Свободный Web</span>
                         </div>
                     </div>
@@ -467,38 +467,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
                             <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                             <span class="node-title">Proxy Node</span>
                             <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS XHTTP</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🕊️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
-                            <span class="topology-badge topology-badge-foreign">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-foreign"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Выход</span>
                             <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🌍</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                             <span class="node-title">Свободный Web</span>
                         </div>
                     </div>
@@ -510,20 +510,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">1. Получение подписки (Прямо с Freedom Node)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Запрос</span>
                             <span class="arrow-label">подписки</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🕊️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Прямое подключение</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                     </div>
                 </div>
@@ -531,28 +531,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">2. Прямое подключение через зарубежный сервер</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
                             <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🕊️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Один сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Выход</span>
                             <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🌍</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                             <span class="node-title">Свободный Web</span>
                         </div>
                     </div>
@@ -564,38 +564,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
                             <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                             <span class="node-title">Proxy Node</span>
                             <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS XHTTP</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🕊️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Выход</span>
                             <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🌍</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                             <span class="node-title">Свободный Web</span>
                         </div>
                     </div>
@@ -605,17 +605,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const subTitle = mode === 'cascade_sub' ? '1. Получение единой подписки (Сервер подписок)' : '1. Получение подписки (Прямо с нод)';
             const subNodeHtml = mode === 'cascade_sub' ? `
                 <div class="topology-node configurable">
-                    <span class="node-icon">📡</span>
+                    <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                     <span class="node-title">Сервер подписок</span>
                     <span class="node-desc">Caddy Sub-Server</span>
-                    <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                    <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                 </div>
             ` : `
                 <div class="topology-node configurable">
-                    <span class="node-icon">🖧</span>
+                    <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                     <span class="node-title">Proxy Node</span>
                     <span class="node-desc">Входной сервер</span>
-                    <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                    <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                 </div>
             `;
 
@@ -624,14 +624,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">${subTitle}</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Запрос</span>
                             <span class="arrow-label">подписки</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         ${subNodeHtml}
                     </div>
@@ -640,38 +640,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">2. Каскадная маршрутизация (Двойной туннель)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
                             <span class="node-desc">С подпиской</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖧</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
                             <span class="node-title">Proxy Node</span>
                             <span class="node-desc">Входной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🇷🇺</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">VLESS XHTTP</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🕊️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
                             <span class="node-title">Freedom Node</span>
                             <span class="node-desc">Выходной сервер</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Зарубежье</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Выход</span>
                             <span class="arrow-label">в сеть</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">🌍</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                             <span class="node-title">Свободный Web</span>
                         </div>
                     </div>
@@ -683,27 +683,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Автономный Сервер подписок (Caddy Sub-Server)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">📱</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
                             <span class="node-title">Клиент</span>
-                            <span class="topology-badge topology-badge-ru">🇷🇺</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Запрос</span>
                             <span class="arrow-label">подписки</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">📡</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="node-title">Сервер подписок</span>
                             <span class="node-desc">Caddy Sub-Server</span>
-                            <span class="topology-badge topology-badge-configurable">🌐 Caddy</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Caddy</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Проксирование</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node">
-                            <span class="node-icon">⚙️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                             <span class="node-title">Внешние ноды</span>
                             <span class="node-desc">Существующие 3X-UI</span>
                         </div>
@@ -716,17 +716,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Создание бэкапа удаленного сервера</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Упаковка &</span>
                             <span class="arrow-label">SCP Скачивание</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">🖥️</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Существующий VPS</span>
                             <span class="node-desc">3X-UI + Docker + Caddy</span>
                         </div>
@@ -739,14 +739,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Восстановление конфигурации из бэкапа</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Загрузка &</span>
                             <span class="arrow-label">Docker Compose</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
                             <span class="node-icon">${rocketSvg('topology-rocket')}</span>
@@ -763,14 +763,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Обновление 3X-UI панели на сервере</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Бэкап и</span>
                             <span class="arrow-label">обновление</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
                             <span class="node-icon">${rocketSvg('topology-rocket')}</span>
@@ -790,17 +790,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">${subStageTitle}</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">${mode === 'update_sub' ? 'Бэкап & файлы' : 'SSH команда'}</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">${subArrowFirst}</span>
                             <span class="arrow-label">${subArrowSecond}</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">📡</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="node-title">Сервер подписок</span>
                             <span class="node-desc">subs-server + sub-caddy</span>
                         </div>
@@ -813,17 +813,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Бэкап конфигурации Сервера подписок</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Упаковка &</span>
                             <span class="arrow-label">SCP Скачивание</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">📡</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="node-title">Сервер подписок</span>
                             <span class="node-desc">nodes.json + Caddyfile</span>
                         </div>
@@ -836,17 +836,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="topology-stage-title">Восстановление Сервера подписок из бэкапа</div>
                     <div class="topology-flow">
                         <div class="topology-node">
-                            <span class="node-icon">💻</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                             <span class="node-title">Локальный ПК</span>
                             <span class="node-desc">./backups_panel/backup.tar.gz</span>
                         </div>
                         <div class="topology-arrow">
                             <span class="arrow-label">Загрузка &</span>
                             <span class="arrow-label">Docker Compose</span>
-                            <span>➔</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
                         </div>
                         <div class="topology-node configurable">
-                            <span class="node-icon">📡</span>
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="node-title">Сервер подписок</span>
                             <span class="node-desc">Восстановленная конфигурация</span>
                         </div>
@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateNodeSection.classList.remove('hidden');
                 const titleEl = updateNodeSection.querySelector('.section-title');
                 if (titleEl) {
-                    if (mode === 'update_3xui') titleEl.textContent = 'Сервер для обновления 3X-UI панели';
+                    if (mode === 'update_3xui') titleEl.innerHTML = 'Сервер для обновления 3X-UI панели';
                     else if (mode === 'restart_panel') titleEl.textContent = 'Сервер для перезапуска 3X-UI панели';
                     else if (mode === 'restart_server') titleEl.textContent = 'Сервер для перезагрузки';
                 }
@@ -1325,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetSSHValidation = () => {
         btnNext1.classList.add('hidden');
         testResult.className = 'test-result';
-        testResult.textContent = '';
+        testResult.innerHTML = '';
         saveCurrentConfig();
     };
 
@@ -1573,10 +1573,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!input) return;
             if (input.type === 'password') {
                 input.type = 'text';
-                btn.textContent = '🙈';
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
             } else {
                 input.type = 'password';
-                btn.textContent = '👁️';
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
             }
         });
     });
@@ -1745,12 +1745,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен / IP адрес сервера';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен / IP адрес сервера';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к ${host}:${port}...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к ${host}:${port}...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1759,11 +1759,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к ${host}:${port}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к ${host}:${port}`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else if (mode === 'sub_only') {
                     const host = document.getElementById('sub_vps_host').value.trim();
@@ -1774,12 +1774,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен Сервера подписок';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен Сервера подписок';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${host}:${port})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Серверу подписок (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1788,11 +1788,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к Серверу подписок (${host}:${port})`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к Серверу подписок (${host}:${port})`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else if (mode === 'backup') {
                     const host = document.getElementById('backup_vps_host').value.trim();
@@ -1803,12 +1803,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен / IP адрес сервера для бэкапа';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен / IP адрес сервера для бэкапа';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к серверу бэкапа (${host}:${port})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к серверу бэкапа (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1817,11 +1817,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к серверу (${host}:${port})`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к серверу (${host}:${port})`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
                     const host = document.getElementById('update_vps_host').value.trim();
@@ -1832,12 +1832,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен / IP адрес сервера';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен / IP адрес сервера';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к серверу (${host}:${port})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к серверу (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1846,11 +1846,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к серверу (${host}:${port})`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к серверу (${host}:${port})`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
                     const host = document.getElementById('sub_vps_host').value.trim();
@@ -1861,20 +1861,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен Сервера подписок';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен Сервера подписок';
                         return;
                     }
                     if (mode === 'rollback_sub') {
                         const backup_file = document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '';
                         if (!backup_file) {
                             testResult.className = 'test-result error';
-                            testResult.textContent = '❌ Выберите архив бэкапа из списка';
+                            testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Выберите архив бэкапа из списка';
                             return;
                         }
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${host}:${port})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Серверу подписок (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1883,11 +1883,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к Серверу подписок (${host}:${port})`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к Серверу подписок (${host}:${port})`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else if (mode === 'recovery') {
                     const host = document.getElementById('recovery_vps_host').value.trim();
@@ -1899,17 +1899,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!host) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите домен / IP адрес нового сервера';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен / IP адрес нового сервера';
                         return;
                     }
                     if (!backup_file) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Выберите архив бэкапа из списка';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Выберите архив бэкапа из списка';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к целевому серверу (${host}:${port})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к целевому серверу (${host}:${port})...`;
                     const resp = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1918,11 +1918,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await resp.json();
                     if (res.ok) {
                         testResult.className = 'test-result success';
-                        testResult.textContent = `✅ Успешное подключение к целевому серверу (${host}:${port})`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешное подключение к целевому серверу (${host}:${port})`;
                         btnNext1.classList.remove('hidden');
                     } else {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ ${res.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
                 } else {
                     const fHost = document.getElementById('freedom_host').value.trim();
@@ -1939,12 +1939,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!fHost || !pHost) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = '❌ Укажите хосты для обоих серверов (Freedom Node и Proxy Node)';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите хосты для обоих серверов (Freedom Node и Proxy Node)';
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к Freedom Node (${fHost}:${fPort})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Freedom Node (${fHost}:${fPort})...`;
                     const r1 = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1954,12 +1954,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!res1.ok) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ Ошибка подключения к Freedom Node (${fHost}): ${res1.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка подключения к Freedom Node (${fHost}): ${res1.message}`;
                         return;
                     }
 
                     testResult.className = 'test-result info';
-                    testResult.textContent = `⏳ Проверяем подключение к Proxy Node (${pHost}:${pPort})...`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Proxy Node (${pHost}:${pPort})...`;
                     const r2 = await fetch('/api/ssh/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1969,7 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!res2.ok) {
                         testResult.className = 'test-result error';
-                        testResult.textContent = `❌ Ошибка подключения к Proxy Node (${pHost}): ${res2.message}`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка подключения к Proxy Node (${pHost}): ${res2.message}`;
                         return;
                     }
 
@@ -1981,11 +1981,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const sKey = document.getElementById('sub_vps_key').value;
                         if (!sHost) {
                             testResult.className = 'test-result error';
-                            testResult.textContent = '❌ Укажите домен Сервера подписок';
+                            testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите домен Сервера подписок';
                             return;
                         }
                         testResult.className = 'test-result info';
-                        testResult.textContent = `⏳ Проверяем подключение к Серверу подписок (${sHost}:${sPort})...`;
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Серверу подписок (${sHost}:${sPort})...`;
                         const r3 = await fetch('/api/ssh/test', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -1994,18 +1994,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res3 = await r3.json();
                         if (!res3.ok) {
                             testResult.className = 'test-result error';
-                            testResult.textContent = `❌ Ошибка подключения к Серверу подписок (${sHost}): ${res3.message}`;
+                            testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка подключения к Серверу подписок (${sHost}): ${res3.message}`;
                             return;
                         }
                     }
 
                     testResult.className = 'test-result success';
-                    testResult.textContent = `✅ Успешная проверка всех выбранных серверов!`;
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешная проверка всех выбранных серверов!`;
                     btnNext1.classList.remove('hidden');
                 }
             } catch (err) {
                 testResult.className = 'test-result error';
-                testResult.textContent = `❌ Ошибка запроса: ${err.message}`;
+                testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка запроса: ${err.message}`;
             } finally {
                 btnTestSSH.disabled = false;
                 btnTestSSH.innerHTML = origBtnHtml;
@@ -2150,7 +2150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalSec = Math.floor(elapsedMs / 1000);
             const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
             const secs = String(totalSec % 60).padStart(2, '0');
-            if (statusTimer) statusTimer.textContent = `⏱️ ${mins}:${secs}`;
+            if (statusTimer) statusTimer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${mins}:${secs}`;
         }, 1000);
     };
 
@@ -2162,7 +2162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStopDeploy.addEventListener('click', async () => {
             if (!await showConfirm('Вы уверены, что хотите остановить процесс развертывания?', 'Остановка развертывания', { confirmText: 'Да, остановить', danger: true })) return;
             btnStopDeploy.disabled = true;
-            btnStopDeploy.textContent = '⏳ Остановка...';
+            btnStopDeploy.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Остановка...';
             appendLog('[CANCEL] Запрос остановки процесса пользователем...', 'warning');
 
             try {
@@ -2171,12 +2171,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.ok) {
                     showToast('Не удалось остановить процесс: ' + (data.message || 'Ошибка'), 'error');
                     btnStopDeploy.disabled = false;
-                    btnStopDeploy.textContent = '🛑 Остановить развертывание';
+                    btnStopDeploy.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Остановить развертывание';
                 }
             } catch (e) {
                 showToast('Ошибка отправки запроса на остановку: ' + e.message, 'error');
                 btnStopDeploy.disabled = false;
-                btnStopDeploy.textContent = '🛑 Остановить развертывание';
+                btnStopDeploy.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Остановить развертывание';
             }
         });
     }
@@ -2620,7 +2620,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (btnStopDeploy) {
                     btnStopDeploy.classList.add('hidden');
                     btnStopDeploy.disabled = false;
-                    btnStopDeploy.textContent = '🛑 Остановить развертывание';
+                    btnStopDeploy.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Остановить развертывание';
                 }
                 // Hide progress indicator
                 const progressContainer = document.getElementById('deployProgressContainer');
@@ -2649,6 +2649,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const summaryCard = document.getElementById('summaryCard');
                 const panelsContainer = document.getElementById('panelsContainer');
                 summaryCard.classList.remove('hidden');
+                
+                const summaryCardHeader = document.getElementById('summaryCardHeader');
+                if (summaryCardHeader) {
+                    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+                    if (mode === 'backup' || mode === 'backup_sub') {
+                        summaryCardHeader.innerHTML = `${iconSvg} Бэкап успешно создан!`;
+                    } else if (mode === 'recovery' || mode === 'rollback_sub') {
+                        summaryCardHeader.innerHTML = `${iconSvg} Восстановление завершено!`;
+                    } else if (mode === 'restart_panel' || mode === 'restart_server' || mode === 'restart_sub') {
+                        summaryCardHeader.innerHTML = `${iconSvg} Перезапуск выполнен!`;
+                    } else if (mode === 'update_3xui' || mode === 'update_sub') {
+                        summaryCardHeader.innerHTML = `${iconSvg} Обновление завершено!`;
+                    } else {
+                        summaryCardHeader.innerHTML = `${iconSvg} Установка успешно завершена!`;
+                    }
+                }
+                
                 panelsContainer.innerHTML = '';
 
                 const result = data.result || {};
@@ -2677,7 +2694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="summary-label">${escUrlLabel}</span>
                                 <div class="val-code-wrapper">
                                     <a href="${escRealLink}" target="_blank" class="val-code link">${escUrl}</a>
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUrl}">📋 Copy</button>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUrl}"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                                 </div>
                             </div>` : ''}
                             ${user ? `
@@ -2685,7 +2702,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="summary-label">${escUserLabel}</span>
                                 <div class="val-code-wrapper">
                                     <span class="val-code">${escUser}</span>
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUser}">📋 Copy</button>
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escUser}"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                                 </div>
                             </div>` : ''}
                             ${pass ? `
@@ -2693,8 +2710,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="summary-label">${escPassLabel}</span>
                                 <div class="val-code-wrapper">
                                     ${passSecret ? `<span class="val-code secret-val" data-secret="${escPass}">••••••••</span>` : `<span class="val-code">${escPass}</span>`}
-                                    ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret">👁️</button>` : ''}
-                                    <button type="button" class="btn-sm btn-copy" data-copy="${escPass}">📋 Copy</button>
+                                    ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>` : ''}
+                                    <button type="button" class="btn-sm btn-copy" data-copy="${escPass}"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                                 </div>
                             </div>` : ''}
                         </div>
@@ -2710,10 +2727,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             const realSecret = valSpan.getAttribute('data-secret');
                             if (valSpan.textContent === '••••••••') {
                                 valSpan.textContent = realSecret;
-                                btn.textContent = '🙈';
+                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
                             } else {
-                                valSpan.textContent = '••••••••';
-                                btn.textContent = '👁️';
+                                valSpan.innerHTML = '••••••••';
+                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
                             }
                         };
                     });
@@ -2725,7 +2742,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bHost = result.backup_host || cfg.backup_vps_host || '';
                     const bName = result.backup_name || cfg.backup_name || '';
                     const bSize = result.file_size || '';
-                    panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '📦', `Локальный архив: ./backups_panel/${bName}`, bHost, bSize, 'Сервер', 'Размер архива', false));
+                    panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', `Локальный архив: ./backups_panel/${bName}`, bHost, bSize, 'Сервер', 'Размер архива', false));
                     return;
                 }
 
@@ -2733,7 +2750,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rHost = result.recovery_host || cfg.recovery_vps_host || '';
                     const bFile = result.backup_file || cfg.recovery_backup_file || '';
                     const xuiUrl = result.xui_url || `https://${rHost}/`;
-                    panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '🔄', xuiUrl, rHost, bFile, 'Новый домен', 'Архив', false));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>', xuiUrl, rHost, bFile, 'Новый домен', 'Архив', false));
                     return;
                 }
 
@@ -2742,7 +2759,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
-                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Панель 3X-UI перезапущена, всё готово!</span></div>';
+                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span><span class="panel-title-text">Панель 3X-UI перезапущена, всё готово!</span></div>';
                     panelsContainer.appendChild(done);
                     return;
                 }
@@ -2752,7 +2769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
-                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon">🔄</span><span class="panel-title-text">Сервер перезагружается, всё готово!</span></div>';
+                    done.innerHTML = '<div class="panel-info-header"><span class="panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span><span class="panel-title-text">Сервер перезагружается, всё готово!</span></div>';
                     panelsContainer.appendChild(done);
                     return;
                 }
@@ -2761,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const uHost = result.update_host || cfg.update_vps_host || '';
                     const ver = result.xui_version || cfg.update_xui_version || '3.6.0';
                     const xuiUrl = result.xui_url || `https://${uHost}/`;
-                    panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '⬆️', xuiUrl, uHost, ver, 'Сервер', 'Версия 3X-UI', false));
+                    panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>', xuiUrl, uHost, ver, 'Сервер', 'Версия 3X-UI', false));
                     return;
                 }
 
@@ -2773,7 +2790,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const backupInfo = mode === 'update_sub' && result.pre_update_backup
                         ? `<div class="panel-info-line">Pre-update backup: <code>${result.pre_update_backup}</code></div>`
                         : '';
-                    done.innerHTML = `<div class="panel-info-header"><span class="panel-icon">${mode === 'update_sub' ? '⬆️' : '🔄'}</span><span class="panel-title-text">${mode === 'update_sub' ? 'Сервер подписок обновлён, клиенты и ноды сохранены!' : 'Сервер подписок перезапущен, всё готово!'}</span></div>${backupInfo}`;
+                    done.innerHTML = `<div class="panel-info-header"><span class="panel-icon">${mode === 'update_sub' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>'}</span><span class="panel-title-text">${mode === 'update_sub' ? 'Сервер подписок обновлён, клиенты и ноды сохранены!' : 'Сервер подписок перезапущен, всё готово!'}</span></div>${backupInfo}`;
                     panelsContainer.appendChild(done);
                     return;
                 }
@@ -2784,7 +2801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bHost = result.sub_host || cfg.sub_vps_host || '';
                     const bName = result.backup_name || '';
                     const bSize = result.file_size || '';
-                    panelsContainer.appendChild(renderPanelBlock('Бэкап Сервера подписок успешно создан!', '📦', `Локальный архив: ./backups_sub_server/${bName}`, bHost, bSize, 'Сервер подписок', 'Размер архива', false, 'Локальный архив'));
+                    panelsContainer.appendChild(renderPanelBlock('Бэкап Сервера подписок успешно создан!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', `Локальный архив: ./backups_sub_server/${bName}`, bHost, bSize, 'Сервер подписок', 'Размер архива', false, 'Локальный архив'));
                     return;
                 }
 
@@ -2794,7 +2811,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rHost = result.sub_host || cfg.sub_vps_host || '';
                     const bFile = result.backup_file || cfg.rollback_sub_backup_file || '';
                     const subBaseUrl = result.sub_base_url || '';
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок восстановлен из бэкапа!', '🔄', subBaseUrl, rHost, bFile, 'Сервер подписок', 'Архив', false, 'Адрес подписок (URL)'));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок восстановлен из бэкапа!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>', subBaseUrl, rHost, bFile, 'Сервер подписок', 'Архив', false, 'Адрес подписок (URL)'));
                     return;
                 }
 
@@ -2802,27 +2819,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                     const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
                     const subPass = result.sub_admin_password || 'admin';
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
                     const freedomUser = result.freedom_username || cfg.freedom_xui_username || 'admin';
                     const freedomPass = result.freedom_password || cfg.freedom_xui_password || 'admin';
 
-                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '🕊️', freedomUrl, freedomUser, freedomPass));
+                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>', freedomUrl, freedomUser, freedomPass));
 
                     const proxyHost = result.domain || cfg.proxy_host || 'Proxy Node';
                     const proxyUrl = result.xui_url || `https://${proxyHost}/`;
                     const proxyUser = result.xui_username || cfg.proxy_xui_username || 'admin';
                     const proxyPass = result.xui_password || cfg.proxy_xui_password || 'admin';
 
-                    panelsContainer.appendChild(renderPanelBlock('2. Панель управления Proxy Node (Входной сервер)', '🛡️', proxyUrl, proxyUser, proxyPass));
+                    panelsContainer.appendChild(renderPanelBlock('2. Панель управления Proxy Node (Входной сервер)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', proxyUrl, proxyUser, proxyPass));
 
                     if (mode === 'cascade_sub') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                         const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
                         const subPass = result.sub_admin_password || 'admin';
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '📡', `${subBaseUrl}/<username>`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';
@@ -2831,13 +2848,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const xuiPass = result.xui_password || cfg.xui_password || 'admin';
                     
                     let panelTitle = 'Панель управления 3X-UI';
-                    let panelIcon = '🔑';
+                    let panelIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>';
                     if (mode === 'proxy_only') {
                         panelTitle = 'Панель управления Proxy Node';
-                        panelIcon = '🛡️';
+                        panelIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
                     } else if (mode === 'freedom_only' || mode === 'freedom_component') {
                         panelTitle = 'Панель управления Freedom Node';
-                        panelIcon = '🕊️';
+                        panelIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>';
                     }
 
                     panelsContainer.appendChild(renderPanelBlock(panelTitle, panelIcon, xuiUrl, xuiUser, xuiPass));
@@ -2860,7 +2877,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const groupTag = client.group ? ` (${escapeHtml(client.group)})` : '';
                     let html = `
                         <div class="client-header">
-                            <span class="client-name-badge">👤 Клиент: ${escapeHtml(client.name || '')}${groupTag}</span>
+                            <span class="client-name-badge"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Клиент: ${escapeHtml(client.name || '')}${groupTag}</span>
                         </div>
                         <div class="client-link-group">
                     `;
@@ -2868,11 +2885,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (client.sub_server_url) {
                         const escSubServer = escapeHtml(client.sub_server_url);
                         html += `
-                            <div class="client-link-label">📡 Подписка через Сервер подписок</div>
+                            <div class="client-link-label"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg> Подписка через Сервер подписок</div>
                             <div class="client-link-row">
                                 <span class="client-link-text">${escSubServer}</span>
-                                <button type="button" class="btn-sm btn-copy-sub-server">📋 Копировать</button>
-                                <button type="button" class="btn-sm btn-qr-sub-server">📱 QR</button>
+                                <button type="button" class="btn-sm btn-copy-sub-server"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать</button>
+                                <button type="button" class="btn-sm btn-qr-sub-server"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> QR</button>
                             </div>
                         `;
                     }
@@ -2880,11 +2897,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (client.sub_url) {
                         const escSubUrl = escapeHtml(client.sub_url);
                         html += `
-                            <div class="client-link-label">🔗 Прямая ссылка подписки</div>
+                            <div class="client-link-label"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Прямая ссылка подписки</div>
                             <div class="client-link-row">
                                 <span class="client-link-text">${escSubUrl}</span>
-                                <button type="button" class="btn-sm btn-copy-sub">📋 Копировать</button>
-                                <button type="button" class="btn-sm btn-qr-sub">📱 QR</button>
+                                <button type="button" class="btn-sm btn-copy-sub"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать</button>
+                                <button type="button" class="btn-sm btn-qr-sub"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> QR</button>
                             </div>
                         `;
                     }
@@ -2892,11 +2909,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (client.tcp_url) {
                         const escTcp = escapeHtml(client.tcp_url);
                         html += `
-                            <div class="client-link-label">⚡ VLESS TCP Reality</div>
+                            <div class="client-link-label"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> VLESS TCP Reality</div>
                             <div class="client-link-row">
                                 <span class="client-link-text">${escTcp}</span>
-                                <button type="button" class="btn-sm btn-copy-tcp">📋 Копировать</button>
-                                <button type="button" class="btn-sm btn-qr-tcp">📱 QR</button>
+                                <button type="button" class="btn-sm btn-copy-tcp"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать</button>
+                                <button type="button" class="btn-sm btn-qr-tcp"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> QR</button>
                             </div>
                         `;
                     }
@@ -2904,11 +2921,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (client.xhttp_url) {
                         const escXhttp = escapeHtml(client.xhttp_url);
                         html += `
-                            <div class="client-link-label">🚀 VLESS XHTTP Reality</div>
+                            <div class="client-link-label"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> VLESS XHTTP Reality</div>
                             <div class="client-link-row">
                                 <span class="client-link-text">${escXhttp}</span>
-                                <button type="button" class="btn-sm btn-copy-xhttp">📋 Копировать</button>
-                                <button type="button" class="btn-sm btn-qr-xhttp">📱 QR</button>
+                                <button type="button" class="btn-sm btn-copy-xhttp"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать</button>
+                                <button type="button" class="btn-sm btn-qr-xhttp"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> QR</button>
                             </div>
                         `;
                     }
@@ -2957,12 +2974,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUpdateSources = document.getElementById('btnUpdateSources');
     if (btnUpdateSources) {
         btnUpdateSources.addEventListener('click', async () => {
-            if (!await showConfirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups_panel/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.', 'Обновление деплоера', { confirmText: 'Обновить', icon: '🔄' })) {
+            if (!await showConfirm('Обновить файлы деплоера до последней версии с GitHub master?\n\nВаши сохраненные бэкапы (./backups_panel/) и конфигурация (setup_backup.yml) будут сохранены, а сервер перезапустится.', 'Обновление деплоера', { confirmText: 'Обновить', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>' })) {
                 return;
             }
 
             btnUpdateSources.disabled = true;
-            btnUpdateSources.textContent = '⏳ Обновление...';
+            btnUpdateSources.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Обновление...';
             updateBadgeStatus('Обновление исходников...', '#f59e0b', true);
 
             try {
@@ -2971,7 +2988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.ok) {
                     showToast('Ошибка запуска обновления: ' + (data.message || 'Неизвестная ошибка'), 'error');
                     btnUpdateSources.disabled = false;
-                    btnUpdateSources.textContent = '🔄 Обновить скрипт';
+                    btnUpdateSources.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Обновить скрипт';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
@@ -3028,12 +3045,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRestart = document.getElementById('btnRestart');
     if (btnRestart) {
         btnRestart.addEventListener('click', async () => {
-            if (!await showConfirm('Перезапустить процесс локального сервера деплоера?', 'Перезапуск сервера', { confirmText: 'Перезапустить', icon: '⚡' })) {
+            if (!await showConfirm('Перезапустить процесс локального сервера деплоера?', 'Перезапуск сервера', { confirmText: 'Перезапустить', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>' })) {
                 return;
             }
 
             btnRestart.disabled = true;
-            btnRestart.textContent = '⏳ Перезапуск...';
+            btnRestart.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Перезапуск...';
             updateBadgeStatus('Перезапуск сервера...', '#f59e0b', true);
 
             try {
@@ -3042,7 +3059,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.ok) {
                     showToast('Ошибка перезапуска: ' + (data.message || 'Ошибка'), 'error');
                     btnRestart.disabled = false;
-                    btnRestart.textContent = '⚡ Перезапустить';
+                    btnRestart.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Перезапустить';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
@@ -3073,12 +3090,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnShutdown = document.getElementById('btnShutdown');
     if (btnShutdown) {
         btnShutdown.addEventListener('click', async () => {
-            if (!await showConfirm('Вы действительно хотите выключить локальный сервер деплоера?', 'Выключение сервера', { confirmText: 'Выключить', danger: true, icon: '🛑' })) {
+            if (!await showConfirm('Вы действительно хотите выключить локальный сервер деплоера?', 'Выключение сервера', { confirmText: 'Выключить', danger: true, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' })) {
                 return;
             }
 
             btnShutdown.disabled = true;
-            btnShutdown.textContent = '⏳ Выключение...';
+            btnShutdown.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Выключение...';
             updateBadgeStatus('Сервер остановлен', '#ef4444');
 
             const startShutdownReconnectPolling = () => {
@@ -3101,7 +3118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.ok) {
                     showToast('Ошибка остановки: ' + (data.message || 'Ошибка'), 'error');
                     btnShutdown.disabled = false;
-                    btnShutdown.textContent = '🛑 Выключить';
+                    btnShutdown.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Выключить';
                     updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
@@ -3347,8 +3364,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="server-card-host">${escapeHtml(srv.host || 'Без IP')}</div>
                     <div class="server-card-details">
-                        <span>👤 ${escapeHtml(srv.user || 'root')}</span>
-                        <span>🔌 ${srv.port || 22}</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${escapeHtml(srv.user || 'root')}</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M8 12a4 4 0 0 1 8 0V4a4 4 0 0 1-8 0v8z"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg> ${srv.port || 22}</span>
                     </div>
                 </div>
                 <div class="server-card-actions">
@@ -3588,7 +3605,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
             return;
         }
-        if (!await showConfirm('Удалить этот сервер из сохраненных?', 'Удаление сервера', { confirmText: 'Удалить', danger: true, icon: '🗑️' })) return;
+        if (!await showConfirm('Удалить этот сервер из сохраненных?', 'Удаление сервера', { confirmText: 'Удалить', danger: true, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' })) return;
         serversList.splice(index, 1);
         if (editingServerIndex !== null) {
             if (editingServerIndex === index) {
@@ -3604,7 +3621,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnResetServers) {
         btnResetServers.addEventListener('click', async () => {
-            if (!await showConfirm('ВНИМАНИЕ! Это действие удалит файл со всеми сохраненными серверами и сбросит PIN-код. Продолжить?', 'Сброс всех серверов', { confirmText: 'Сбросить все', danger: true, icon: '⚠️' })) return;
+            if (!await showConfirm('ВНИМАНИЕ! Это действие удалит файл со всеми сохраненными серверами и сбросит PIN-код. Продолжить?', 'Сброс всех серверов', { confirmText: 'Сбросить все', danger: true, icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' })) return;
             try {
                 await fetch('/api/servers/reset', { method: 'DELETE' });
                 serversList = [];
@@ -3752,7 +3769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (migratedCount > 0) {
                         await saveServersToBackend();
-                        showToast('🔒 Хранилище серверов успешно обновлено на усиленный формат V2 (PBKDF2 600k)!', 'success');
+                        showToast('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Хранилище серверов успешно обновлено на усиленный формат V2 (PBKDF2 600k)!', 'success');
                     }
                 }
             }

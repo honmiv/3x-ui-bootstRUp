@@ -120,7 +120,7 @@
                     <div class="header-tools-group">
                         <button type="button" class="btn-tool btn-tool-blue" id="btnUpdateSources"
                             title="Обновить файлы деплоера до актуальной версии из GitHub">
-                            <span>🔄</span> <span>Обновить скрипты UI</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span> <span>Обновить скрипты UI</span>
                         </button>
                         <button type="button" class="btn-tool btn-tool-amber" id="btnRestart"
                             title="Перезапустить локальный сервер деплоера">
@@ -154,7 +154,7 @@
             </header>
             <!-- Update Available Banner -->
             <div id="updateBanner" class="update-banner warning-banner hidden">
-                <span class="warning-icon">🔄</span>
+                <span class="warning-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span>
                 <span id="updateBannerText"><strong>Доступна новая версия скриптов.</strong> Нажмите кнопку "Обновить скрипты UI"</span>
                 <span class="update-actions">
                     <button type="button" class="btn btn-sm btn-dismiss" id="btnBannerDismiss">Скрыть</button>
@@ -1326,7 +1326,7 @@
                     <div class="terminal-container">
                         <div class="terminal-header">
                             <div class="terminal-title">Консоль удаленного развертывания</div>
-                            <button type="button" class="btn-copy-terminal" id="btnCopyLogs" title="Скопировать логи">📋
+                            <button type="button" class="btn-copy-terminal" id="btnCopyLogs" title="Скопировать логи"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 Копировать лог</button>
                         </div>
                         <div class="terminal-body" id="terminalLogs">
@@ -1336,13 +1336,13 @@
                     </div>
                     <!-- Rich Final Results Card -->
                     <div class="summary-card hidden" id="summaryCard">
-                        <div class="summary-header">🎉 Установка успешно завершена!</div>
+                        <div class="summary-header" id="summaryCardHeader"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Установка успешно завершена!</div>
 
                         <div id="panelsContainer">
                             <!-- Rendered via JS -->
                         </div>
                         <div class="summary-section" id="clientsSection">
-                            <div class="summary-section-title">📱 Конфигурации и подписки пользователей</div>
+                            <div class="summary-section-title"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Конфигурации и подписки пользователей</div>
                             <div id="clientsContainer" class="clients-container">
                                 <!-- Dynamic Client Cards Rendered via JS -->
                             </div>
@@ -1402,7 +1402,7 @@
     <div id="customConfirmModal" class="modal-overlay">
         <div class="modal-card custom-modal-card">
             <div class="custom-modal-icon-wrapper" id="customModalIconWrapper">
-                <span id="customModalIcon">❓</span>
+                <span id="customModalIcon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
             </div>
             <h2 id="customModalTitle" class="custom-modal-title">Подтверждение</h2>
             <div id="customModalMessage" class="custom-modal-message">Вы уверены?</div>

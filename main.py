@@ -80,7 +80,7 @@ UPDATE_CHECK_URL = "https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads
 UPDATE_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0, "err": None, "err_ts": 0.0}
 UPDATE_CACHE_TTL = 300
 UPDATE_ERR_TTL = 60
-EXCLUDED_DIRS = {".git", "__pycache__", ".python_env", "backups_panel", "backups_sub_server", "working", "backup"}
+EXCLUDED_DIRS = {".git", "__pycache__", ".python_env", "backups_panel", "backups_sub_server", "working", "backup", ".cache", ".pytest_cache"}
 
 
 def _is_code_file(rel: str) -> bool:

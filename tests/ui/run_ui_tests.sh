@@ -84,6 +84,9 @@ case "$TARGET" in
     versions|test_ui_xui_versions_dropdown.py)
         TESTS_TO_RUN=("$UI_DIR/test_ui_xui_versions_dropdown.py")
         ;;
+    freedom_client|freedom_default|test_ui_freedom_client_default_and_override.py)
+        TESTS_TO_RUN=("$UI_DIR/test_ui_freedom_client_default_and_override.py")
+        ;;
     sub_auth|test_ui_sub_server_auth.py)
         TESTS_TO_RUN=("$UI_DIR/test_ui_sub_server_auth.py")
         ;;

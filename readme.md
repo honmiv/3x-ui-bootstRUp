@@ -1,5 +1,7 @@
 # 3x-ui Deployment Manager
 
+[![Telegram Channel](https://img.shields.io/badge/Telegram-вопросы%20%2F%20репорты-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/drei_x_ui_bootstrup)
+
 ## ✨ Возможности
 
 - **Удалённый деплой 3x-ui** — развёртывание панели на VPS с подключением по SSH (пароль или SSH-ключ)

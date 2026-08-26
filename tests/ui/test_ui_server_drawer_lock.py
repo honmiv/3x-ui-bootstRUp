@@ -70,6 +70,17 @@ async def run_test() -> bool:
             assert not await delete_btn.is_disabled(), "Delete button must be enabled when unlocked!"
             log("✅ [Unlock Verified] Actions restored.", "success")
 
+            # 4. Test SSH connection via lightning button ⚡
+            log("Testing SSH connection button ⚡...", "info")
+            await page.route("**/api/ssh/test", lambda route: route.fulfill(status=200, json={"ok": True, "message": "Connected successfully"}))
+            test_ssh_btn = card.locator(".btn-test-ssh-card")
+            assert await test_ssh_btn.count() == 1, "Lightning SSH test button should exist in card header!"
+            await test_ssh_btn.click()
+            await page.wait_for_timeout(500)
+            toast = page.locator(".toast-success")
+            await toast.wait_for(state="visible", timeout=3000)
+            log("✅ [SSH Test Verified] Lightning button triggered test and showed success toast.", "success")
+
             log("🎉 TEST PASSED!", "success")
             return True
         finally:

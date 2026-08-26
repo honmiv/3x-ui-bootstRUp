@@ -919,6 +919,19 @@ details.mode-category:not([open]) .category-header::after {
     transition: all 0.25s ease;
     line-height: 1;
 }
+.btn-tool-telegram {
+    background: rgba(14, 165, 233, 0.08);
+    border-color: rgba(14, 165, 233, 0.25);
+    color: #38bdf8;
+    text-decoration: none;
+}
+.btn-tool-telegram:hover {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: #0ea5e9;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(14, 165, 233, 0.35);
+    transform: translateY(-1px);
+}
 .btn-tool-blue {
     background: rgba(59, 130, 246, 0.08);
     border-color: rgba(59, 130, 246, 0.25);
@@ -1085,7 +1098,7 @@ details.mode-category:not([open]) .category-header::after {
 }
 .log-line {
     white-space: pre-wrap;
-    word-break: break-all;
+    word-break: break-word;
     margin-bottom: 2px;
 }
 .log-line.info { color: #cbd5e1; }
@@ -1480,6 +1493,39 @@ details.mode-category:not([open]) .category-header::after {
     box-shadow: 0 4px 15px rgba(245, 158, 11, 0.1);
 }
 
+.info-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    padding: 12px 16px;
+    border-radius: 10px;
+    color: #93c5fd;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+@keyframes icon-glow-fade {
+    0%, 100% {
+        filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.25));
+        opacity: 0.7;
+    }
+    50% {
+        filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.95));
+        opacity: 1;
+    }
+}
+.info-banner .info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #fbbf24;
+    animation: icon-glow-fade 2.5s ease-in-out infinite;
+}
+
 /* Update-available banner */
 @keyframes update-glow {
     0%, 100% {
@@ -1688,6 +1734,57 @@ body {
     background: rgba(245, 158, 11, 0.24);
     border-color: rgba(245, 158, 11, 0.45);
     color: #fbbf24;
+}
+.btn-test-ssh-card {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary, #94a3b8);
+    border-radius: 5px;
+    width: 22px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    opacity: 0.5;
+    pointer-events: auto !important;
+}
+.btn-test-ssh-card svg {
+    width: 13px;
+    height: 13px;
+}
+.btn-test-ssh-card:hover:not(:disabled) {
+    opacity: 1;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+.btn-test-ssh-card:disabled {
+    opacity: 0.8;
+}
+.btn-test-ssh-card.testing {
+    opacity: 1;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.2);
+    cursor: wait;
+}
+.btn-test-ssh-card.success {
+    opacity: 1;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(34, 197, 94, 0.28);
+}
+.btn-test-ssh-card.error {
+    opacity: 1;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.14);
+    border-color: rgba(239, 68, 68, 0.28);
+}
+.btn-test-ssh-card svg.spin {
+    animation: spin 1s linear infinite;
 }
 .server-card-badge {
     display: inline-block;

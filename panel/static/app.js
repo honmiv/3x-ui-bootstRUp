@@ -2879,6 +2879,65 @@ document.addEventListener('DOMContentLoaded', () => {
                     panelsContainer.appendChild(renderPanelBlock(panelTitle, panelIcon, xuiUrl, xuiUser, xuiPass));
                 }
 
+                // Auto-save panel URLs to saved servers if matching hosts exist
+                if (Array.isArray(serversList) && serversList.length > 0) {
+                    let serversUpdated = false;
+                    const hostUrlMap = {};
+
+                    if (mode === 'sub_only') {
+                        const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
+                        const subHost = cfg.sub_vps_host || cfg.vps_host || cfg.sub_domain;
+                        if (subHost) hostUrlMap[subHost.toLowerCase()] = subBaseUrl;
+                        if (cfg.sub_domain) hostUrlMap[cfg.sub_domain.toLowerCase()] = subBaseUrl;
+                    } else if (mode === 'cascade' || mode === 'cascade_sub') {
+                        const freedomHost = result.freedom_domain || cfg.freedom_host;
+                        const freedomUrl = result.freedom_xui_url || (freedomHost ? `https://${freedomHost}/` : '');
+                        if (freedomHost && freedomUrl) hostUrlMap[freedomHost.toLowerCase()] = freedomUrl;
+                        if (cfg.freedom_host && freedomUrl) hostUrlMap[cfg.freedom_host.toLowerCase()] = freedomUrl;
+
+                        const proxyHost = result.domain || cfg.proxy_host;
+                        const proxyUrl = result.xui_url || (proxyHost ? `https://${proxyHost}/` : '');
+                        if (proxyHost && proxyUrl) hostUrlMap[proxyHost.toLowerCase()] = proxyUrl;
+                        if (cfg.proxy_host && proxyUrl) hostUrlMap[cfg.proxy_host.toLowerCase()] = proxyUrl;
+
+                        if (mode === 'cascade_sub') {
+                            const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
+                            const subHost = cfg.sub_vps_host || cfg.sub_domain;
+                            if (subHost) hostUrlMap[subHost.toLowerCase()] = subBaseUrl;
+                            if (cfg.sub_domain) hostUrlMap[cfg.sub_domain.toLowerCase()] = subBaseUrl;
+                        }
+                    } else if (mode === 'recovery') {
+                        const rHost = result.recovery_host || cfg.recovery_vps_host;
+                        const xuiUrl = result.xui_url || (rHost ? `https://${rHost}/` : '');
+                        if (rHost && xuiUrl) hostUrlMap[rHost.toLowerCase()] = xuiUrl;
+                    } else if (mode === 'update_3xui') {
+                        const uHost = result.update_host || cfg.update_vps_host;
+                        const xuiUrl = result.xui_url || (uHost ? `https://${uHost}/` : '');
+                        if (uHost && xuiUrl) hostUrlMap[uHost.toLowerCase()] = xuiUrl;
+                    } else if (mode === 'rollback_sub') {
+                        const rHost = result.sub_host || cfg.sub_vps_host;
+                        const subBaseUrl = result.sub_base_url || '';
+                        if (rHost && subBaseUrl) hostUrlMap[rHost.toLowerCase()] = subBaseUrl;
+                    } else if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
+                        const host = result.domain || cfg.vps_host;
+                        const xuiUrl = result.xui_url || (host ? `https://${host}/` : '');
+                        if (host && xuiUrl) hostUrlMap[host.toLowerCase()] = xuiUrl;
+                        if (cfg.vps_host && xuiUrl) hostUrlMap[cfg.vps_host.toLowerCase()] = xuiUrl;
+                    }
+
+                    serversList.forEach(srv => {
+                        const srvHost = (srv.host || '').trim().toLowerCase();
+                        if (srvHost && hostUrlMap[srvHost] && srv.panel_url !== hostUrlMap[srvHost]) {
+                            srv.panel_url = hostUrlMap[srvHost];
+                            serversUpdated = true;
+                        }
+                    });
+
+                    if (serversUpdated) {
+                        saveServersToBackend().then(() => renderSavedServers());
+                    }
+                }
+
                 const clientsContainer = document.getElementById('clientsContainer');
                 clientsContainer.innerHTML = '';
 
@@ -3158,6 +3217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const smAuthType = document.getElementById('sm_auth_type');
     const smPass = document.getElementById('sm_pass');
     const smKey = document.getElementById('sm_key');
+    const smPanelUrl = document.getElementById('sm_panel_url');
     const btnSaveServer = document.getElementById('btnSaveServer');
     const savedServersList = document.getElementById('savedServersList');
     const btnResetServers = document.getElementById('btnResetServers');
@@ -3369,6 +3429,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
             
+            const panelBtn = srv.panel_url 
+                ? `<a href="${escapeHtml(srv.panel_url)}" target="_blank" rel="noopener noreferrer" class="btn-open-panel-card" title="Открыть веб-панель (${escapeHtml(srv.panel_url)})">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>`
+                : '';
+            
             const card = document.createElement('div');
             card.className = `server-card ${isLocked ? 'is-locked' : ''}`;
             card.innerHTML = `
@@ -3385,6 +3451,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             onclick="window.testServerSSH(${index}, this)">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         </button>
+                        ${panelBtn}
                     </div>
                     <div class="server-card-host">${escapeHtml(srv.host || 'Без IP')}</div>
                     <div class="server-card-details">
@@ -3682,6 +3749,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         smPass.value = authType === 'key' ? '' : (pass || '');
         smKey.value = authType === 'key' ? (key || '') : '';
+        if (smPanelUrl) smPanelUrl.value = srv.panel_url || '';
 
         setEditingMode(index);
         if (glowRefresher) glowRefresher();
@@ -3698,6 +3766,7 @@ document.addEventListener('DOMContentLoaded', () => {
         smHost.value = '';
         smPass.value = '';
         smKey.value = '';
+        if (smPanelUrl) smPanelUrl.value = '';
         smUser.value = 'root';
         smPort.value = '22';
         if (smAuthType) {
@@ -3756,6 +3825,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const plainKey = authType === 'key' ? smKey.value : '';
             const encPass = await encryptData(plainPass, cryptoKey);
             const encKey = await encryptData(plainKey, cryptoKey);
+            const panelUrl = smPanelUrl ? smPanelUrl.value.trim() : '';
 
             const isLocked = (editingServerIndex !== null && serversList[editingServerIndex]) ? !!serversList[editingServerIndex].locked : false;
             const newData = {
@@ -3766,6 +3836,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 port: smPort.value || 22,
                 enc_pass: encPass,
                 enc_key: encKey,
+                panel_url: panelUrl,
                 locked: isLocked
             };
 
@@ -3785,6 +3856,7 @@ document.addEventListener('DOMContentLoaded', () => {
             smHost.value = '';
             smPass.value = '';
             smKey.value = '';
+            if (smPanelUrl) smPanelUrl.value = '';
             smUser.value = 'root';
             smPort.value = '22';
             if (smAuthType) {

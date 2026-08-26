@@ -184,8 +184,8 @@ main.py (Orchestrator)
 
 #### servers.json - Saved VPS Profiles (PIN-encrypted)
 - **Role**: Quick-select list of previously configured servers
-- **Format**: JSON object with credentials encrypted via PBKDF2 (100k iterations) + AES-GCM under a user-set PIN; plaintext never stored
-- **Features**: Supports editing profiles, quick-fill into form fields, and server-level locking (`locked: boolean`) to prevent accidental edits or deletions in the UI drawer
+- **Format**: JSON object with credentials encrypted via PBKDF2 (600k iterations V2, 100k V1) + AES-GCM under a user-set PIN; plaintext never stored
+- **Features**: Supports editing profiles, quick-fill into form fields, server-level locking (`locked: boolean`) to prevent accidental edits/deletions, and storing panel/subscription URLs (`panel_url: string`) with a one-click open panel button (`.btn-open-panel-card`) next to the SSH connection test button. Automatically updates `panel_url` on successful deployment.
 - **When to Look Here**:
   - Adding server profile management features
   - Changing credential encryption, locking, or storage

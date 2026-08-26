@@ -1786,6 +1786,33 @@ body {
 .btn-test-ssh-card svg.spin {
     animation: spin 1s linear infinite;
 }
+.btn-open-panel-card {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary, #94a3b8);
+    border-radius: 5px;
+    width: 22px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    opacity: 0.65;
+    text-decoration: none;
+    pointer-events: auto !important;
+}
+.btn-open-panel-card svg {
+    width: 13px;
+    height: 13px;
+}
+.btn-open-panel-card:hover {
+    opacity: 1;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.28);
+}
 .server-card-badge {
     display: inline-block;
     align-self: flex-start;

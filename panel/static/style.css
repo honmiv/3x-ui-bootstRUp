@@ -1653,11 +1653,54 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, opacity 0.15s ease;
+    cursor: grab;
+    position: relative;
+    user-select: none;
 }
 .server-card:hover {
     border-color: rgba(255, 255, 255, 0.15);
     background: rgba(15, 23, 42, 0.6);
+}
+.server-card:active {
+    cursor: grabbing;
+}
+.server-card button,
+.server-card a,
+.server-card input {
+    cursor: pointer;
+}
+.server-card.dragging {
+    opacity: 0.35;
+    transform: scale(0.98);
+    border: 1px dashed rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.05);
+}
+.server-card.drag-over-top::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 4px;
+    right: 4px;
+    height: 3px;
+    background: var(--primary-color, #3b82f6);
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+    pointer-events: none;
+    z-index: 10;
+}
+.server-card.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: -7px;
+    left: 4px;
+    right: 4px;
+    height: 3px;
+    background: var(--primary-color, #3b82f6);
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+    pointer-events: none;
+    z-index: 10;
 }
 .server-card.is-locked {
     background: rgba(15, 23, 42, 0.25);

@@ -98,7 +98,7 @@ main.py (Orchestrator)
 **Files**: `main.py`, `ssh_deployer.py`, `setup_backup.yml`, `servers.json`
 
 #### main.py - HTTP Server & Orchestrator
-- **Role**: Entry point, HTTP server (127.0.0.1:8000 via `http.server.ThreadingHTTPServer`), UI routing, deployment dispatch
+- **Role**: Entry point, HTTP server (default 127.0.0.1:8000 with dynamic port stepping and stale instance auto-termination via `http.server.ThreadingHTTPServer`), UI routing, deployment dispatch
 - **Key Functions**:
   - Serves web UI (HTML/CSS/JS from `panel/static/` and shared assets from `resources/`)
   - Routes POST requests from forms to `ssh_deployer` functions
@@ -185,7 +185,7 @@ main.py (Orchestrator)
 #### servers.json - Saved VPS Profiles (PIN-encrypted)
 - **Role**: Quick-select list of previously configured servers
 - **Format**: JSON object with credentials encrypted via PBKDF2 (600k iterations V2, 100k V1) + AES-GCM under a user-set PIN; plaintext never stored
-- **Features**: Supports editing profiles, quick-fill into form fields, server-level locking (`locked: boolean`) to prevent accidental edits/deletions, and storing panel/subscription URLs (`panel_url: string`) with a one-click open panel button (`.btn-open-panel-card`) next to the SSH connection test button. Automatically updates `panel_url` on successful deployment.
+- **Features**: Supports editing profiles, drag-and-drop reordering with persistence, quick-fill into form fields, server-level locking (`locked: boolean`) to prevent accidental edits/deletions, and storing panel/subscription URLs (`panel_url: string`) with a one-click open panel button (`.btn-open-panel-card`) next to the SSH connection test button. Automatically updates `panel_url` on successful deployment.
 - **When to Look Here**:
   - Adding server profile management features
   - Changing credential encryption, locking, or storage

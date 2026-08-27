@@ -96,12 +96,16 @@ case "$TARGET" in
     panel_url|test_ui_server_panel_url.py)
         TESTS_TO_RUN=("$UI_DIR/test_ui_server_panel_url.py")
         ;;
+    reorder|drag|test_ui_server_reorder.py)
+        TESTS_TO_RUN=("$UI_DIR/test_ui_server_reorder.py")
+        ;;
     servers|server_vault)
         TESTS_TO_RUN=(
             "$UI_DIR/test_ui_server_vault_pin.py"
             "$UI_DIR/test_ui_server_drawer_lock.py"
             "$UI_DIR/test_ui_server_panel_url.py"
             "$UI_DIR/test_ui_server_autofill.py"
+            "$UI_DIR/test_ui_server_reorder.py"
             "$UI_DIR/test_ui_server_vault_reset.py"
         )
         ;;

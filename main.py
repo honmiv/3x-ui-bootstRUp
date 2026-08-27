@@ -2,6 +2,10 @@ import asyncio
 import json
 import mimetypes
 import os
+import re
+import signal
+import socket
+import subprocess
 import sys
 import threading
 import time
@@ -10,7 +14,7 @@ import urllib.request
 import webbrowser
 from socketserver import ThreadingMixIn
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 
 try:
     import yaml
@@ -19,7 +23,7 @@ except Exception:
 
 from ssh_deployer import SSHDeployer, run_deployment
 
-PORT = 8000
+PORT = int(os.environ.get("PORT", 8000))
 HOST = "127.0.0.1"
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKUP_FILE = os.path.join(APP_DIR, "setup_backup.yml")
@@ -419,6 +423,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
         if url_path == "/api/status":
             with DEPLOY_LOCK:
                 status_payload = {
+                    "app": "3x-ui-bootstrup",
+                    "pid": os.getpid(),
+                    "app_dir": APP_DIR,
                     "deploying": is_deploying,
                     "status": deploy_status,
                     "logs_count": len(active_logs),
@@ -721,21 +728,274 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
     daemon_threads = True
 
-def main():
-    server_address = (HOST, PORT)
-    httpd = None
-    for attempt in range(5):
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((host, port))
+            return False
+        except OSError:
+            return True
+
+
+def find_pids_on_port(port: int, host: str = "127.0.0.1") -> List[int]:
+    pids = set()
+    current_pid = os.getpid()
+
+    # 1. Try lsof (Linux / macOS)
+    try:
+        res = subprocess.run(
+            ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=1.5
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            for line in res.stdout.strip().split():
+                if line.isdigit():
+                    pid = int(line)
+                    if pid != current_pid and pid > 0:
+                        pids.add(pid)
+    except Exception:
+        pass
+
+    # 2. Try ss (Linux)
+    if not pids and sys.platform.startswith("linux"):
+        try:
+            res = subprocess.run(
+                ["ss", "-lptn", f"sport = :{port}"],
+                capture_output=True, text=True, timeout=1.5
+            )
+            if res.returncode == 0 and res.stdout:
+                for match in re.finditer(r"pid=(\d+)", res.stdout):
+                    pid = int(match.group(1))
+                    if pid != current_pid and pid > 0:
+                        pids.add(pid)
+        except Exception:
+            pass
+
+    # 3. Try fuser (Linux)
+    if not pids and sys.platform.startswith("linux"):
+        try:
+            res = subprocess.run(
+                ["fuser", f"{port}/tcp"],
+                capture_output=True, text=True, timeout=1.5
+            )
+            if res.stdout:
+                for token in res.stdout.strip().split():
+                    if token.isdigit():
+                        pid = int(token)
+                        if pid != current_pid and pid > 0:
+                            pids.add(pid)
+        except Exception:
+            pass
+
+    # 4. Windows netstat
+    if not pids and sys.platform == "win32":
+        try:
+            res = subprocess.run(
+                ["netstat", "-ano", "-p", "tcp"],
+                capture_output=True, text=True, timeout=2.0
+            )
+            if res.returncode == 0 and res.stdout:
+                pattern = rf":{port}\s+.*LISTENING\s+(\d+)"
+                for match in re.finditer(pattern, res.stdout, re.IGNORECASE):
+                    pid = int(match.group(1))
+                    if pid != current_pid and pid > 0:
+                        pids.add(pid)
+        except Exception:
+            pass
+
+    return sorted(list(pids))
+
+
+def is_our_process(pid: int) -> bool:
+    if pid <= 0 or pid == os.getpid():
+        return False
+
+    # Linux /proc inspection
+    if sys.platform.startswith("linux"):
+        cmdline_file = f"/proc/{pid}/cmdline"
+        cwd_file = f"/proc/{pid}/cwd"
+        if os.path.exists(cmdline_file):
+            try:
+                with open(cmdline_file, "rb") as f:
+                    cmdline = f.read().decode("utf-8", errors="ignore").replace("\x00", " ")
+                cwd = ""
+                if os.path.exists(cwd_file):
+                    try:
+                        cwd = os.readlink(cwd_file)
+                    except Exception:
+                        pass
+
+                if "main.py" in cmdline:
+                    if (
+                        APP_DIR in cmdline
+                        or (cwd and APP_DIR in cwd)
+                        or "3x-ui-bootstRUp" in cmdline
+                        or "3x-ui-bootstRUp" in cwd
+                        or "3x-ui" in cmdline
+                        or "3xui" in cmdline
+                    ):
+                        return True
+            except Exception:
+                pass
+
+    # Generic ps inspection (Linux / macOS)
+    if sys.platform != "win32":
+        try:
+            res = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "args="],
+                capture_output=True, text=True, timeout=1.5
+            )
+            if res.returncode == 0 and res.stdout:
+                cmd = res.stdout
+                if "main.py" in cmd and ("3x-ui" in cmd or "3xui" in cmd or "bootstRUp" in cmd or APP_DIR in cmd):
+                    return True
+        except Exception:
+            pass
+
+    # Windows wmic & PowerShell inspection
+    if sys.platform == "win32":
+        try:
+            res = subprocess.run(
+                ["wmic", "process", "where", f"processid={pid}", "get", "commandline"],
+                capture_output=True, text=True, timeout=2.0
+            )
+            if res.returncode == 0 and res.stdout:
+                cmd = res.stdout
+                if "main.py" in cmd and ("3x-ui" in cmd or "3xui" in cmd or "bootstRUp" in cmd or APP_DIR in cmd):
+                    return True
+        except Exception:
+            pass
+        try:
+            res = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine"],
+                capture_output=True, text=True, timeout=2.0
+            )
+            if res.returncode == 0 and res.stdout:
+                cmd = res.stdout
+                if "main.py" in cmd and ("3x-ui" in cmd or "3xui" in cmd or "bootstRUp" in cmd or APP_DIR in cmd):
+                    return True
+        except Exception:
+            pass
+
+    return False
+
+
+def is_our_http_server(port: int, host: str = "127.0.0.1") -> Tuple[bool, Optional[int]]:
+    url_status = f"http://{host}:{port}/api/status"
+    try:
+        req = urllib.request.Request(url_status, headers={"User-Agent": "3x-ui-bootstrUp-probe"})
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
+            if resp.status == 200:
+                body = resp.read().decode("utf-8", errors="ignore")
+                data = json.loads(body)
+                if isinstance(data, dict):
+                    if data.get("app") == "3x-ui-bootstrup":
+                        return True, data.get("pid")
+                    if "deploying" in data and "status" in data and "logs_count" in data:
+                        return True, data.get("pid")
+    except Exception:
+        pass
+
+    url_root = f"http://{host}:{port}/"
+    try:
+        req = urllib.request.Request(url_root, headers={"User-Agent": "3x-ui-bootstrUp-probe"})
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
+            if resp.status == 200:
+                body = resp.read().decode("utf-8", errors="ignore")
+                if "3X UI Deployment Manager" in body or "3x-ui-bootstRUp" in body:
+                    return True, None
+    except Exception:
+        pass
+
+    return False, None
+
+
+def terminate_process(pid: Optional[int], port: Optional[int] = None, host: str = "127.0.0.1") -> None:
+    if port is not None:
+        try:
+            req = urllib.request.Request(
+                f"http://{host}:{port}/api/shutdown",
+                data=b"{}",
+                headers={"Content-Type": "application/json", "User-Agent": "3x-ui-bootstrUp-probe"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=0.8) as resp:
+                pass
+        except Exception:
+            pass
+
+    if pid and pid > 0 and pid != os.getpid():
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+        else:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                return
+            except Exception:
+                pass
+
+            for _ in range(20):
+                time.sleep(0.1)
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    return
+
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+
+def bind_server(start_port: int = 8000, host: str = "127.0.0.1", max_attempts: int = 100) -> Tuple[ThreadingHTTPServer, int]:
+    global PORT
+    for offset in range(max_attempts):
+        port = start_port + offset
+        server_address = (host, port)
         try:
             httpd = ThreadingHTTPServer(server_address, WebUIHandler)
-            break
+            PORT = port
+            return httpd, port
         except OSError as e:
-            if attempt < 4 and e.errno in (48, 98):
-                import time
-                time.sleep(0.5)
-            else:
+            if e.errno not in (48, 98, 10048) and "address already in use" not in str(e).lower():
                 raise
 
-    url = f"http://{HOST}:{PORT}"
+            pids = find_pids_on_port(port, host)
+            our_pids = [p for p in pids if is_our_process(p)]
+            is_http_our, http_pid = is_our_http_server(port, host)
+            if http_pid and http_pid not in our_pids and http_pid != os.getpid():
+                our_pids.append(http_pid)
+
+            if our_pids or is_http_our:
+                target_pids = our_pids if our_pids else [None]
+                pid_info = ", ".join(str(p) for p in our_pids) if our_pids else "HTTP detected"
+                print(f"[!] Port {port} is occupied by an existing 3X UI Deployment Manager instance (PID: {pid_info}). Stopping old instance...")
+                for p in target_pids:
+                    terminate_process(p, port=port, host=host)
+
+                time.sleep(0.3)
+                try:
+                    httpd = ThreadingHTTPServer(server_address, WebUIHandler)
+                    print(f"[OK] Replaced old instance on port {port}.")
+                    PORT = port
+                    return httpd, port
+                except OSError:
+                    print(f"[!] Could not bind to port {port} after stopping old instance. Trying next port...")
+                    continue
+            else:
+                proc_info = f"PID: {pids[0]}" if pids else "another process"
+                print(f"[!] Port {port} is occupied by {proc_info}. Trying port {port + 1}...")
+                continue
+
+    raise RuntimeError(f"Could not bind to any port in range {start_port}..{start_port + max_attempts - 1}")
+
+
+def main():
+    httpd, port = bind_server(start_port=PORT, host=HOST)
+    url = f"http://{HOST}:{port}"
 
     print(f"==================================================")
     print(f"  3X UI Deployment Manager Web UI running at: {url}")

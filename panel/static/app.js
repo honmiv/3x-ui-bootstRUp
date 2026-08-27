@@ -3241,11 +3241,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (savedServersList) {
+        savedServersList.addEventListener('dragover', (e) => {
+            if (draggedServerIndex !== null) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+        });
+        savedServersList.addEventListener('drop', async (e) => {
+            if (draggedServerIndex === null) return;
+            if (e.target.closest('.server-card')) return;
+            e.preventDefault();
+            const fromIdx = draggedServerIndex;
+            draggedServerIndex = null;
+            const newIndex = serversList.length - 1;
+            if (fromIdx !== newIndex && fromIdx >= 0 && fromIdx < serversList.length) {
+                const [moved] = serversList.splice(fromIdx, 1);
+                serversList.push(moved);
+                if (editingServerIndex !== null) {
+                    if (editingServerIndex === fromIdx) {
+                        editingServerIndex = newIndex;
+                    } else if (fromIdx < editingServerIndex) {
+                        editingServerIndex--;
+                    }
+                }
+                await saveServersToBackend();
+                renderSavedServers();
+            }
+        });
+    }
+
     let cryptoKey = null;
     let serversList = [];
     let serversLoaded = false;
     let serversLoadError = '';
     let editingServerIndex = null;
+    let draggedServerIndex = null;
 
     // Crypto functions (V2: 600k iterations with auto-migration from legacy V1: 100k)
     const deriveKeyV2 = async (password) => {
@@ -3437,6 +3468,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const card = document.createElement('div');
             card.className = `server-card ${isLocked ? 'is-locked' : ''}`;
+            card.draggable = true;
+            card.dataset.serverIndex = index;
             card.innerHTML = `
                 <div class="server-card-info">
                     <div class="server-card-header">
@@ -3474,6 +3507,81 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 </div>
             `;
+
+            card.addEventListener('dragstart', (e) => {
+                if (e.target.closest('button, a, input, textarea, select')) {
+                    e.preventDefault();
+                    return;
+                }
+                draggedServerIndex = index;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(index));
+                setTimeout(() => card.classList.add('dragging'), 0);
+            });
+
+            card.addEventListener('dragover', (e) => {
+                if (draggedServerIndex === null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const rect = card.getBoundingClientRect();
+                const isAfter = e.clientY > rect.top + rect.height / 2;
+                if (isAfter) {
+                    card.classList.remove('drag-over-top');
+                    card.classList.add('drag-over-bottom');
+                } else {
+                    card.classList.remove('drag-over-bottom');
+                    card.classList.add('drag-over-top');
+                }
+            });
+
+            card.addEventListener('dragleave', (e) => {
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
+            });
+
+            card.addEventListener('dragend', () => {
+                draggedServerIndex = null;
+                if (savedServersList) {
+                    savedServersList.querySelectorAll('.server-card').forEach(c => {
+                        c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
+                    });
+                }
+            });
+
+            card.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                card.classList.remove('drag-over-top', 'drag-over-bottom');
+                if (draggedServerIndex === null || draggedServerIndex === undefined) return;
+
+                const fromIdx = draggedServerIndex;
+                draggedServerIndex = null;
+
+                const rect = card.getBoundingClientRect();
+                const isAfter = e.clientY > rect.top + rect.height / 2;
+                let newIndex = isAfter ? index + 1 : index;
+                if (fromIdx < newIndex) {
+                    newIndex--;
+                }
+
+                if (fromIdx !== newIndex && fromIdx >= 0 && fromIdx < serversList.length && newIndex >= 0 && newIndex < serversList.length) {
+                    const [moved] = serversList.splice(fromIdx, 1);
+                    serversList.splice(newIndex, 0, moved);
+                    if (editingServerIndex !== null) {
+                        if (editingServerIndex === fromIdx) {
+                            editingServerIndex = newIndex;
+                        } else if (fromIdx < editingServerIndex && newIndex >= editingServerIndex) {
+                            editingServerIndex--;
+                        } else if (fromIdx > editingServerIndex && newIndex <= editingServerIndex) {
+                            editingServerIndex++;
+                        }
+                    }
+                    await saveServersToBackend();
+                    renderSavedServers();
+                }
+            });
+
             savedServersList.appendChild(card);
         }
     };

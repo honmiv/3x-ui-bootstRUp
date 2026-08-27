@@ -1142,13 +1142,13 @@ __MANAGEMENT__
         <div class="app-body-inner">
             <div class="dashboard-layout">
                 <main class="cards-scroll-area">
-    <div class="section-header" role="button" tabindex="0">
+    <div class="section-header" role="button" tabindex="0" data-section="management-nodes">
         <span class="chevron closed"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span class="section-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
         <span>Подписочные ссылки нод</span>
         <span class="line"></span>
     </div>
-    <div class="cards-grid collapsed">
+    <div class="cards-grid collapsed" data-section="management-nodes">
 __NODES__
     </div>
 __SECTIONS__
@@ -1972,6 +1972,50 @@ document.getElementById('add-node-form')?.addEventListener('submit', function (e
     submitManagement('__API_NODE__', { action: 'add', name: document.getElementById('new-node-name').value.trim(), url: document.getElementById('new-node-url').value.trim() })
         .then(() => location.reload()).catch(showManagementError);
 });
+function saveUIState() {
+    try {
+        sessionStorage.setItem('subs_search', document.getElementById('client-search')?.value || '');
+        sessionStorage.setItem('subs_sync_filter', syncFilter || '');
+        const collapsed = [];
+        document.querySelectorAll('.cards-grid.collapsed').forEach(g => {
+            if (g.dataset.section) collapsed.push(g.dataset.section);
+        });
+        sessionStorage.setItem('subs_collapsed', JSON.stringify(collapsed));
+    } catch (e) {}
+}
+
+function restoreUIState() {
+    try {
+        const search = sessionStorage.getItem('subs_search');
+        if (search) {
+            const input = document.getElementById('client-search');
+            if (input) input.value = search;
+        }
+        const filter = sessionStorage.getItem('subs_sync_filter');
+        if (filter) setSyncFilter(filter); // setSyncFilter internally calls filterCards()
+        else filterCards();
+
+        const collapsedStr = sessionStorage.getItem('subs_collapsed');
+        if (collapsedStr) {
+            const collapsed = JSON.parse(collapsedStr);
+            document.querySelectorAll('.cards-grid').forEach(g => {
+                if (g.dataset.section) {
+                    const shouldCollapse = collapsed.includes(g.dataset.section);
+                    g.classList.toggle('collapsed', shouldCollapse);
+                    const header = g.previousElementSibling;
+                    if (header && header.classList.contains('section-header')) {
+                        const chevron = header.querySelector('.chevron');
+                        if (chevron) chevron.classList.toggle('closed', shouldCollapse);
+                    }
+                }
+            });
+        }
+    } catch (e) {}
+}
+
+window.addEventListener('beforeunload', saveUIState);
+window.addEventListener('pagehide', saveUIState);
+restoreUIState();
 </script>
 </body>
 </html>
@@ -3031,23 +3075,24 @@ class Handler(BaseHTTPRequestHandler):
                 seen.add(client)
                 idx += 1
             if cards:
-                sections.append(self._section_html(f'Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards)))
+                sections.append(self._section_html(f'Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards), f'node-{html.escape(node["id"])}'))
         force_clients = [c for c in sorted(FORCE_SUBS) if c not in seen]
         if force_clients:
             cards = []
             for client in force_clients:
                 cards.append(self._card_html(client, None, base, idx))
                 idx += 1
-            sections.append(self._section_html("Карточки клиентов · Кастом (force-subs.yml)", "\n".join(cards)))
+            sections.append(self._section_html("Карточки клиентов · Кастом (force-subs.yml)", "\n".join(cards), "force-subs"))
         return "\n".join(sections)
 
-    def _section_html(self, title, cards):
+    def _section_html(self, title, cards, section_id=None):
+        sid_attr = f' data-section="{html.escape(section_id)}"' if section_id else ''
         return (
-            f'<div class="section-header" role="button" tabindex="0">'
+            f'<div class="section-header" role="button" tabindex="0"{sid_attr}>'
             f'<span class="chevron"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
             f'<span class="section-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>'
             f'<span>{title}</span><span class="line"></span></div>'
-            f'<div class="cards-grid stacked">\n{cards}\n    </div>'
+            f'<div class="cards-grid stacked"{sid_attr}>\n{cards}\n    </div>'
         )
 
     def _card_html(self, client, node, base, idx):

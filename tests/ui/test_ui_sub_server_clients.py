@@ -75,28 +75,24 @@ async def run_test() -> bool:
             assert "charlie-cascade" in content
             log("✅ [Node Registry Verified] Rendered nodes and clients from nodes.json.", "success")
 
-            # 3. Add Client modal
-            btn_add = page.locator("button:has-text('Добавить клиента')").first
-            if await btn_add.count() > 0:
-                await btn_add.click()
-                await page.wait_for_timeout(300)
-                name_in = page.locator("input#client-name, input[name='client'], input#addClientName").first
-                if await name_in.count() > 0:
-                    await name_in.fill("david-user")
-                    await page.click("button:has-text('Сохранить'), button:has-text('Добавить')")
-                    await page.wait_for_timeout(500)
-                    assert "david-user" in await page.text_content("body")
-                    log("✅ [Client Management Verified] Added new client.", "success")
+            # 3. Add Client
+            name_in = page.locator("#new-client")
+            if await name_in.count() > 0:
+                await name_in.fill("david-user")
+                await page.locator("#add-client-form button[type='submit']").click()
+                await page.wait_for_timeout(500)
+                assert "david-user" in await page.text_content("body")
+                log("✅ [Client Management Verified] Added new client.", "success")
 
-            # 4. Override modal
-            override_btn = page.locator("button:has-text('Переопределить'), button[title*='Переопределить']").first
+            # 4. Force-Subs Override
+            override_btn = page.locator(".btn-override").first
             if await override_btn.count() > 0:
                 await override_btn.click()
                 await page.wait_for_timeout(300)
-                txt_area = page.locator("textarea#override-content, textarea[name='value'], textarea#overrideValue").first
+                txt_area = page.locator(".override-editor.open .override-input").first
                 if await txt_area.count() > 0:
                     await txt_area.fill("vless://custom-uuid@custom.server.com:443?security=reality#custom")
-                    await page.click("button:has-text('Сохранить'), button:has-text('Применить')")
+                    await page.locator(".override-editor.open .btn-override-save").first.click()
                     await page.wait_for_timeout(500)
 
                     assert os.path.exists(force_file)
@@ -104,6 +100,51 @@ async def run_test() -> bool:
                         data = f.read()
                     log(f"Updated force-subs.yml:\n{data}", "info")
                     log("✅ [Force-Subs Verified] Custom override applied.", "success")
+
+            # 5. Verify UI State Persistence (Search, Filter, Section collapsing across reload)
+            log("Verifying UI state persistence via sessionStorage...", "info")
+            target_grid = page.locator(".cards-grid.stacked[data-section]").first
+            assert await target_grid.count() > 0, "No client section grid found"
+            target_section = await target_grid.get_attribute("data-section")
+            section_hdr = page.locator(f".section-header[data-section='{target_section}']")
+
+            # Collapse target section
+            assert "collapsed" not in (await target_grid.get_attribute("class") or "")
+            await section_hdr.click()
+            await page.wait_for_timeout(200)
+            assert "collapsed" in (await target_grid.get_attribute("class") or "")
+            assert "closed" in (await section_hdr.locator(".chevron").get_attribute("class") or "")
+
+            # Select filter 'never'
+            filter_item = page.locator(".status-badge .stat-item[data-filter='never']")
+            await filter_item.click()
+            await page.wait_for_timeout(200)
+            assert "filtering" in (await filter_item.get_attribute("class") or "")
+
+            # Fill search input
+            search_input = page.locator("#client-search")
+            await search_input.fill("alice")
+            await page.wait_for_timeout(200)
+
+            # Reload page
+            await page.reload(wait_until="networkidle")
+            await page.wait_for_timeout(500)
+
+            # Assert restored search value
+            restored_val = await page.input_value("#client-search")
+            assert restored_val == "alice", f"Expected 'alice', got '{restored_val}'"
+
+            # Assert restored filter
+            restored_filter = page.locator(".status-badge .stat-item[data-filter='never']")
+            assert "filtering" in (await restored_filter.get_attribute("class") or ""), "Filter 'never' was not restored"
+
+            # Assert restored section collapsed state & chevron
+            restored_grid = page.locator(f".cards-grid[data-section='{target_section}']")
+            assert "collapsed" in (await restored_grid.get_attribute("class") or ""), f"Section '{target_section}' was not restored as collapsed"
+            restored_hdr = page.locator(f".section-header[data-section='{target_section}']")
+            assert "closed" in (await restored_hdr.locator(".chevron").get_attribute("class") or ""), f"Chevron for '{target_section}' was not restored as closed"
+
+            log("✅ [UI State Persistence Verified] Filters, search, and sections restored from sessionStorage after reload.", "success")
 
             log("🎉 TEST PASSED!", "success")
             return True

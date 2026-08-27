@@ -234,6 +234,31 @@ async def test_sub_server_deployment() -> bool:
         log(f"Expected 502 after clearing, got {cl_status2}", "error")
         return False
 
+    # 6. Test update_sub mode preserves clients in nodes.json
+    log("Testing 'update_sub' deployment mode...", "info")
+    update_config = {
+        "deploy_mode": "update_sub",
+        "sub_vps_host": "127.0.0.1",
+        "sub_vps_port": SSH_PORT,
+        "sub_vps_user": "root",
+        "sub_vps_password": "root",
+        "bundle_source_dir": prepare_test_repo("panel", "sub-server"),
+    }
+    up_ok, up_result = await run_deployment(update_config, log)
+    if not up_ok:
+        log("update_sub deployment failed!", "error")
+        return False
+
+    # Verify nodes.json still has clients
+    nodes_check = subprocess.run(
+        ["docker", "exec", CONTAINER_NAME, "cat", "/opt/3x-ui-bootstRUp/sub-server/nodes.json"],
+        capture_output=True, text=True,
+    )
+    if "user1-tcp" not in nodes_check.stdout or "freedom-direct" not in nodes_check.stdout:
+        log(f"update_sub failed to preserve clients! nodes.json content:\n{nodes_check.stdout}", "error")
+        return False
+    log("update_sub preserved all clients in nodes.json!", "success")
+
     log("===============================================", "success")
     log("🎉 TEST SUBSCRIPTION SERVER DEPLOYMENT PASSED! 🎉", "success")
     log("===============================================", "success")

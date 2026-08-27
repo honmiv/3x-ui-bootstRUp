@@ -47,8 +47,18 @@ reset_working_dir() {
     info "Preparing ./working directory."
     # Clean up any orphaned containers to ensure a clean slate in case of crash-loops or interrupted deployments
     docker rm -f subs-server sub-caddy caddy 2>/dev/null || true
+
+    # Clean state files only on fresh deployment, preserve them on update_sub
+    if [[ "${UPDATE_SUB_SERVER:-0}" != "1" ]]; then
+        rm -f "$SCRIPT_DIR/nodes.json" "$SCRIPT_DIR/force-subs.yml" "$SCRIPT_DIR/sub-server.log"
+    fi
+
     # Docker Engine might have recreated missing host paths as directories while crash-looping
-    rm -rf "$SCRIPT_DIR/nodes.json" "$SCRIPT_DIR/force-subs.yml" "$SCRIPT_DIR/sub-server.log"
+    for f in "$SCRIPT_DIR/nodes.json" "$SCRIPT_DIR/force-subs.yml" "$SCRIPT_DIR/sub-server.log"; do
+        if [[ -d "$f" ]]; then
+            rm -rf "$f"
+        fi
+    done
 
     if [[ -f "$DOCKER_COMPOSE_FILE" ]]; then
         compose down 2>/dev/null || true

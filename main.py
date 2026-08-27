@@ -25,7 +25,7 @@ from ssh_deployer import SSHDeployer, run_deployment
 
 PORT = int(os.environ.get("PORT", 8000))
 HOST = "127.0.0.1"
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.dirname(os.path.abspath(globals()["__file__"])) if globals().get("__file__") else os.path.abspath(os.path.dirname(sys.argv[0]) if sys.argv and sys.argv[0] else os.getcwd())
 BACKUP_FILE = os.path.join(APP_DIR, "setup_backup.yml")
 SERVERS_FILE = os.path.join(APP_DIR, "servers.json")
 
@@ -206,7 +206,7 @@ def cli_ext() -> str:
     return "bat" if sys.platform.startswith("win") else "sh"
 
 def cli_script_path(base_name: str) -> str:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = APP_DIR
     preferred = cli_ext()
     if preferred in ("bat", "cmd"):
         candidates = [f"{base_name}.bat", f"{base_name}.cmd"]
@@ -225,16 +225,37 @@ def launch_script(script_path: str) -> None:
     import subprocess
     ext = os.path.splitext(script_path)[1].lower()
     script_dir = os.path.dirname(os.path.abspath(script_path))
-    if ext == ".ps1":
-        subprocess.Popen(
-            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script_path],
-            cwd=script_dir, start_new_session=True,
-        )
-    elif ext == ".sh":
-        os.chmod(script_path, 0o755)
-        subprocess.Popen(["bash", script_path], cwd=script_dir, start_new_session=True)
+    if sys.platform == "win32":
+        flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        if ext == ".ps1":
+            subprocess.Popen(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script_path],
+                cwd=script_dir,
+                creationflags=flags,
+            )
+        elif ext in (".bat", ".cmd"):
+            subprocess.Popen(
+                ["cmd.exe", "/c", script_path],
+                cwd=script_dir,
+                creationflags=flags,
+            )
+        else:
+            subprocess.Popen([script_path], cwd=script_dir, creationflags=flags)
     else:
-        subprocess.Popen([script_path], cwd=script_dir, start_new_session=True)
+        if ext == ".sh":
+            try:
+                os.chmod(script_path, 0o755)
+            except Exception:
+                pass
+            subprocess.Popen(["bash", script_path], cwd=script_dir, start_new_session=True)
+        elif ext == ".ps1":
+            subprocess.Popen(
+                ["pwsh", "-NoProfile", "-File", script_path],
+                cwd=script_dir,
+                start_new_session=True,
+            )
+        else:
+            subprocess.Popen([script_path], cwd=script_dir, start_new_session=True)
 
 def load_backup_config() -> Dict[str, Any]:
     if not os.path.exists(BACKUP_FILE):
@@ -354,7 +375,7 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
         return False
 
 def list_backup_files(folder: str = "backups_panel") -> List[Dict[str, Any]]:
-    backups_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), folder)
+    backups_dir = os.path.join(APP_DIR, folder)
     if not os.path.exists(backups_dir):
         return []
     result = []
@@ -492,10 +513,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
             url_path = "/index.html"
 
         if url_path.startswith("/resources/"):
-            base_dir = os.path.join(os.path.dirname(__file__), "resources")
+            base_dir = os.path.join(APP_DIR, "resources")
             target_file = os.path.abspath(os.path.join(base_dir, url_path[len("/resources/"):].lstrip("/")))
         else:
-            base_dir = os.path.join(os.path.dirname(__file__), "panel", "static")
+            base_dir = os.path.join(APP_DIR, "panel", "static")
             target_file = os.path.abspath(os.path.join(base_dir, url_path.lstrip("/")))
 
         if not (target_file == base_dir or target_file.startswith(base_dir + os.sep)) or not os.path.isfile(target_file):
@@ -646,15 +667,25 @@ class WebUIHandler(BaseHTTPRequestHandler):
 
             self.send_json({"ok": True, "message": "Запуск обновления исходников..."})
 
+            server_ref = self.server
+
             def run_update_bg():
-                time.sleep(0.5)
-                script_path = cli_script_path("update_sources")
-                if script_path:
-                    launch_script(script_path)
-                time.sleep(0.5)
+                time.sleep(0.3)
+                try:
+                    server_ref.shutdown()
+                    server_ref.server_close()
+                except Exception:
+                    pass
+                time.sleep(0.2)
+                try:
+                    script_path = cli_script_path("update_sources")
+                    if script_path:
+                        launch_script(script_path)
+                except Exception as e:
+                    print(f"[ERROR] Failed to launch update script: {e}", file=sys.stderr)
                 os._exit(0)
 
-            t = threading.Thread(target=run_update_bg, daemon=True)
+            t = threading.Thread(target=run_update_bg, daemon=False)
             t.start()
             return
 
@@ -671,16 +702,27 @@ class WebUIHandler(BaseHTTPRequestHandler):
             def run_restart_bg():
                 time.sleep(0.3)
                 try:
-                    server_ref.socket.close()
+                    server_ref.shutdown()
+                    server_ref.server_close()
                 except Exception:
                     pass
-                time.sleep(0.3)
-                script_path = cli_script_path("start_3x_ui_deployment_manager")
-                if script_path:
-                    launch_script(script_path)
+                time.sleep(0.2)
+                try:
+                    script_path = cli_script_path("start_3x_ui_deployment_manager")
+                    if script_path:
+                        launch_script(script_path)
+                    else:
+                        main_py_path = os.path.join(APP_DIR, "main.py")
+                        if sys.platform == "win32":
+                            flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+                            subprocess.Popen([sys.executable, main_py_path], cwd=APP_DIR, creationflags=flags)
+                        else:
+                            subprocess.Popen([sys.executable, main_py_path], cwd=APP_DIR, start_new_session=True)
+                except Exception as e:
+                    print(f"[ERROR] Failed to restart server: {e}", file=sys.stderr)
                 os._exit(0)
 
-            t = threading.Thread(target=run_restart_bg, daemon=True)
+            t = threading.Thread(target=run_restart_bg, daemon=False)
             t.start()
             return
 
@@ -697,13 +739,14 @@ class WebUIHandler(BaseHTTPRequestHandler):
             def run_shutdown_bg():
                 time.sleep(0.3)
                 try:
-                    server_ref.socket.close()
+                    server_ref.shutdown()
+                    server_ref.server_close()
                 except Exception:
                     pass
                 time.sleep(0.2)
                 os._exit(0)
 
-            t = threading.Thread(target=run_shutdown_bg, daemon=True)
+            t = threading.Thread(target=run_shutdown_bg, daemon=False)
             t.start()
             return
 
@@ -727,6 +770,7 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     """Serve long-lived SSE connections without blocking other UI requests."""
 
     daemon_threads = True
+    block_on_close = False
 
 
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
@@ -1021,11 +1065,16 @@ def main():
         pass
 
     try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
+        httpd.serve_forever(poll_interval=0.2)
+    except (KeyboardInterrupt, SystemExit):
         print("\nShutting down server...")
-        httpd.server_close()
-        sys.exit(0)
+    except OSError:
+        pass
+    finally:
+        try:
+            httpd.server_close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

@@ -12,13 +12,14 @@ import tempfile
 from typing import Callable, Dict, Any, Optional, List, Tuple
 
 ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+REPO_ROOT = os.path.dirname(os.path.abspath(globals()["__file__"])) if globals().get("__file__") else os.path.abspath(os.path.dirname(sys.argv[0]) if sys.argv and sys.argv[0] else os.getcwd())
 
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
 
 def get_bundle_bytes(source_dir: str | None = None) -> bytes:
     buf = io.BytesIO()
-    repo_dir = source_dir or os.path.dirname(os.path.abspath(__file__))
+    repo_dir = source_dir or REPO_ROOT
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for root, dirs, files in os.walk(repo_dir):
             if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root or 'backups_panel' in root or 'backups_sub_server' in root:
@@ -483,7 +484,7 @@ async def _perform_remote_backup(
     folder_name = "backups_sub_server" if is_sub else "backups_panel"
     desc_label = "sub-server config" if is_sub else "panel"
 
-    repo_root = os.path.dirname(os.path.abspath(__file__))
+    repo_root = REPO_ROOT
     backups_dir = os.path.join(repo_root, folder_name)
     os.makedirs(backups_dir, exist_ok=True)
     local_backup_path = os.path.join(backups_dir, backup_name)
@@ -719,7 +720,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Backup file must be selected for recovery mode.", "error")
             return False, {}
 
-        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_root = REPO_ROOT
         local_backup_path = os.path.join(repo_root, "backups_panel", os.path.basename(backup_filename))
 
         if not os.path.isfile(local_backup_path):
@@ -1158,7 +1159,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     log("[ERROR] Backup file must be selected for rollback_sub mode.", "error")
                     return False, {}
 
-                repo_root = os.path.dirname(os.path.abspath(__file__))
+                repo_root = REPO_ROOT
                 local_backup_path = os.path.join(repo_root, "backups_sub_server", os.path.basename(backup_filename))
 
                 if not os.path.isfile(local_backup_path):

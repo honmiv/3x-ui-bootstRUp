@@ -3164,33 +3164,31 @@ document.addEventListener('DOMContentLoaded', () => {
     setupBannerActionDelegation('announcementBanner');
 
     const renderBanners = (data) => {
-        // 1. Script Update Banner (only shown when update or changelog diff is present)
         const updateBanner = document.getElementById('updateBanner');
+        const annBanner = document.getElementById('announcementBanner');
+
         const isUpdate = data && (data.update_available === true || data.has_changelog === true);
+        const updateHtml = typeof data?.update_banner === 'string' ? data.update_banner.trim() : '';
+        const notifHtml = typeof data?.notification === 'string' ? data.notification.trim() : '';
+
+        // 1. Script Update Banner: shown ONLY when an update or changelog diff is available
         if (updateBanner) {
-            if (isUpdate) {
+            if (isUpdate && updateHtml) {
+                updateBanner.innerHTML = updateHtml;
                 updateBanner.classList.remove('hidden');
             } else {
                 updateBanner.classList.add('hidden');
             }
         }
 
-        // 2. Developer Announcement Banner (shown only when unconditional flag is enabled in notification.html)
-        const annBanner = document.getElementById('announcementBanner');
-        if (!annBanner) return;
-
-        const notif = typeof data?.notification === 'string' ? data.notification.trim() : '';
-        const lower = notif.toLowerCase();
-        const forceShow = lower.includes('<!-- always_show') ||
-                          lower.includes('<!-- show unconditionally') ||
-                          lower.includes('<!-- force_show') ||
-                          lower.includes('data-always-show="true"');
-
-        if (forceShow && notif) {
-            annBanner.innerHTML = notif;
-            annBanner.classList.remove('hidden');
-        } else {
-            annBanner.classList.add('hidden');
+        // 2. Developer Announcement Banner: shown whenever notification.html contains content
+        if (annBanner) {
+            if (notifHtml) {
+                annBanner.innerHTML = notifHtml;
+                annBanner.classList.remove('hidden');
+            } else {
+                annBanner.classList.add('hidden');
+            }
         }
     };
 

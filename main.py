@@ -200,8 +200,8 @@ def _compute_changelog_diff(local_raw: bytes, remote_raw: bytes) -> str:
     if added:
         return "".join(added).strip()
 
-def _parse_remote_notification(remote: Dict[str, bytes]) -> str:
-    raw = remote.get("notification.html") or b""
+def _parse_remote_html(remote: Dict[str, bytes], filename: str) -> str:
+    raw = remote.get(filename) or b""
     return raw.decode("utf-8", errors="replace").strip()
 
 
@@ -221,7 +221,8 @@ def check_for_update(force: bool = False) -> Dict[str, Any]:
         local_changelog = local.get("change.log", b"")
         remote_changelog = remote.get("change.log", b"")
         changelog_diff = _compute_changelog_diff(local_changelog, remote_changelog)
-        remote_notification = _parse_remote_notification(remote)
+        remote_update_banner = _parse_remote_html(remote, "update_banner.html")
+        remote_notification = _parse_remote_html(remote, "notification.html")
         result = {
             "update_available": local_fp != remote_fp,
             "local_version": local_fp[:12],
@@ -229,6 +230,8 @@ def check_for_update(force: bool = False) -> Dict[str, Any]:
             "files": {"local": len(local), "remote": len(remote)},
             "changelog": changelog_diff,
             "has_changelog": bool(changelog_diff),
+            "update_banner": remote_update_banner,
+            "has_update_banner": bool(remote_update_banner),
             "notification": remote_notification,
             "has_notification": bool(remote_notification),
         }

@@ -62,13 +62,15 @@ class TestChangelogDiff(unittest.TestCase):
         diff = self.main_mod._compute_changelog_diff(local, remote)
         self.assertIn("Line 1.5 modified", diff)
 
-    def test_notification_parsing_html(self):
+    def test_remote_html_parsing(self):
         remote_files = {
-            "notification.html": b'<span class="warning-icon">!</span><span>HTML alert</span><span class="update-actions"><button data-action="update">Go</button></span>',
+            "notification.html": b'<span class="warning-icon">!</span><span>HTML announcement</span>',
+            "update_banner.html": b'<span>Custom update banner</span>',
         }
-        res = self.main_mod._parse_remote_notification(remote_files)
-        self.assertIn("HTML alert", res)
-        self.assertIn("data-action=\"update\"", res)
+        res_notif = self.main_mod._parse_remote_html(remote_files, "notification.html")
+        res_update = self.main_mod._parse_remote_html(remote_files, "update_banner.html")
+        self.assertIn("HTML announcement", res_notif)
+        self.assertIn("Custom update banner", res_update)
 
 
 if __name__ == "__main__":

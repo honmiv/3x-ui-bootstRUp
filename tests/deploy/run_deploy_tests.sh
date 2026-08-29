@@ -95,6 +95,9 @@ case "$TARGET" in
     cascade_sub)
         TESTS_TO_RUN=("$DEPLOY_DIR/test_deploy_cascade_sub.py")
         ;;
+    freedom_sub)
+        TESTS_TO_RUN=("$DEPLOY_DIR/test_deploy_freedom_sub.py")
+        ;;
     sequential|seq)
         TESTS_TO_RUN=("$DEPLOY_DIR"/test_*.py)
         ;;

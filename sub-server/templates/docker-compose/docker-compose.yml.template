@@ -22,12 +22,23 @@ services:
     networks:
       - sub-caddy-net
 
+  nginx-decoy:
+    image: nginx:1.27-alpine
+    container_name: sub-nginx-decoy
+    restart: always
+    volumes:
+      - ./working/nginx-decoy/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./working/nginx-decoy/html:/usr/share/nginx/html:ro
+    networks:
+      - sub-caddy-net
+
   caddy:
     image: caddy:2
     container_name: sub-caddy
     restart: always
     depends_on:
       - subs-server
+      - nginx-decoy
     volumes:
       - ./.caddy_data/sub/data:/data
       - ./working/caddy/Caddyfile:/etc/caddy/Caddyfile

@@ -114,7 +114,7 @@ async def test_cascade_sub_deployment() -> bool:
         return False
 
     # 3. Verify Subscription Server
-    if not check_inner_containers_running(SUB_CONTAINER, ["subs-server", "sub-caddy"]):
+    if not check_inner_containers_running(SUB_CONTAINER, ["subs-server", "sub-caddy", "sub-nginx-decoy"]):
         return False
 
     # 4. Verify TLS on all 3 nodes via host --resolve (Caddy L4 end-to-end)

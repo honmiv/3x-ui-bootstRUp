@@ -205,6 +205,47 @@ services:
       - ./.cache:/var/cache/docker-preload:ro
       - vps-cascadesub-sub-docker:/var/lib/docker
 
+  # ============================================================================
+  # STACK 6: Freedom + Sub (2-Stage: Freedom + Sub-Server)
+  # ============================================================================
+  vps-freedomsub-freedom:
+    image: test-vps:latest
+    container_name: vps-freedomsub-freedom
+    hostname: freedomsub-freedom.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - freedomsub-freedom.test
+    ports:
+      - "2251:22"
+      - "8091:80"
+      - "8471:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-freedomsub-freedom-docker:/var/lib/docker
+
+  vps-freedomsub-sub:
+    image: test-vps:latest
+    container_name: vps-freedomsub-sub
+    hostname: freedomsub-sub.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - freedomsub-sub.test
+    ports:
+      - "2252:22"
+      - "8092:80"
+      - "8472:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-freedomsub-sub-docker:/var/lib/docker
+
 volumes:
   vps-freedom-only-docker:
   vps-proxy-foreign-docker:
@@ -216,6 +257,8 @@ volumes:
   vps-cascadesub-freedom-docker:
   vps-cascadesub-proxy-docker:
   vps-cascadesub-sub-docker:
+  vps-freedomsub-freedom-docker:
+  vps-freedomsub-sub-docker:
 
 networks:
   testnet:

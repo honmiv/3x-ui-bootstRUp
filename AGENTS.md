@@ -209,22 +209,18 @@ panel/
 │   └── style.css         # Dashboard styling
 └── templates/            # Configuration templates ({{VARIABLE}} syntax)
     ├── users.yml         # (Optional) Initial users for 3x-ui
-    └── 3x-ui/
+    ├── 3x-ui/
     │   ├── happ-routing.json             # Default client routing config for Happ
     │   ├── vless-tcp-reality.template    # Inbound protocol config
     │   └── vless-xhttp-reality.template  # Alternative protocol
     ├── caddy/
     │   └── Caddyfile.template    # Reverse proxy config
-    ├── docker-compose/
-    │   ├── docker-compose.yml.template   # Service definitions
-    │   └── Dockerfile-caddy-l4           # Custom Caddy with Reality (L4) support
-    └── nginx-decoy/
-        ├── default.conf.template  # Nginx reverse proxy config
-        └── html/                  # Decoy website assets
-            ├── index.html, access.html, operations.html, status.html, robots.txt
-            ├── style.css
-            └── errors/            # Error pages (400, 403, 404, 405, 50x)
+    └── docker-compose/
+        ├── docker-compose.yml.template   # Service definitions
+        └── Dockerfile-caddy-l4           # Custom Caddy with Reality (L4) support
 ```
+
+*(Shared `nginx-decoy` templates live under `common/templates/nginx-decoy/` and are merged into `./working/nginx-decoy/` during deployment)*
 
 #### panel/setup.sh - Remote Deployment Script
 - **Role**: Runs on remote VPS, configures the entire panel deployment
@@ -558,11 +554,19 @@ Sub-Server Node Docker Services:
 │  └────────────────────────────┘    │
 │                                     │
 │  ┌────────────────────────────┐    │
+│  │   sub-nginx-decoy          │    │
+│  │ • Decoy website            │    │
+│  │ • Port 80 (internal)       │    │
+│  │ • Static HTML / Errors     │    │
+│  └────────────────────────────┘    │
+│                                     │
+│  ┌────────────────────────────┐    │
 │  │   Caddy                    │    │
 │  │ • Port 80/443 (public)     │    │
 │  │ • HTTPS termination        │    │
 │  │ • Let's Encrypt cert       │    │
 │  │ • Reverse proxy to :8000   │    │
+│  │ • Non-secret to decoy      │    │
 │  └────────────────────────────┘    │
 │                                     │
 └─────────────────────────────────────┘

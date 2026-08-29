@@ -92,6 +92,9 @@ case "$TARGET" in
     cascade_sub)
         TESTS_TO_RUN=("$VPN_DIR/test_vpn_cascade_sub.py")
         ;;
+    freedom_sub)
+        TESTS_TO_RUN=("$VPN_DIR/test_vpn_freedom_sub.py")
+        ;;
     sequential|seq)
         TESTS_TO_RUN=("$VPN_DIR"/test_*.py)
         ;;
@@ -101,7 +104,7 @@ case "$TARGET" in
         ;;
     *)
         echo -e "${RED}[ERROR] Unknown VPN test target: '$TARGET'${NC}"
-        echo "Valid options: all, freedom, proxy, sub, cascade, cascade_sub, --down"
+        echo "Valid options: all, freedom, proxy, sub, cascade, cascade_sub, freedom_sub, --down"
         exit 1
         ;;
 esac

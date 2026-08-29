@@ -65,7 +65,7 @@ async def test_sub_server_deployment() -> bool:
     log(f"Result details: {result}", "info")
 
     # 1. Verify expected containers are running inside vps-sub-only
-    if not check_inner_containers_running(CONTAINER_NAME, ["subs-server", "sub-caddy"]):
+    if not check_inner_containers_running(CONTAINER_NAME, ["subs-server", "sub-caddy", "sub-nginx-decoy"]):
         return False
 
     # 2. Verify HTTPS response via Caddy on /subs/login
@@ -157,8 +157,8 @@ async def test_sub_server_deployment() -> bool:
     time.sleep(3)
     log("subs-server restarted!", "success")
 
-    # Verify both containers still running after restart
-    if not check_inner_containers_running(CONTAINER_NAME, ["subs-server", "sub-caddy"]):
+    # Verify containers still running after restart
+    if not check_inner_containers_running(CONTAINER_NAME, ["subs-server", "sub-caddy", "sub-nginx-decoy"]):
         return False
 
     # 5a. Fetch user1-tcp → 200 with pre-seeded fake vless content

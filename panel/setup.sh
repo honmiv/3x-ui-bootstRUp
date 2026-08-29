@@ -226,7 +226,6 @@ generate_config() {
     local source_path relative_path target_relative target_path
 
     [[ -d "$template_dir" ]] || die "${MSG_CONFIG_ERR} $template_dir"
-    rm -rf "$target_dir"
     mkdir -p "$target_dir"
 
     while IFS= read -r -d '' source_path; do

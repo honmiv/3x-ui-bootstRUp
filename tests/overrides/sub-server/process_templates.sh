@@ -1,5 +1,6 @@
 process_templates() {
     section "Generating configuration"
+    generate_config "./common/templates" "./working"
     generate_config "./sub-server/templates" "./working"
 
     # Inject extra_hosts so subs-server (inside DinD) can reach sibling test VPS

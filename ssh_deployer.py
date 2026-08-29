@@ -1206,7 +1206,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
             if deploy_mode == "restart_sub":
                 log(f"Syncing local tool files to Subscription Server {sub_host}...", "info")
-                bundle_bytes = get_bundle_bytes()
+                bundle_bytes = get_bundle_bytes(source_dir=config.get("bundle_source_dir"))
                 sync_cmd = _sub_server_sync_cmd("/opt/3x-ui-bootstRUp", preserve=True)
                 rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
                 if rc != 0:
@@ -1255,7 +1255,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 log("Updating Subscription Server files and containers; client data will be preserved...", "info")
                 ok_sub, out_sub = await _deploy_sub_server(
                     sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log,
-                    cancel_check=cancel_check
+                    cancel_check=cancel_check,
+                    bundle_source_dir=config.get("bundle_source_dir"),
                 )
                 if not ok_sub:
                     log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")
@@ -1329,8 +1330,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     "if [ -f \"$COMPOSE_FILE\" ]; then\n"
                     "  docker compose -f \"$COMPOSE_FILE\" --project-directory . down --remove-orphans 2>/dev/null || true\n"
                     "fi\n"
-                    "docker stop subs-server sub-caddy 2>/dev/null || true\n"
-                    "docker rm subs-server sub-caddy 2>/dev/null || true\n"
+                    "docker stop subs-server sub-caddy sub-nginx-decoy 2>/dev/null || true\n"
+                    "docker rm subs-server sub-caddy sub-nginx-decoy 2>/dev/null || true\n"
                     "rm -rf /tmp/sub_restore && mkdir -p /tmp/sub_restore\n"
                     "tar -xzf /tmp/sub_rollback_backup.tar.gz -C /tmp/sub_restore\n"
                     "rm -f /tmp/sub_rollback_backup.tar.gz\n"
@@ -1513,7 +1514,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         return ok, result_data
 
     if deploy_mode == "freedom_sub":
-        host = config.get("vps_host", "").strip()
+        host = (config.get("vps_host_for_ssh") or config.get("vps_host") or "").strip()
         port = int(config.get("vps_port") or 22)
         user = config.get("vps_user", "root").strip()
         password = config.get("vps_password", "")

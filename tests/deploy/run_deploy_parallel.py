@@ -48,10 +48,10 @@ def main():
     # overwhelms Docker-in-Docker (XRay may report started but fail to bind
     # its inbound). Keep useful parallelism while avoiding that contention.
     try:
-        requested_workers = int(os.environ.get("DEPLOY_TEST_WORKERS", "2"))
+        requested_workers = int(os.environ.get("DEPLOY_TEST_WORKERS", "6"))
     except ValueError:
-        requested_workers = 2
-    max_workers = max(1, min(len(tests_to_run), requested_workers, os.cpu_count() or 2))
+        requested_workers = 6
+    max_workers = max(1, min(len(tests_to_run), requested_workers, os.cpu_count() or 6))
 
     print("\033[0;36m\033[1m==================================================================")
     print("      3x-UI BootstRUp - PARALLEL Deploy Test Runner              ")

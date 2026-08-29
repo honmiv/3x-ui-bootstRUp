@@ -30,6 +30,8 @@ SERVICE_PORTS = {
     "vps-cascadesub-freedom": 2241,
     "vps-cascadesub-proxy": 2242,
     "vps-cascadesub-sub": 2243,
+    "vps-freedomsub-freedom": 2251,
+    "vps-freedomsub-sub": 2252,
 }
 
 # Host-side TLS ports (container :443 → host :PORT) for --resolve testing
@@ -42,6 +44,8 @@ TLS_HOST_PORTS = {
     "vps-cascadesub-freedom": 8461,
     "vps-cascadesub-proxy": 8462,
     "vps-cascadesub-sub": 8463,
+    "vps-freedomsub-freedom": 8471,
+    "vps-freedomsub-sub": 8472,
 }
 
 

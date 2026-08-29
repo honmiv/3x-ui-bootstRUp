@@ -46,7 +46,7 @@ is_valid_domain() {
 reset_working_dir() {
     info "Preparing ./working directory."
     # Clean up any orphaned containers to ensure a clean slate in case of crash-loops or interrupted deployments
-    docker rm -f subs-server sub-caddy caddy 2>/dev/null || true
+    docker rm -f subs-server sub-caddy caddy sub-nginx-decoy nginx-decoy 2>/dev/null || true
 
     # Clean state files only on fresh deployment, preserve them on update_sub
     if [[ "${UPDATE_SUB_SERVER:-0}" != "1" ]]; then
@@ -256,7 +256,6 @@ generate_config() {
     local source_path relative_path target_relative target_path
 
     [[ -d "$template_dir" ]] || die "Templates not found: $template_dir"
-    rm -rf "$target_dir"
     mkdir -p "$target_dir"
 
     while IFS= read -r -d '' source_path; do

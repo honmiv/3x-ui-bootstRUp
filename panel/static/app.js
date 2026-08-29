@@ -1319,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.custom-select-container.open').forEach(wrapper => {
                 wrapper.classList.remove('open');
             });
+            if (typeof hideDecoyHoverPreview === 'function') hideDecoyHoverPreview();
         });
     };
 
@@ -1343,8 +1344,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         select.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     wrapper.classList.remove('open');
+                    if (typeof hideDecoyHoverPreview === 'function') hideDecoyHoverPreview();
                 });
                 optionsContainer.appendChild(optEl);
+
+                if (select.classList.contains('decoy-select') || select.id.endsWith('decoy_template')) {
+                    optEl.addEventListener('mouseenter', () => {
+                        if (typeof showDecoyHoverPreview === 'function') {
+                            showDecoyHoverPreview(opt.value, optEl);
+                        }
+                    });
+                    optEl.addEventListener('mouseleave', () => {
+                        if (typeof hideDecoyHoverPreview === 'function') {
+                            hideDecoyHoverPreview();
+                        }
+                    });
+                }
             });
             optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
                 el.classList.toggle('selected', el.dataset.value === select.value);
@@ -1434,6 +1449,278 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    let availableDecoys = [];
+    let decoyPopoverEl = null;
+
+    const getOrCreateDecoyPopover = () => {
+        if (!decoyPopoverEl) {
+            decoyPopoverEl = document.createElement('div');
+            decoyPopoverEl.className = 'decoy-hover-popover';
+            decoyPopoverEl.innerHTML = `
+                <div class="decoy-hover-img-wrap">
+                    <img class="decoy-hover-img" src="" alt="Decoy Preview" style="display:none;" />
+                    <div class="decoy-hover-placeholder" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--text-secondary); text-align:center; padding:12px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        <span style="font-size:0.75rem;">Заглушка сайта</span>
+                    </div>
+                </div>
+                <div class="decoy-hover-info">
+                    <div class="decoy-hover-title-row">
+                        <span class="decoy-hover-title"></span>
+                        <span class="decoy-hover-badge"></span>
+                    </div>
+                    <div class="decoy-hover-desc"></div>
+                </div>
+            `;
+            document.body.appendChild(decoyPopoverEl);
+        }
+        return decoyPopoverEl;
+    };
+
+    let activePreviewRequestId = 0;
+
+    const setPlaceholderFor = (item) => {
+        const popover = getOrCreateDecoyPopover();
+        const placeholder = popover.querySelector('.decoy-hover-placeholder');
+        if (!placeholder || !item) return;
+
+        const badge = item.badge || '';
+        let iconSvg = '';
+        let subtitle = item.badge ? `${item.badge} • Шаблон` : 'Статический сайт';
+
+        if (item.id === 'builtin') {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
+            subtitle = 'Встроенная страница документации';
+        } else if (badge === 'Игра') {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>`;
+            subtitle = 'HTML5 интерактивная игра';
+        } else if (badge === 'Кафе') {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`;
+            subtitle = 'Сайт кафе и ресторанов';
+        } else if (badge === 'Магазин') {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`;
+            subtitle = 'E-Commerce онлайн-магазин';
+        } else if (badge === 'App') {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
+            subtitle = 'Лендинг мобильного приложения';
+        } else {
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+        }
+
+        placeholder.innerHTML = `
+            ${iconSvg}
+            <span style="font-size:0.8rem; color:var(--text-primary); font-weight:600; text-align:center; margin-top:2px;">${item.name || ''}</span>
+            <span style="font-size:0.7rem; color:var(--text-secondary);">${subtitle}</span>
+        `;
+    };
+
+    const showDecoyHoverPreview = (decoyId, targetElement) => {
+        const item = availableDecoys.find(d => d.id === decoyId);
+        if (!item) return;
+        const popover = getOrCreateDecoyPopover();
+        const img = popover.querySelector('.decoy-hover-img');
+        const placeholder = popover.querySelector('.decoy-hover-placeholder');
+        const title = popover.querySelector('.decoy-hover-title');
+        const badge = popover.querySelector('.decoy-hover-badge');
+        const desc = popover.querySelector('.decoy-hover-desc');
+
+        title.textContent = item.name || decoyId;
+        badge.textContent = item.badge || (item.type === 'github' ? 'GitHub' : 'Шаблон');
+        desc.textContent = item.description || '';
+
+        setPlaceholderFor(item);
+        placeholder.style.display = 'flex';
+        img.style.display = 'none';
+
+        const previewImgUrl = item.preview_image;
+        if (previewImgUrl || item.repo) {
+            const reqId = ++activePreviewRequestId;
+            const primaryUrl = previewImgUrl || (item.repo ? `https://opengraph.githubassets.com/1/${item.repo}` : '');
+            const tempImg = new Image();
+            tempImg.onload = () => {
+                if (reqId !== activePreviewRequestId) return;
+                img.src = tempImg.src;
+                img.style.display = 'block';
+                img.style.opacity = '1';
+                placeholder.style.display = 'none';
+            };
+            tempImg.onerror = () => {
+                if (reqId !== activePreviewRequestId) return;
+                const ogFallback = item.repo ? `https://opengraph.githubassets.com/1/${item.repo}` : '';
+                if (ogFallback && tempImg.src !== ogFallback) {
+                    tempImg.src = ogFallback;
+                } else {
+                    img.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                }
+            };
+            tempImg.src = primaryUrl;
+        } else {
+            img.style.display = 'none';
+            placeholder.style.display = 'flex';
+        }
+
+        const rect = targetElement.getBoundingClientRect();
+        const popoverWidth = 320;
+        const popoverHeight = 240;
+
+        let left = rect.right + 12;
+        let top = rect.top - 20;
+
+        if (left + popoverWidth > window.innerWidth - 10) {
+            left = rect.left - popoverWidth - 12;
+        }
+        if (left < 10) {
+            left = Math.max(10, (window.innerWidth - popoverWidth) / 2);
+        }
+
+        if (top + popoverHeight > window.innerHeight - 10) {
+            top = window.innerHeight - popoverHeight - 10;
+        }
+        if (top < 10) top = 10;
+
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+        popover.classList.add('visible');
+    };
+
+    const hideDecoyHoverPreview = () => {
+        if (decoyPopoverEl) {
+            decoyPopoverEl.classList.remove('visible');
+        }
+    };
+    const updateDecoyInfo = (targetSelectId) => {
+        const selectIds = targetSelectId ? [targetSelectId] : ['decoy_template', 'freedom_decoy_template', 'proxy_decoy_template', 'sub_decoy_template', 'update_decoy_template', 'update_sub_decoy_template'];
+        selectIds.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const parentBlock = select.closest('.form-group') || select.parentElement;
+            const descEl = parentBlock ? parentBlock.querySelector('.decoy-desc-text') : document.getElementById(`${id.replace('_template', '')}_decoyDescText`);
+            const badgeEl = parentBlock ? parentBlock.querySelector('.decoy-cache-badge') : document.getElementById(`${id.replace('_template', '')}_decoyCacheStatus`);
+
+            const selId = select.value;
+            const item = availableDecoys.find(d => d.id === selId);
+
+            if (descEl && item) {
+                descEl.textContent = item.description || 'Статический сайт-заглушка для портов 80 и 443 (fallback).';
+            }
+
+            if (badgeEl) {
+                if (selId === 'builtin') {
+                    badgeEl.textContent = 'Встроено';
+                    badgeEl.style.background = 'rgba(59, 130, 246, 0.15)';
+                    badgeEl.style.color = 'var(--accent-color, #3b82f6)';
+                    badgeEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                } else if (item && item.is_cached) {
+                    badgeEl.textContent = 'В кэше';
+                    badgeEl.style.background = 'rgba(16, 185, 129, 0.15)';
+                    badgeEl.style.color = 'var(--success-color, #10b981)';
+                    badgeEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                } else {
+                    badgeEl.textContent = 'Не скачано';
+                    badgeEl.style.background = 'rgba(234, 179, 8, 0.15)';
+                    badgeEl.style.color = 'var(--warning-color, #eab308)';
+                    badgeEl.style.borderColor = 'rgba(234, 179, 8, 0.3)';
+                }
+            }
+        });
+    };
+
+    const loadDecoyTemplates = async () => {
+        try {
+            const res = await fetch('/api/decoys');
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.decoys) && data.decoys.length) {
+                    availableDecoys = data.decoys;
+                }
+            }
+        } catch (e) { }
+
+        const decoySelects = document.querySelectorAll('select.decoy-select');
+        decoySelects.forEach(select => {
+            const isOptional = select.id === 'update_decoy_template' || select.id === 'update_sub_decoy_template';
+            const initialVal = select.dataset.initialVal || select.value || (isOptional ? '' : 'builtin');
+            select.innerHTML = '';
+            if (isOptional) {
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.textContent = '— Не обновлять заглушку —';
+                select.appendChild(emptyOpt);
+            }
+            availableDecoys.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = d.name;
+                select.appendChild(opt);
+            });
+            select.value = initialVal;
+            refreshCustomSelect(select);
+        });
+        updateDecoyInfo();
+    };
+
+    loadDecoyTemplates();
+
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains('decoy-select')) {
+            updateDecoyInfo(e.target.id);
+            saveCurrentConfig();
+        }
+    });
+
+    document.addEventListener('click', async (e) => {
+        const randomBtn = e.target.closest('.btn-random-decoy');
+        if (randomBtn) {
+            const targetId = randomBtn.dataset.target || 'decoy_template';
+            const select = document.getElementById(targetId);
+            if (!select || !availableDecoys.length) return;
+            const currentVal = select.value;
+            const candidates = availableDecoys.filter(d => d.id !== currentVal);
+            const pool = candidates.length > 0 ? candidates : availableDecoys;
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+            select.value = chosen.id;
+            refreshCustomSelect(select);
+            updateDecoyInfo(targetId);
+            saveCurrentConfig();
+            showToast(`🎲 Выбрана заглушка: ${chosen.name}`, 'info', 2500);
+            return;
+        }
+
+        const previewBtn = e.target.closest('.btn-preview-decoy');
+        if (previewBtn) {
+            const targetId = previewBtn.dataset.target || 'decoy_template';
+            const select = document.getElementById(targetId);
+            if (!select) return;
+            const decoyId = select.value;
+
+            const item = availableDecoys.find(d => d.id === decoyId);
+            if (decoyId !== 'builtin' && (!item || !item.is_cached)) {
+                showToast('Загрузка шаблона в локальный кэш...', 'info', 3000);
+                try {
+                    const dlRes = await fetch('/api/decoys/download', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: decoyId })
+                    });
+                    const dlData = await dlRes.json();
+                    if (!dlData.ok) {
+                        showToast(`Ошибка загрузки: ${dlData.error || 'не удалось скачать'}`, 'error');
+                        return;
+                    }
+                    if (item) item.is_cached = true;
+                    updateDecoyInfo(targetId);
+                } catch (err) {
+                    showToast(`Ошибка скачивания: ${err.message}`, 'error');
+                    return;
+                }
+            }
+
+            window.open(`/api/decoys/preview/${encodeURIComponent(decoyId)}/index.html`, '_blank');
+        }
+    });
+
     const resetSSHValidation = () => {
         btnNext1.classList.add('hidden');
         testResult.className = 'test-result';
@@ -1508,6 +1795,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 xui_username: getFieldValue('xui_username'),
                 sub_secret: getFieldValue('sub_secret'),
                 xui_version: document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || latestFetchedXuiVersion : latestFetchedXuiVersion,
+                decoy_template: document.getElementById('decoy_template') ? document.getElementById('decoy_template').value : 'builtin',
+                freedom_decoy_template: document.getElementById('freedom_decoy_template') ? document.getElementById('freedom_decoy_template').value : 'builtin',
+                proxy_decoy_template: document.getElementById('proxy_decoy_template') ? document.getElementById('proxy_decoy_template').value : 'builtin',
+                sub_decoy_template: document.getElementById('sub_decoy_template') ? document.getElementById('sub_decoy_template').value : 'builtin',
+                update_decoy_template: document.getElementById('update_decoy_template') ? document.getElementById('update_decoy_template').value : '',
+                update_sub_decoy_template: document.getElementById('update_sub_decoy_template') ? document.getElementById('update_sub_decoy_template').value : '',
                 client_tcp_list: document.getElementById('client_tcp_list').value.trim(),
                 client_xhttp_list: document.getElementById('client_xhttp_list').value.trim(),
                 ui_open_categories: ['category-full', 'category-single', 'category-maintenance']
@@ -1659,6 +1952,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     sel.dataset.initialVersion = cfg.xui_version;
                     syncVersionSelect(sel);
                 }
+                ['decoy_template', 'freedom_decoy_template', 'proxy_decoy_template', 'sub_decoy_template', 'update_decoy_template', 'update_sub_decoy_template'].forEach(id => {
+                    if (has(id) && document.getElementById(id)) {
+                        const sel = document.getElementById(id);
+                        sel.dataset.initialVal = cfg[id];
+                        sel.value = cfg[id];
+                        refreshCustomSelect(sel);
+                    }
+                });
+                if (typeof updateDecoyInfo === 'function') updateDecoyInfo();
                 if (has('client_tcp_list')) setValue('client_tcp_list', cfg.client_tcp_list);
                 if (has('client_xhttp_list')) setValue('client_xhttp_list', cfg.client_xhttp_list);
                 if (has('foreign_sub_url')) setValue('foreign_sub_url', cfg.foreign_sub_url);
@@ -2623,11 +2925,19 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStartDeploy.classList.add('hidden');
 
         const commonVersion = document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || latestFetchedXuiVersion : latestFetchedXuiVersion;
+        const decoyTemplate = document.getElementById('decoy_template') ? document.getElementById('decoy_template').value.trim() || 'builtin' : 'builtin';
+        const freedomDecoyTemplate = document.getElementById('freedom_decoy_template') ? document.getElementById('freedom_decoy_template').value.trim() || 'builtin' : 'builtin';
+        const proxyDecoyTemplate = document.getElementById('proxy_decoy_template') ? document.getElementById('proxy_decoy_template').value.trim() || 'builtin' : 'builtin';
+        const subDecoyTemplate = document.getElementById('sub_decoy_template') ? document.getElementById('sub_decoy_template').value.trim() || 'builtin' : 'builtin';
 
         let payload = {
             deploy_mode: mode,
             is_cascade: (mode === 'cascade' || mode === 'cascade_sub'),
-            xui_version: commonVersion
+            xui_version: commonVersion,
+            decoy_template: decoyTemplate,
+            freedom_decoy_template: freedomDecoyTemplate,
+            proxy_decoy_template: proxyDecoyTemplate,
+            sub_decoy_template: subDecoyTemplate
         };
 
         if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
@@ -2711,6 +3021,10 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.update_vps_key = document.getElementById('update_vps_key').value;
             if (mode === 'update_3xui') {
                 payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || latestFetchedXuiVersion;
+                const updateDecoyEl = document.getElementById('update_decoy_template');
+                if (updateDecoyEl && updateDecoyEl.value.trim()) {
+                    payload.update_decoy_template = updateDecoyEl.value.trim();
+                }
             }
         } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
@@ -2723,6 +3037,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (mode === 'rollback_sub') {
                 payload.rollback_sub_backup_file = document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '';
+            }
+            if (mode === 'update_sub') {
+                const updateSubDecoyEl = document.getElementById('update_sub_decoy_template');
+                if (updateSubDecoyEl && updateSubDecoyEl.value.trim()) {
+                    payload.update_sub_decoy_template = updateSubDecoyEl.value.trim();
+                }
             }
         } else {
             payload.freedom_host = document.getElementById('freedom_host').value.trim();

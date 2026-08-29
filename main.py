@@ -17,6 +17,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, List, Optional, Tuple
 
 from ssh_deployer import SSHDeployer, run_deployment, validate_deployment_config
+import decoy_manager
 
 PORT = int(os.environ.get("PORT", 8000))
 HOST = "127.0.0.1"
@@ -559,13 +560,13 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                 "freedom_host", "freedom_host_for_ssh", "freedom_port", "freedom_user", "freedom_password",
                 "freedom_key", "freedom_auth_type", "freedom_xui_username",
                 "freedom_xui_password", "freedom_sub_secret", "freedom_client_name",
-                "freedom_xui_version"
+                "freedom_xui_version", "freedom_decoy_template"
             ),
             "proxy_node": pick(
                 "proxy_host", "proxy_host_for_ssh", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
                 "proxy_auth_type", "proxy_xui_username", "proxy_xui_password",
                 "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list",
-                "foreign_sub_url", "proxy_xui_version"
+                "foreign_sub_url", "proxy_xui_version", "proxy_decoy_template"
             ),
             "standard_node": pick("vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"),
             "sub_server": pick(
@@ -573,7 +574,7 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                 "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path",
                 "sub_russian_url", "sub_foreign_url", "sub_proxy_clients",
                 "sub_freedom_clients", "sub_admin_user", "sub_backup_name",
-                "rollback_sub_backup_file"
+                "rollback_sub_backup_file", "sub_decoy_template", "update_sub_decoy_template"
             ),
             "backup_node": pick(
                 "backup_vps_host", "backup_vps_port", "backup_vps_user",
@@ -586,12 +587,13 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
             ),
             "panel_and_clients": pick(
                 "xui_username", "xui_password", "sub_secret", "client_tcp_list",
-                "client_xhttp_list", "foreign_sub_url", "xui_version"
+                "client_xhttp_list", "foreign_sub_url", "xui_version",
+                "decoy_template", "freedom_decoy_template", "proxy_decoy_template", "sub_decoy_template"
             ),
             "update_node": pick(
                 "update_vps_host", "update_vps_port", "update_vps_user",
                 "update_vps_password", "update_vps_key", "update_auth_type",
-                "update_xui_version"
+                "update_xui_version", "update_decoy_template"
             ),
             "ui_state": {k: data[k] for k in data if k.startswith("ui_")},
         }
@@ -672,6 +674,40 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self.send_json({"versions": fetch_xui_versions()})
             except Exception as e:
                 self.send_json({"versions": ["latest"], "error": str(e)})
+            return
+
+        if url_path == "/api/decoys":
+            try:
+                self.send_json({"ok": True, "decoys": decoy_manager.get_decoy_catalog()})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e), "decoys": []}, 500)
+            return
+
+        if url_path.startswith("/api/decoys/preview/"):
+            parts = url_path[len("/api/decoys/preview/"):].split("/", 1)
+            decoy_id = parts[0]
+            sub_file = parts[1] if len(parts) > 1 and parts[1] else "index.html"
+            try:
+                decoy_dir = decoy_manager.ensure_decoy_cached(decoy_id)
+                target_file = os.path.abspath(os.path.join(decoy_dir, sub_file))
+                if not (target_file == decoy_dir or target_file.startswith(decoy_dir + os.sep)) or not os.path.isfile(target_file):
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b"404 Not Found")
+                    return
+                mime_type, _ = mimetypes.guess_type(target_file)
+                mime_type = mime_type or "application/octet-stream"
+                with open(target_file, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mime_type)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(f"Preview error: {e}".encode("utf-8"))
             return
 
         if url_path == "/api/update_check":
@@ -839,6 +875,16 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True})
             else:
                 self.send_json({"ok": False, "error": "Failed to save setup_backup.yml"}, 500)
+            return
+
+        if url_path == "/api/decoys/download":
+            decoy_id = payload.get("id", "builtin")
+            custom_url = payload.get("custom_url", "")
+            try:
+                path = decoy_manager.ensure_decoy_cached(decoy_id, custom_url=custom_url, force=True)
+                self.send_json({"ok": True, "id": decoy_id, "cached": True, "path": path})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, 500)
             return
 
         if url_path == "/api/happ_routing":

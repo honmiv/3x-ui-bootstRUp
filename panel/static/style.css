@@ -436,7 +436,10 @@ textarea.required-password-empty {
     visibility: hidden;
     transform: translateY(-8px) scale(0.96);
     pointer-events: none;
-    max-height: 210px;
+    /* The decoy catalog is long enough that a 210px menu makes most
+       entries look missing. Keep it viewport-safe while showing the
+       catalog in a single, comfortably scrollable list. */
+    max-height: min(520px, calc(100vh - 150px));
     overflow-y: auto;
     transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s ease;
 }
@@ -508,6 +511,125 @@ textarea.required-password-empty {
 }
 .form-group > .custom-select-container .custom-select-options {
     min-width: 100%;
+}
+
+/* Decoy Floating Hover Preview Popover */
+.decoy-hover-popover {
+    position: fixed;
+    z-index: 10000;
+    width: 320px;
+    background: var(--bg-secondary, #1e293b);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    border-radius: 10px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.25);
+    padding: 10px;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.96);
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s ease;
+    pointer-events: none;
+    backdrop-filter: blur(12px);
+}
+
+.decoy-hover-popover.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+}
+
+.decoy-hover-img-wrap {
+    width: 100%;
+    height: 160px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+}
+
+.decoy-hover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    transition: opacity 0.2s ease;
+}
+
+.decoy-hover-info {
+    margin-top: 8px;
+}
+
+.decoy-hover-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.decoy-hover-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary, #f8fafc);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.decoy-hover-badge {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-color, #3b82f6);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    white-space: nowrap;
+}
+
+.decoy-hover-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #94a3b8);
+    line-height: 1.35;
+}
+
+/* Soft Pastel Rose Glow for Decoy Preview Button */
+#btnPreviewDecoy,
+.btn-preview-decoy-glow {
+    position: relative;
+    background: rgba(244, 114, 182, 0.1) !important;
+    color: #fbcfe8 !important;
+    border: 1px solid rgba(244, 114, 182, 0.28) !important;
+    box-shadow: 0 0 8px rgba(244, 114, 182, 0.15);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    animation: pulse-rose-soft 2.6s infinite ease-in-out;
+    font-weight: 500;
+}
+
+#btnPreviewDecoy:hover,
+.btn-preview-decoy-glow:hover {
+    background: rgba(244, 114, 182, 0.2) !important;
+    color: #ffffff !important;
+    border-color: rgba(244, 114, 182, 0.6) !important;
+    box-shadow: 0 0 14px rgba(244, 114, 182, 0.35) !important;
+    transform: translateY(-1px);
+}
+
+@keyframes pulse-rose-soft {
+    0% {
+        box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.25), 0 0 6px rgba(244, 114, 182, 0.1);
+        border-color: rgba(244, 114, 182, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(244, 114, 182, 0), 0 0 12px rgba(244, 114, 182, 0.3);
+        border-color: rgba(244, 114, 182, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(244, 114, 182, 0), 0 0 6px rgba(244, 114, 182, 0.1);
+        border-color: rgba(244, 114, 182, 0.25);
+    }
 }
 .domain-port-row {
     display: flex !important;

@@ -9,7 +9,10 @@ import shlex
 import sys
 import tarfile
 import tempfile
+import time
 from typing import Callable, Dict, Any, Optional, List, Tuple
+
+import decoy_manager
 
 ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 REPO_ROOT = os.path.dirname(os.path.abspath(globals()["__file__"])) if globals().get("__file__") else os.path.abspath(os.path.dirname(sys.argv[0]) if sys.argv and sys.argv[0] else os.getcwd())
@@ -17,19 +20,32 @@ REPO_ROOT = os.path.dirname(os.path.abspath(globals()["__file__"])) if globals()
 def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
 
-def get_bundle_bytes(source_dir: str | None = None) -> bytes:
+def get_bundle_bytes(source_dir: str | None = None, decoy_files: Dict[str, bytes] | None = None) -> bytes:
     buf = io.BytesIO()
     repo_dir = source_dir or REPO_ROOT
+    decoy_prefix = os.path.join("common", "templates", "nginx-decoy", "html")
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for root, dirs, files in os.walk(repo_dir):
-            if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root or 'backups_panel' in root or 'backups_sub_server' in root:
+            if '.git' in root or '.python_env' in root or '__pycache__' in root or (os.sep + 'panel' + os.sep + 'static') in root or 'backups_panel' in root or 'backups_sub_server' in root or (os.sep + '.cache') in root:
                 continue
             for file in files:
                 if file.endswith('.pyc') or file in ('setup_backup.yml', 'sub-server.log', 'servers.json', 'force-subs.yml', 'nodes.json', 'subs.yml'):
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, repo_dir)
+                if decoy_files is not None and (rel_path == decoy_prefix or rel_path.startswith(decoy_prefix + os.sep)):
+                    continue
                 tar.add(full_path, arcname=rel_path)
+
+        if decoy_files:
+            for d_rel, d_bytes in decoy_files.items():
+                arc_path = os.path.join("common", "templates", "nginx-decoy", "html", d_rel).replace(os.sep, "/")
+                ti = tarfile.TarInfo(name=arc_path)
+                ti.size = len(d_bytes)
+                ti.mtime = int(time.time())
+                ti.mode = 0o644
+                tar.addfile(ti, io.BytesIO(d_bytes))
+
     return buf.getvalue()
 
 def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]]]:
@@ -553,7 +569,7 @@ async def _perform_remote_backup(
     return True, local_backup_path, file_size_mb
 
 
-async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None) -> tuple[bool, str]:
+async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None, decoy_files: Optional[Dict[str, bytes]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to {host}:{port}...", "info")
@@ -563,7 +579,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return False, ""
 
         log(f"Syncing local files to {host}...", "info")
-        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir)
+        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir, decoy_files=decoy_files)
         sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
@@ -610,7 +626,7 @@ def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
         f"{restore}"
     )
 
-async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None) -> tuple[bool, str]:
+async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None, decoy_files: Optional[Dict[str, bytes]] = None) -> tuple[bool, str]:
     remote_dir = "/opt/3x-ui-bootstRUp"
     async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
         log(f"Connecting to Subscription Server on {host}:{port}...", "info")
@@ -620,7 +636,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return False, ""
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
-        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir)
+        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir, decoy_files=decoy_files)
         sync_cmd = _sub_server_sync_cmd(remote_dir, preserve=(env_vars.get("UPDATE_SUB_SERVER", "") == "1"))
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
@@ -793,6 +809,21 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     xui_password = config.get("xui_password", "").strip()
     xui_version = config.get("xui_version", "").strip()
     sub_secret = config.get("sub_secret", "").strip()
+
+    def prepare_decoy_files(template_name: str, node_label: str = "") -> Optional[Dict[str, bytes]]:
+        tpl = (template_name or "builtin").strip()
+        label_prefix = f" [{node_label}]" if node_label else ""
+        try:
+            log(f"Preparing decoy camouflage template{label_prefix}: '{tpl}'...", "info")
+            df = decoy_manager.get_decoy_bundle_files(tpl, randomize=True)
+            log(f"[OK] Decoy site prepared{label_prefix} with unique anti-fingerprint build ({len(df)} files).", "info")
+            return df
+        except Exception as e:
+            log(f"[WARN] Failed to prepare decoy '{tpl}'{label_prefix}: {e}. Falling back to builtin decoy.", "warn")
+            try:
+                return decoy_manager.get_decoy_bundle_files("builtin", randomize=True)
+            except Exception:
+                return None
 
     # Remote Server Backup Mode
     if deploy_mode == "backup":
@@ -1055,6 +1086,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Remote host is required for update mode.", "error")
             return False, {}
 
+        update_decoy_tpl = (config.get("update_decoy_template") or "").strip()
+        update_decoy_files = None
+        if update_decoy_tpl:
+            update_decoy_files = prepare_decoy_files(update_decoy_tpl, "Update Decoy")
+
         remote_dir = "/opt/3x-ui-bootstRUp"
 
         log(f"Starting 3X-UI update process for server {host}:{port} to version '{target_version}'...", "info")
@@ -1066,7 +1102,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 return False, {}
 
             log(f"Syncing local tool scripts to {host}:{remote_dir}...", "info")
-            bundle_bytes = get_bundle_bytes()
+            bundle_bytes = get_bundle_bytes(decoy_files=update_decoy_files)
             sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
             rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
             if rc != 0:
@@ -1104,6 +1140,30 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 log(f"[ERROR] Remote 3X-UI update failed: {out}", "error")
                 return False, {}
 
+            decoy_updated = False
+            if update_decoy_files:
+                log("🎨 Updating decoy site on remote server...", "info")
+                decoy_script = (
+                    "set -e\n"
+                    "WORK_DIR=\"/opt/3x-ui-bootstRUp\"\n"
+                    "if [ ! -d \"$WORK_DIR\" ]; then WORK_DIR=\".\"; fi\n"
+                    "cd \"$WORK_DIR\"\n"
+                    "rm -rf working/nginx-decoy/html\n"
+                    "cp -r common/templates/nginx-decoy/html working/nginx-decoy/html\n"
+                    "COMPOSE_FILE=\"working/docker-compose/docker-compose.yml\"\n"
+                    "if [ -f \"$COMPOSE_FILE\" ]; then\n"
+                    "  docker compose -f \"$COMPOSE_FILE\" --project-directory . restart nginx-decoy 2>/dev/null || true\n"
+                    "else\n"
+                    "  docker restart nginx-decoy 2>/dev/null || true\n"
+                    "fi\n"
+                )
+                rc_decoy, _ = await deployer.exec_command(f"bash -c {shlex.quote(decoy_script)}", lambda m: log(m, "info"))
+                if rc_decoy == 0:
+                    log("✅ Decoy site updated and nginx-decoy restarted.", "success")
+                    decoy_updated = True
+                else:
+                    log("[WARN] Failed to update decoy site. Panel update itself succeeded.", "warn")
+
             web_base_path = ""
             caddy_cmd = "cat /opt/3x-ui-bootstRUp/working/caddy/Caddyfile 2>/dev/null || cat working/caddy/Caddyfile 2>/dev/null || true"
             rc_cad, cad_out = await deployer.exec_command(caddy_cmd)
@@ -1118,6 +1178,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("🎉 3X-UI PANEL UPDATED SUCCESSFULLY!", "success")
             log(f"Server: {host}:{port}", "success")
             log(f"New 3x-ui version: {target_version}", "success")
+            if decoy_updated:
+                log(f"Decoy site: updated to '{update_decoy_tpl}'", "success")
             log(f"Panel URL: {xui_url}", "success")
             log(f"Pre-update backup: ./backups_panel/{backup_name} ({file_size_mb} MB)", "success")
             log("=========================================", "success")
@@ -1129,7 +1191,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "xui_url": xui_url,
                 "backup_name": backup_name,
                 "backup_path": f"./backups_panel/{backup_name}",
-                "backup_size": f"{file_size_mb} MB"
+                "backup_size": f"{file_size_mb} MB",
+                "decoy_updated": decoy_updated,
             }
 
     # Maintenance Modes: Restart Panel / Server
@@ -1252,11 +1315,21 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     # setup.sh reads DOMAIN/path/URLs/admin credentials from the
                     # existing generated compose/Caddy config in update mode.
                 }
+                update_sub_decoy_tpl = (config.get("update_sub_decoy_template") or "").strip()
+                update_sub_decoy_files = (
+                    prepare_decoy_files(update_sub_decoy_tpl, "Subscription Server Update")
+                    if update_sub_decoy_tpl else None
+                )
+                if update_sub_decoy_files is not None:
+                    # Explicitly selected a decoy template: setup.sh must apply it
+                    # (otherwise it preserves the currently deployed decoy site).
+                    sub_env["UPDATE_SUB_DECOY"] = "1"
                 log("Updating Subscription Server files and containers; client data will be preserved...", "info")
                 ok_sub, out_sub = await _deploy_sub_server(
                     sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log,
                     cancel_check=cancel_check,
                     bundle_source_dir=config.get("bundle_source_dir"),
+                    decoy_files=update_sub_decoy_files,
                 )
                 if not ok_sub:
                     log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")
@@ -1416,7 +1489,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "ADMIN_PASSWORD": sub_admin_password
         }
 
-        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
+        ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         if not ok_sub:
             log("[ERROR] Failed to deploy Subscription Server.", "error")
             return False, {}
@@ -1478,9 +1552,16 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             if default_freedom_client not in xhttp_names:
                 xhttp_names.append(default_freedom_client)
             clients_xhttp_str = " ".join(xhttp_names)
+            single_decoy_tpl = config.get("decoy_template") or config.get("freedom_decoy_template")
+            single_label = "Freedom Node"
         elif deploy_mode == "proxy_only":
             cascade_choice = "y"
             node_type_choice = "2"
+            single_decoy_tpl = config.get("decoy_template") or config.get("proxy_decoy_template")
+            single_label = "Proxy Node"
+        else:
+            single_decoy_tpl = config.get("decoy_template")
+            single_label = "Single Node"
 
         foreign_sub_url = config.get("foreign_sub_url", "").strip() if deploy_mode == "proxy_only" else ""
         target_domain = config.get("domain", "").strip() or host
@@ -1498,7 +1579,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "FOREIGN_SUB_URL": foreign_sub_url
         }
 
-        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        single_decoy_files = prepare_decoy_files(single_decoy_tpl, single_label)
+        ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=single_decoy_files)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
         
         final_xui_url = parsed_xui_url or f"https://{target_domain}/{web_base_path}/"
@@ -1540,7 +1622,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "FOREIGN_SUB_URL": ""
         }
 
-        ok1, out1 = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        freedom_decoy_files = prepare_decoy_files(config.get("decoy_template") or config.get("freedom_decoy_template"), "Freedom Node")
+        ok1, out1 = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
         if not ok1:
             log("[ERROR] Stage 1 failed: Could not deploy Freedom Node.", "error")
             return False, {}
@@ -1597,7 +1680,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             **extra_sub_env,
         }
 
-        ok2, out2 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
+        ok2, out2 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         if not ok2:
             log("[ERROR] Stage 2 failed: Subscription Server deployment failed.", "error")
             return False, {}
@@ -1691,7 +1775,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "NODE_TYPE_CHOICE": "1"
     }
 
-    ok1, out1 = await _deploy_node(freedom_host_for_ssh, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+    freedom_decoy_files = prepare_decoy_files(config.get("freedom_decoy_template") or config.get("decoy_template"), "Freedom Node")
+    ok1, out1 = await _deploy_node(freedom_host_for_ssh, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
@@ -1725,7 +1810,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         "FOREIGN_SUB_URL": freedom_sub_url
     }
 
-    ok2, out2 = await _deploy_node(proxy_host_for_ssh, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+    proxy_decoy_files = prepare_decoy_files(config.get("proxy_decoy_template") or config.get("decoy_template"), "Proxy Node")
+    ok2, out2 = await _deploy_node(proxy_host_for_ssh, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
@@ -1807,7 +1893,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             **extra_sub_env,
         }
 
-        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
+        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         if not ok3:
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}

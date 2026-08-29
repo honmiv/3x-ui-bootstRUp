@@ -992,6 +992,31 @@
                                 <label for="sub_secret">Секретная фраза панели</label>
                                 <input type="text" id="sub_secret" placeholder="panel">
                             </div>
+                            <div class="form-group full-width" style="margin-top: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                    <label for="decoy_template" style="margin-bottom: 0; font-weight: 500;">Сайт-заглушка (Camouflage Decoy Site)</label>
+                                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                        <span id="decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                        <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z"/><path d="M12 12V22"/><path d="M12 12L21 7"/><path d="M12 12L3 7"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/><circle cx="7.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="7.5" cy="17.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="14.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="17.5" r="0.9" fill="currentColor"/>
+                                            </svg>
+                                            <span>Случайная</span>
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                            <span>Предпросмотр</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <select id="decoy_template" class="custom-select decoy-select"
+                                    style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                    <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                </select>
+                                <small id="decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">
+                                    Статический сайт для портов 80 и 443 (fallback). Защищает от сканирования и активного зондирования ТСПУ.
+                                </small>
+                            </div>
                             <div class="form-group full-width">
                                 <label for="client_tcp_list">Клиенты VLESS TCP (через запятую или с новой
                                     строки)</label>
@@ -1049,6 +1074,31 @@
                                     <label for="freedom_sub_secret">Секретная фраза Freedom панели</label>
                                     <input type="text" id="freedom_sub_secret" placeholder="panel">
                                 </div>
+                                <div class="form-group full-width" style="margin-top: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                        <label for="freedom_decoy_template" style="margin-bottom: 0; font-weight: 500;">Сайт-заглушка Freedom ноды</label>
+                                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                            <span id="freedom_decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="freedom_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z"/><path d="M12 12V22"/><path d="M12 12L21 7"/><path d="M12 12L3 7"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/><circle cx="7.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="7.5" cy="17.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="14.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="17.5" r="0.9" fill="currentColor"/>
+                                                </svg>
+                                                <span>Случайная</span>
+                                            </button>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="freedom_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                <span>Предпросмотр</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <select id="freedom_decoy_template" class="custom-select decoy-select"
+                                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                        <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                    </select>
+                                    <small id="freedom_decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">
+                                        Статический сайт для портов 80 и 443 Целевого сервера (Freedom).
+                                    </small>
+                                </div>
                                 <div class="info-banner" style="grid-column: span 2;">
                                     <span class="info-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                             height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1091,6 +1141,31 @@
                                     <label for="proxy_sub_secret">Секретная фраза Proxy панели</label>
                                     <input type="text" id="proxy_sub_secret" placeholder="panel">
                                 </div>
+                                <div class="form-group full-width" style="margin-top: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                        <label for="proxy_decoy_template" style="margin-bottom: 0; font-weight: 500;">Сайт-заглушка Proxy ноды</label>
+                                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                            <span id="proxy_decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="proxy_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z"/><path d="M12 12V22"/><path d="M12 12L21 7"/><path d="M12 12L3 7"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/><circle cx="7.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="7.5" cy="17.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="14.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="17.5" r="0.9" fill="currentColor"/>
+                                                </svg>
+                                                <span>Случайная</span>
+                                            </button>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="proxy_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                <span>Предпросмотр</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <select id="proxy_decoy_template" class="custom-select decoy-select"
+                                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                        <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                    </select>
+                                    <small id="proxy_decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">
+                                        Статический сайт для портов 80 и 443 Прокси ноды (Российский VPS).
+                                    </small>
+                                </div>
                                 <div class="form-group full-width">
                                     <label for="proxy_client_tcp_list">Клиенты VLESS TCP (через запятую или с новой
                                         строки)</label>
@@ -1130,6 +1205,31 @@
                                         <button type="button" class="btn-toggle-eye" data-target="sub_admin_password"
                                             title="Показать/Скрыть пароль">👁️</button>
                                     </div>
+                                </div>
+                                <div class="form-group full-width" style="margin-top: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                        <label for="sub_decoy_template" style="margin-bottom: 0; font-weight: 500;">Сайт-заглушка Сервера подписок</label>
+                                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                            <span id="sub_decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="sub_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z"/><path d="M12 12V22"/><path d="M12 12L21 7"/><path d="M12 12L3 7"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/><circle cx="7.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="7.5" cy="17.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="14.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="17.5" r="0.9" fill="currentColor"/>
+                                                </svg>
+                                                <span>Случайная</span>
+                                            </button>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="sub_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                <span>Предпросмотр</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <select id="sub_decoy_template" class="custom-select decoy-select"
+                                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                        <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                    </select>
+                                    <small id="sub_decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">
+                                        Статический сайт для портов 80 и 443 Сервера подписок (Sub-Server).
+                                    </small>
                                 </div>
                                 <div id="subOnlyTargetGroup" class="form-grid full-width hidden">
                                     <div class="form-group full-width">
@@ -1241,6 +1341,32 @@
                                         <option value="">Загрузка версий...</option>
                                     </select>
                                 </div>
+                                <div class="form-group full-width" style="margin-top: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                        <label for="update_decoy_template" style="margin-bottom: 0; font-weight: 500;">Обновить сайт-заглушку (опционально)</label>
+                                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                            <span id="update_decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="update_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z"/><path d="M12 12V22"/><path d="M12 12L21 7"/><path d="M12 12L3 7"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/><circle cx="7.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="7.5" cy="17.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="11.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="14.5" r="0.9" fill="currentColor"/><circle cx="16.5" cy="17.5" r="0.9" fill="currentColor"/>
+                                                </svg>
+                                                <span>Случайная</span>
+                                            </button>
+                                            <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="update_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                <span>Предпросмотр</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <select id="update_decoy_template" class="custom-select decoy-select"
+                                        style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                        <option value="">— Не обновлять заглушку —</option>
+                                        <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                    </select>
+                                    <small id="update_decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">
+                                        Оставьте пустым, чтобы не обновлять заглушку. Выберите шаблон, чтобы заменить текущий сайт-заглушку на сервере.
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1280,6 +1406,22 @@
                                 конфигурации в локальную папку <code>./backups_sub_server/</code>, после чего файлы
                                 Сервера подписок будут обновлены и контейнеры subs-server и sub-caddy пересобраны
                                 (docker compose up -d --build). Клиенты, ноды и overrides будут сохранены.</p>
+                            <div class="form-group full-width" style="margin-top: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                    <label for="update_sub_decoy_template" style="margin-bottom: 0; font-weight: 500;">Обновить сайт-заглушку (опционально)</label>
+                                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                        <span id="update_sub_decoyCacheStatus" class="badge decoy-cache-badge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: var(--accent-color, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.3);">Встроено</span>
+                                        <button type="button" class="btn btn-secondary btn-sm btn-random-decoy" data-target="update_sub_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Выбрать случайный сайт-заглушку">🎲 <span>Случайная</span></button>
+                                        <button type="button" class="btn btn-secondary btn-sm btn-preview-decoy-glow btn-preview-decoy" data-target="update_sub_decoy_template" style="padding: 4px 11px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; height: 28px;" title="Открыть предпросмотр выбранной заглушки">👁 <span>Предпросмотр</span></button>
+                                    </div>
+                                </div>
+                                <select id="update_sub_decoy_template" class="custom-select decoy-select"
+                                    style="width: 100%; padding: 8px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem;">
+                                    <option value="">— Не обновлять заглушку —</option>
+                                    <option value="builtin">📄 Документация (Workspace Documentation)</option>
+                                </select>
+                                <small id="update_sub_decoyDescText" class="decoy-desc-text" style="display: block; margin-top: 6px; color: var(--text-secondary); font-size: 0.8rem;">Выберите шаблон, чтобы заменить текущий сайт-заглушку на сервере подписок.</small>
+                            </div>
                         </div>
                     </div>
 

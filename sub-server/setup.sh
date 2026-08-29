@@ -9,6 +9,7 @@ readonly RED='\033[0;31m'
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly DOCKER_COMPOSE_FILE="./working/docker-compose/docker-compose.yml"
+readonly DECOY_HTML_BACKUP="/tmp/sub-server-decoy-html.bak"
 
 source "$SCRIPT_DIR/../common/setup.sh"
 
@@ -47,6 +48,16 @@ reset_working_dir() {
     info "Preparing ./working directory."
     # Clean up any orphaned containers to ensure a clean slate in case of crash-loops or interrupted deployments
     docker rm -f subs-server sub-caddy caddy sub-nginx-decoy nginx-decoy 2>/dev/null || true
+
+    # Preserve the currently deployed decoy site across update_sub unless a new
+    # decoy template was explicitly requested (UPDATE_SUB_DECOY=1). Working/
+    # is regenerated from the synced templates below, so without this the decoy
+    # always falls back to the builtin one on every bare update.
+    if [[ "${UPDATE_SUB_SERVER:-0}" == "1" && "${UPDATE_SUB_DECOY:-0}" != "1" && -d "./working/nginx-decoy/html" ]]; then
+        rm -rf "$DECOY_HTML_BACKUP"
+        cp -r ./working/nginx-decoy/html "$DECOY_HTML_BACKUP"
+        info "Update mode: preserving current decoy site (no new template selected)."
+    fi
 
     # Clean state files only on fresh deployment, preserve them on update_sub
     if [[ "${UPDATE_SUB_SERVER:-0}" != "1" ]]; then
@@ -322,6 +333,16 @@ main() {
     ensure_state_files
 
     process_templates
+
+    # Restore the previously deployed decoy site after templates regenerate
+    # ./working (n/a when a new decoy template was selected).
+    if [[ -d "$DECOY_HTML_BACKUP" ]]; then
+        rm -rf ./working/nginx-decoy/html
+        cp -r "$DECOY_HTML_BACKUP" ./working/nginx-decoy/html
+        rm -rf "$DECOY_HTML_BACKUP"
+        success "Restored current decoy site across the update."
+    fi
+
     start_containers
 
     wait_for_ssl

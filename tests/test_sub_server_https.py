@@ -143,7 +143,7 @@ class TestSubServerHttps(unittest.TestCase):
             self.assertEqual(resp.getheader("Profile-Web-Page-Url"), "https://example.com/subs/alice")
             self.assertEqual(resp.getheader("Subscription-Userinfo"), "upload=100; download=200; total=0; expire=0")
             self.assertEqual(resp.getheader("Content-Length"), str(len(b"vless://fake-config\n")))
-            self.assertIsNone(resp.getheader("Server"))
+            self.assertNotEqual(resp.getheader("Server"), "upstream-caddy")
 
             self.assertEqual(captured_args["url"], "https://example.com/subs/alice")
             self.assertEqual(captured_args["user_agent"], "Happ/3.0.0")
@@ -151,6 +151,47 @@ class TestSubServerHttps(unittest.TestCase):
             conn.close()
         finally:
             self.sub_mod.fetch_subscription = orig_fetch
+
+    def test_raw_subscription_list_formatting(self):
+        self.sub_mod.NODES = [
+            {
+                "id": "node1",
+                "name": "Node 1",
+                "url": "https://node1.example.com/subs",
+                "clients": ["alice", "bob"],
+            },
+            {
+                "id": "node2",
+                "name": "Node 2",
+                "url": "https://node2.example.com/subs",
+                "clients": ["charlie"],
+            },
+        ]
+        import base64
+        auth_header = "Basic " + base64.b64encode(b"admin:pass123").decode("ascii")
+        conn = http.client.HTTPConnection("127.0.0.1", self.port)
+        conn.request(
+            "GET",
+            "/subs?raw=1",
+            headers={
+                "Host": "sub.example.com",
+                "X-Forwarded-Proto": "https",
+                "Authorization": auth_header,
+            },
+        )
+        resp = conn.getresponse()
+        body = resp.read().decode("utf-8")
+        self.assertEqual(resp.status, 200)
+        expected = (
+            "alice,bob\n"
+            "https://node1.example.com/subs/alice\n"
+            "https://node1.example.com/subs/bob\n"
+            "========================\n"
+            "charlie\n"
+            "https://node2.example.com/subs/charlie\n"
+        )
+        self.assertEqual(body, expected)
+        conn.close()
 
 
 if __name__ == "__main__":

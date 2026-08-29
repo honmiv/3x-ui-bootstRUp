@@ -3493,13 +3493,20 @@ class Handler(BaseHTTPRequestHandler):
                 ACTIVITY_SUBSCRIBERS.discard(stream_queue)
 
     def _list_subscriptions(self):
-        lines = []
+        blocks = []
+        total_urls = 0
         for node in NODES:
-            for client in node.get("clients", []):
-                if node["url"]:
-                    lines.append(f"{node['url'].rstrip('/')}/{client}")
-        body = ("\n".join(lines) + "\n").encode("utf-8")
-        log.info("200 subscription list (%d urls)", len(lines))
+            clients = node.get("clients", [])
+            url = (node.get("url") or "").rstrip("/")
+            if not clients or not url:
+                continue
+            clients_line = ",".join(clients)
+            url_lines = [f"{url}/{client}" for client in clients]
+            total_urls += len(url_lines)
+            blocks.append("\n".join([clients_line] + url_lines))
+        separator = "========================"
+        body = (f"\n{separator}\n".join(blocks) + "\n").encode("utf-8") if blocks else b""
+        log.info("200 subscription list (%d urls across %d nodes)", total_urls, len(blocks))
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

@@ -93,10 +93,10 @@ else
     echo -e "       sudo usermod -aG docker \$USER && sudo service docker start"
 fi
 
-# 3. Install Python dependencies (Playwright, PyYAML)
-echo -e "${CYAN}[3/6] Checking/Installing Python dependencies (playwright, pyyaml)...${NC}"
-"$PYTHON_BIN" -m pip install playwright pyyaml --break-system-packages 2>/dev/null || \
-"$PYTHON_BIN" -m pip install playwright pyyaml || {
+# 3. Install Python dependencies (Playwright)
+echo -e "${CYAN}[3/6] Checking/Installing Python dependencies (playwright)...${NC}"
+"$PYTHON_BIN" -m pip install playwright --break-system-packages 2>/dev/null || \
+"$PYTHON_BIN" -m pip install playwright || {
     echo -e "${RED}[ERROR] Failed to install python dependencies via pip.${NC}"
     exit 1
 }

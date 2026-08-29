@@ -87,7 +87,7 @@ ensure_environment() {
 
     local needs_setup=false
 
-    if ! "$python_bin" -c "import yaml; from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" >/dev/null 2>&1; then
+    if ! "$python_bin" -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" >/dev/null 2>&1; then
         needs_setup=true
     fi
 

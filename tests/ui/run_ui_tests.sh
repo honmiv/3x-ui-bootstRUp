@@ -46,7 +46,7 @@ banner() {
 }
 
 ensure_environment() {
-    if ! "$PYTHON_BIN" -c "import yaml; from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" >/dev/null 2>&1; then
+    if ! "$PYTHON_BIN" -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" >/dev/null 2>&1; then
         echo -e "${YELLOW}[..] Playwright, dependencies or Chromium missing. Provisioning environment via setup_tests.sh...${NC}"
         "$TESTS_DIR/setup_tests.sh"
         if [ -x "$REPO_ROOT/.python_env/bin/python3" ]; then

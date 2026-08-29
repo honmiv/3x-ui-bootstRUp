@@ -16,11 +16,6 @@ from socketserver import ThreadingMixIn
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, List, Optional, Tuple
 
-try:
-    import yaml
-except Exception:
-    yaml = None
-
 from ssh_deployer import SSHDeployer, run_deployment
 
 PORT = int(os.environ.get("PORT", 8000))
@@ -313,6 +308,205 @@ def launch_script(script_path: str) -> None:
         else:
             subprocess.Popen([script_path], cwd=script_dir, start_new_session=True)
 
+def _dump_yaml_simple(data: Dict[str, Any]) -> str:
+    def format_scalar(v: Any) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (int, float)):
+            return str(v)
+        v_str = str(v)
+        if not v_str:
+            return '""'
+        needs_quotes = (
+            v_str.lower() in ("true", "false", "yes", "no", "on", "off", "null", "none", "~")
+            or any(c in v_str for c in (":", "#", "{", "}", "[", "]", ",", "&", "*", "?", "|", "-", "<", ">", "=", "!", "%", "@", "`", '"', "'", "\n", "\r", "\t"))
+            or v_str.startswith((" ", "\t"))
+            or v_str.endswith((" ", "\t"))
+            or v_str.isdigit()
+        )
+        if needs_quotes:
+            escaped = (
+                v_str.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+            )
+            return f'"{escaped}"'
+        return v_str
+
+    lines = ["# Auto-generated setup backup"]
+    for section, values in data.items():
+        if isinstance(values, dict):
+            if not values:
+                continue
+            lines.append(f"{section}:")
+            for k, v in values.items():
+                formatted = format_scalar(v)
+                if formatted:
+                    lines.append(f"  {k}: {formatted}")
+                else:
+                    lines.append(f"  {k}:")
+        else:
+            formatted = format_scalar(values)
+            if formatted:
+                lines.append(f"{section}: {formatted}")
+            else:
+                lines.append(f"{section}:")
+    return "\n".join(lines) + "\n"
+
+def _parse_yaml_scalar(val_str: str) -> Any:
+    val_str = val_str.strip()
+    if not val_str:
+        return ""
+    if len(val_str) >= 2 and val_str.startswith('"') and val_str.endswith('"'):
+        inner = val_str[1:-1]
+        result = []
+        i = 0
+        n = len(inner)
+        while i < n:
+            if inner[i] == "\\" and i + 1 < n:
+                c = inner[i + 1]
+                if c == "n":
+                    result.append("\n")
+                elif c == "r":
+                    result.append("\r")
+                elif c == "t":
+                    result.append("\t")
+                elif c == '"':
+                    result.append('"')
+                elif c == "\\":
+                    result.append("\\")
+                else:
+                    result.append(c)
+                i += 2
+            else:
+                result.append(inner[i])
+                i += 1
+        return "".join(result)
+    if len(val_str) >= 2 and val_str.startswith("'") and val_str.endswith("'"):
+        inner = val_str[1:-1]
+        return inner.replace("''", "'")
+    if " #" in val_str:
+        val_str = val_str.split(" #", 1)[0].strip()
+    lower = val_str.lower()
+    if lower in ("true", "yes", "on"):
+        return True
+    if lower in ("false", "no", "off"):
+        return False
+    if lower in ("null", "none", "~"):
+        return None
+    try:
+        return int(val_str)
+    except ValueError:
+        pass
+    try:
+        return float(val_str)
+    except ValueError:
+        pass
+    return val_str
+
+def _load_yaml_simple(text: str) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    current_section: Optional[str] = None
+    lines = text.splitlines()
+    i = 0
+    num_lines = len(lines)
+
+    while i < num_lines:
+        raw_line = lines[i]
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            i += 1
+            continue
+
+        indent = len(line) - len(line.lstrip())
+        if ":" not in stripped:
+            i += 1
+            continue
+
+        key_part, _, val_part = stripped.partition(":")
+        key = key_part.strip()
+        val_raw = val_part.strip()
+
+        if (val_raw.startswith("'") and (len(val_raw) == 1 or not val_raw.endswith("'"))) or \
+           (val_raw.startswith('"') and (len(val_raw) == 1 or not val_raw.endswith('"'))):
+            quote_char = val_raw[0]
+            multiline_parts = [val_raw]
+            i += 1
+            while i < num_lines:
+                next_raw = lines[i]
+                next_stripped = next_raw.strip()
+                multiline_parts.append(next_raw)
+                if next_stripped.endswith(quote_char):
+                    break
+                i += 1
+            full_str = "\n".join(multiline_parts).strip()
+            val = _parse_yaml_scalar(full_str)
+            if indent == 0:
+                result[key] = val
+                current_section = None
+            else:
+                if current_section is not None:
+                    if not isinstance(result.get(current_section), dict):
+                        result[current_section] = {}
+                    result[current_section][key] = val
+                else:
+                    result[key] = val
+            i += 1
+            continue
+
+        if val_raw in ("|", "|-", "|+", ">", ">-", ">+"):
+            block_lines = []
+            i += 1
+            while i < num_lines:
+                next_raw = lines[i]
+                next_line = next_raw.rstrip()
+                if not next_line.strip():
+                    block_lines.append("")
+                    i += 1
+                    continue
+                next_indent = len(next_line) - len(next_line.lstrip())
+                if next_indent <= indent:
+                    break
+                block_lines.append(next_line.lstrip())
+                i += 1
+            block_content = "\n".join(block_lines)
+            if indent == 0:
+                result[key] = block_content
+                current_section = None
+            else:
+                if current_section is not None:
+                    if not isinstance(result.get(current_section), dict):
+                        result[current_section] = {}
+                    result[current_section][key] = block_content
+                else:
+                    result[key] = block_content
+            continue
+
+        if indent == 0:
+            if not val_raw or val_raw.startswith("#"):
+                current_section = key
+                if current_section not in result:
+                    result[current_section] = {}
+            else:
+                current_section = None
+                result[key] = _parse_yaml_scalar(val_raw)
+        else:
+            val = _parse_yaml_scalar(val_raw)
+            if current_section is not None:
+                if not isinstance(result.get(current_section), dict):
+                    result[current_section] = {}
+                result[current_section][key] = val
+            else:
+                result[key] = val
+        i += 1
+
+    return result
+
 def load_backup_config() -> Dict[str, Any]:
     if not os.path.exists(BACKUP_FILE):
         return {}
@@ -338,25 +532,20 @@ def load_backup_config() -> Dict[str, Any]:
                 flat[key] = value
         return flat
 
-    if yaml is None:
-        return {}
-
     try:
         with open(BACKUP_FILE, "r", encoding="utf-8") as f:
             content = f.read()
-        loaded = yaml.safe_load(content) or {}
-        data = _flatten_loaded_config(loaded)
+        loaded = _load_yaml_simple(content)
+        data = _flatten_loaded_config(loaded or {})
         if not data:
             return {}
         return _strip_sensitive_values(data)
-    except Exception:
+    except Exception as e:
+        log_event(f"[ERROR] Failed to load setup_backup.yml: {e}", "error")
         return {}
 
 def save_backup_config(data: Dict[str, Any]) -> bool:
     try:
-        if yaml is None:
-            raise RuntimeError("PyYAML is unavailable")
-
         def pick(*keys):
             result = {}
             for k in keys:
@@ -422,9 +611,10 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
         }
         payload = {section: values for section, values in payload.items() if values}
 
+        content = _dump_yaml_simple(payload)
         with open(BACKUP_FILE, "w", encoding="utf-8") as f:
-            f.write("# Auto-generated setup backup\n")
-            yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+            f.write(content)
+
         return True
     except Exception as e:
         log_event(f"[ERROR] Failed to save setup_backup.yml: {e}", "error")

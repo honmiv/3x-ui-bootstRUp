@@ -939,9 +939,8 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
 ## TODO / Technical Debt & Architectural Inconsistencies
 
 1. **YAML Parsing Inconsistency & Duplication** — *RESOLVED*:
-   - `main.py` now uses PyYAML for both loading and saving `setup_backup.yml`; the line-by-line fallback parser was removed (`load_backup_config` degrades to `{}` without PyYAML) and `save_backup_config` logs failures instead of swallowing them.
-   - `sub-server/server.py` parses `subs.yml` (`load_subs`) and `force-subs.yml` (`load_force_subs` / `save_force_subs`) with PyYAML; the ad-hoc line parsers were removed.
-   - PyYAML is installed in the sub-server Docker image (`sub-server/templates/docker-compose/Dockerfile-python`).
+   - `main.py` does not use PyYAML at all and uses standard-library pure-Python YAML dumper (`_dump_yaml_simple`) and parser (`_load_yaml_simple`) for `setup_backup.yml`. This guarantees the local control panel has zero external Python dependencies on Windows, Linux, and macOS.
+   - `sub-server/server.py` parses `subs.yml` (`load_subs`) and `force-subs.yml` (`load_force_subs` / `save_force_subs`) with PyYAML inside its Docker container (`sub-server/templates/docker-compose/Dockerfile-python`).
    - `nodes.json` remains the JSON node registry (stdlib `json` module).
    - *Remaining debt*: full migration of `subs.yml` → `nodes.json` is tracked separately in item 2.
 

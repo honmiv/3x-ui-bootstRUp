@@ -200,17 +200,9 @@ def _compute_changelog_diff(local_raw: bytes, remote_raw: bytes) -> str:
     if added:
         return "".join(added).strip()
 
-def _parse_remote_notification(remote: Dict[str, bytes]) -> Any:
-    raw = remote.get("notification.html") or remote.get("notification.json") or remote.get("notification.txt") or b""
-    text = raw.decode("utf-8", errors="replace").strip()
-    if not text:
-        return None
-    if text.startswith("{") and text.endswith("}"):
-        try:
-            return json.loads(text)
-        except Exception:
-            pass
-    return text
+def _parse_remote_notification(remote: Dict[str, bytes]) -> str:
+    raw = remote.get("notification.html") or b""
+    return raw.decode("utf-8", errors="replace").strip()
 
 
 def check_for_update(force: bool = False) -> Dict[str, Any]:

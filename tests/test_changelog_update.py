@@ -62,23 +62,6 @@ class TestChangelogDiff(unittest.TestCase):
         diff = self.main_mod._compute_changelog_diff(local, remote)
         self.assertIn("Line 1.5 modified", diff)
 
-    def test_notification_parsing_text(self):
-        remote_files = {
-            "notification.txt": b"<strong>Important notice:</strong> please update ASAP.",
-        }
-        res = self.main_mod._parse_remote_notification(remote_files)
-        self.assertEqual(res, "<strong>Important notice:</strong> please update ASAP.")
-
-    def test_notification_parsing_json(self):
-        remote_files = {
-            "notification.json": b'{"type": "danger", "title": "Critical", "buttons": [{"text": "Fix", "action": "update"}]}',
-        }
-        res = self.main_mod._parse_remote_notification(remote_files)
-        self.assertIsInstance(res, dict)
-        self.assertEqual(res.get("type"), "danger")
-        self.assertEqual(res.get("title"), "Critical")
-        self.assertEqual(len(res.get("buttons")), 1)
-
     def test_notification_parsing_html(self):
         remote_files = {
             "notification.html": b'<span class="warning-icon">!</span><span>HTML alert</span><span class="update-actions"><button data-action="update">Go</button></span>',

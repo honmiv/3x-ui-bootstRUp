@@ -3097,26 +3097,197 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let latestUpdateInfo = null;
+
+    const changelogModal = document.getElementById('changelogModal');
+    const changelogContent = document.getElementById('changelogContent');
+    const btnCloseChangelog = document.getElementById('btnCloseChangelog');
+    const btnDismissChangelogModal = document.getElementById('btnDismissChangelogModal');
+
+    const BANNER_ICONS = {
+        warning: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        update: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>',
+        info: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        danger: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+        success: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+        changelog: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'
+    };
+
+    const showChangelogModal = (text) => {
+        if (!changelogModal || !changelogContent) return;
+        changelogContent.textContent = text || 'Нет новых записей в change.log относительно текущей версии.';
+        changelogModal.classList.add('active');
+    };
+
+    const hideChangelogModal = () => {
+        if (changelogModal) changelogModal.classList.remove('active');
+    };
+
+    if (btnCloseChangelog) btnCloseChangelog.addEventListener('click', hideChangelogModal);
+    if (btnDismissChangelogModal) btnDismissChangelogModal.addEventListener('click', hideChangelogModal);
+    if (changelogModal) {
+        changelogModal.addEventListener('click', (e) => {
+            if (e.target === changelogModal) hideChangelogModal();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && changelogModal && changelogModal.classList.contains('active')) {
+            hideChangelogModal();
+        }
+    });
+
+    const updateBanner = document.getElementById('updateBanner');
+    if (updateBanner) {
+        updateBanner.addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const action = btn.getAttribute('data-action');
+            if (action === 'dismiss') {
+                updateBanner.classList.add('hidden');
+            } else if (action === 'update') {
+                const btnUpdateSources = document.getElementById('btnUpdateSources');
+                if (btnUpdateSources) btnUpdateSources.click();
+            } else if (action === 'changelog') {
+                if (latestUpdateInfo && latestUpdateInfo.changelog !== undefined) {
+                    showChangelogModal(latestUpdateInfo.changelog || 'Нет новых записей в change.log относительно текущей версии.');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/update_check', { cache: 'no-store' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        latestUpdateInfo = data;
+                        showChangelogModal((data && data.changelog) ? data.changelog : 'Нет новых записей в change.log относительно текущей версии.');
+                    } else {
+                        showChangelogModal('Не удалось загрузить change.log.');
+                    }
+                } catch (err) {
+                    showChangelogModal('Ошибка при получении change.log: ' + err.message);
+                }
+            }
+        });
+    }
+
+    const renderBanner = (data) => {
+        const banner = document.getElementById('updateBanner');
+        const bannerIcon = document.getElementById('updateBannerIcon');
+        const bannerText = document.getElementById('updateBannerText');
+        const bannerActions = document.getElementById('updateBannerActions');
+        if (!banner || !bannerText) return;
+
+        const notif = data && data.notification;
+        const isUpdate = data && data.update_available === true;
+
+        if (!notif && !isUpdate) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        banner.classList.remove('banner-warning', 'banner-info', 'banner-danger', 'banner-success', 'warning-banner');
+
+        if (typeof notif === 'object' && notif !== null) {
+            const type = notif.type || (isUpdate ? 'warning' : 'info');
+            banner.classList.add(`banner-${type}`);
+
+            if (bannerIcon) {
+                if (notif.icon && BANNER_ICONS[notif.icon]) {
+                    bannerIcon.innerHTML = BANNER_ICONS[notif.icon];
+                } else if (BANNER_ICONS[type]) {
+                    bannerIcon.innerHTML = BANNER_ICONS[type];
+                } else {
+                    bannerIcon.innerHTML = isUpdate ? BANNER_ICONS.update : BANNER_ICONS.info;
+                }
+            }
+
+            let html = '';
+            if (notif.title) html += `<strong>${escapeHtml(notif.title)}</strong> `;
+            if (notif.message) html += escapeHtml(notif.message);
+            else if (notif.text) html += escapeHtml(notif.text);
+            else if (notif.html) html += notif.html;
+            bannerText.innerHTML = html || 'Уведомление';
+
+            if (bannerActions && Array.isArray(notif.buttons) && notif.buttons.length > 0) {
+                bannerActions.innerHTML = '';
+                notif.buttons.forEach(btn => {
+                    const styleClass = btn.style ? `btn-banner-${btn.style}` : 'btn-banner-secondary';
+                    const iconSvg = btn.action === 'changelog' ? BANNER_ICONS.changelog : (btn.action === 'update' ? BANNER_ICONS.update : '');
+                    if (btn.url) {
+                        const a = document.createElement('a');
+                        a.href = btn.url;
+                        a.className = `btn btn-sm btn-banner-action ${styleClass}`;
+                        if (btn.target) a.target = btn.target;
+                        a.innerHTML = `${iconSvg ? iconSvg + ' ' : ''}<span>${escapeHtml(btn.text || 'Открыть')}</span>`;
+                        bannerActions.appendChild(a);
+                    } else {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = `btn btn-sm btn-banner-action ${styleClass}`;
+                        if (btn.action) b.setAttribute('data-action', btn.action);
+                        b.innerHTML = `${iconSvg ? iconSvg + ' ' : ''}<span>${escapeHtml(btn.text || 'Действие')}</span>`;
+                        bannerActions.appendChild(b);
+                    }
+                });
+                if (notif.dismissible !== false) {
+                    const dismissBtn = document.createElement('button');
+                    dismissBtn.type = 'button';
+                    dismissBtn.className = 'btn btn-sm btn-dismiss';
+                    dismissBtn.setAttribute('data-action', 'dismiss');
+                    dismissBtn.textContent = 'Скрыть';
+                    bannerActions.appendChild(dismissBtn);
+                }
+            } else if (bannerActions) {
+                bannerActions.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-changelog" data-action="changelog">
+                        ${BANNER_ICONS.changelog} <span>Чейнджлог</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-dismiss" data-action="dismiss">Скрыть</button>
+                `;
+            }
+        } else if (typeof notif === 'string' && notif.trim()) {
+            banner.classList.add('banner-warning');
+            if (notif.includes('update-actions') || notif.includes('banner-actions') || notif.startsWith('<div')) {
+                banner.innerHTML = notif;
+            } else {
+                if (bannerIcon) bannerIcon.innerHTML = BANNER_ICONS.warning;
+                bannerText.innerHTML = notif;
+                if (bannerActions) {
+                    bannerActions.innerHTML = `
+                        <button type="button" class="btn btn-sm btn-changelog" data-action="changelog">
+                            ${BANNER_ICONS.changelog} <span>Чейнджлог</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-dismiss" data-action="dismiss">Скрыть</button>
+                    `;
+                }
+            }
+        } else if (isUpdate) {
+            banner.classList.add('banner-warning');
+            if (bannerIcon) bannerIcon.innerHTML = BANNER_ICONS.update;
+            bannerText.innerHTML = '<strong>Доступна новая версия скриптов.</strong> Нажмите кнопку "Обновить скрипты UI"';
+            if (bannerActions) {
+                bannerActions.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-changelog" data-action="changelog">
+                        ${BANNER_ICONS.changelog} <span>Чейнджлог</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-dismiss" data-action="dismiss">Скрыть</button>
+                `;
+            }
+        }
+
+        banner.classList.remove('hidden');
+    };
+
     const checkForUpdates = async () => {
         try {
             const res = await fetch('/api/update_check', { cache: 'no-store' });
             if (!res.ok) return;
             const data = await res.json();
-            if (!data || data.update_available !== true) return;
-            const banner = document.getElementById('updateBanner');
-            if (banner) banner.classList.remove('hidden');
+            if (!data) return;
+            latestUpdateInfo = data;
+            renderBanner(data);
         } catch (e) {
             // Offline or server restarting - skip silently
         }
     };
-
-    const btnBannerDismiss = document.getElementById('btnBannerDismiss');
-    if (btnBannerDismiss) {
-        btnBannerDismiss.addEventListener('click', () => {
-            const banner = document.getElementById('updateBanner');
-            if (banner) banner.classList.add('hidden');
-        });
-    }
 
     checkForUpdates();
 

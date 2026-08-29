@@ -80,7 +80,10 @@ def fetch_xui_versions() -> List[str]:
         XUI_CACHE["ts"] = now
     return versions
 
-UPDATE_CHECK_URL = "https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz"
+UPDATE_CHECK_URL = os.environ.get(
+    "UPDATE_CHECK_URL",
+    "https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz"
+)
 UPDATE_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0, "err": None, "err_ts": 0.0}
 UPDATE_CACHE_TTL = 300
 UPDATE_ERR_TTL = 60
@@ -160,12 +163,62 @@ def _fingerprint(files: Dict[str, bytes]) -> str:
     return h.hexdigest()
 
 
-def check_for_update() -> Dict[str, Any]:
+def _compute_changelog_diff(local_raw: bytes, remote_raw: bytes) -> str:
+    local_text = (local_raw or b"").decode("utf-8", errors="replace").strip()
+    remote_text = (remote_raw or b"").decode("utf-8", errors="replace").strip()
+
+    if not remote_text:
+        return ""
+    if not local_text:
+        return remote_text
+    if local_text == remote_text:
+        return ""
+
+    local_first_line = ""
+    for line in local_text.splitlines():
+        if line.strip():
+            local_first_line = line
+            break
+
+    if local_first_line and local_first_line in remote_text:
+        pos = remote_text.find(local_first_line)
+        if pos > 0:
+            diff = remote_text[:pos].strip()
+            if diff:
+                return diff
+
+    if remote_text.startswith(local_text):
+        diff = remote_text[len(local_text):].strip()
+        if diff:
+            return diff
+
+    import difflib
+
+    local_lines = [l + "\n" for l in local_text.splitlines()]
+    remote_lines = [l + "\n" for l in remote_text.splitlines()]
+    added = [line[2:] for line in difflib.ndiff(local_lines, remote_lines) if line.startswith("+ ")]
+    if added:
+        return "".join(added).strip()
+
+def _parse_remote_notification(remote: Dict[str, bytes]) -> Any:
+    raw = remote.get("notification.html") or remote.get("notification.json") or remote.get("notification.txt") or b""
+    text = raw.decode("utf-8", errors="replace").strip()
+    if not text:
+        return None
+    if text.startswith("{") and text.endswith("}"):
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+    return text
+
+
+def check_for_update(force: bool = False) -> Dict[str, Any]:
     now = time.time()
     with CACHE_LOCK:
-        if UPDATE_CACHE["data"] is not None and now - UPDATE_CACHE["ts"] < UPDATE_CACHE_TTL:
+        if not force and UPDATE_CACHE["data"] is not None and now - UPDATE_CACHE["ts"] < UPDATE_CACHE_TTL:
             return dict(UPDATE_CACHE["data"])
-        if UPDATE_CACHE["err"] is not None and now - UPDATE_CACHE["err_ts"] < UPDATE_ERR_TTL:
+        if not force and UPDATE_CACHE["err"] is not None and now - UPDATE_CACHE["err_ts"] < UPDATE_ERR_TTL:
             return {"update_available": False, "error": UPDATE_CACHE["err"]}
 
     try:
@@ -173,11 +226,19 @@ def check_for_update() -> Dict[str, Any]:
         remote = _remote_code_files()
         local_fp = _fingerprint(local)
         remote_fp = _fingerprint(remote)
+        local_changelog = local.get("change.log", b"")
+        remote_changelog = remote.get("change.log", b"")
+        changelog_diff = _compute_changelog_diff(local_changelog, remote_changelog)
+        remote_notification = _parse_remote_notification(remote)
         result = {
             "update_available": local_fp != remote_fp,
             "local_version": local_fp[:12],
             "latest_version": remote_fp[:12],
             "files": {"local": len(local), "remote": len(remote)},
+            "changelog": changelog_diff,
+            "has_changelog": bool(changelog_diff),
+            "notification": remote_notification,
+            "has_notification": bool(remote_notification),
         }
         with CACHE_LOCK:
             UPDATE_CACHE["data"] = result
@@ -429,7 +490,16 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/update_check":
-            self.send_json(check_for_update())
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            force = "force" in params or "1" in params.get("force", [])
+            self.send_json(check_for_update(force=force))
+            return
+
+        if url_path == "/api/changelog":
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            force = "force" in params or "1" in params.get("force", [])
+            info = check_for_update(force=force)
+            self.send_json({"ok": True, "changelog": info.get("changelog", ""), "update_available": info.get("update_available", False)})
             return
 
         if url_path == "/api/backups":

@@ -16,7 +16,7 @@ from socketserver import ThreadingMixIn
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, List, Optional, Tuple
 
-from ssh_deployer import SSHDeployer, run_deployment
+from ssh_deployer import SSHDeployer, run_deployment, validate_deployment_config
 
 PORT = int(os.environ.get("PORT", 8000))
 HOST = "127.0.0.1"
@@ -870,6 +870,9 @@ class WebUIHandler(BaseHTTPRequestHandler):
             if not host:
                 self.send_json({"ok": False, "message": "Host address is required"}, 400)
                 return
+            if not password and not key_data:
+                self.send_json({"ok": False, "message": "SSH password or private key is required"}, 400)
+                return
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -903,6 +906,11 @@ class WebUIHandler(BaseHTTPRequestHandler):
             return
 
         if url_path == "/api/deploy":
+            valid, err_msg = validate_deployment_config(payload)
+            if not valid:
+                self.send_json({"ok": False, "message": err_msg}, 400)
+                return
+
             with DEPLOY_LOCK:
                 if is_deploying:
                     self.send_json({"ok": False, "message": "Deployment already in progress"}, 400)

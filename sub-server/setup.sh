@@ -127,6 +127,9 @@ prompt_sub_path() {
         info "Using secret sub path from environment: $SECRET_SUB_PATH"
         return
     fi
+    if [[ ! -t 0 ]]; then
+        die "SECRET_SUB_PATH is required in non-interactive mode."
+    fi
     local default="subs"
     read -r -p "$(echo -e "${CYAN}[..]${NC} Path prefix [default: $default]: ")" SECRET_SUB_PATH
     SECRET_SUB_PATH="${SECRET_SUB_PATH:-$default}"
@@ -206,6 +209,9 @@ prompt_admin() {
     if [[ -n "${ADMIN_USER:-}" && -n "${ADMIN_PASSWORD:-}" ]]; then
         info "Using panel admin credentials from environment."
         return
+    fi
+    if [[ ! -t 0 ]]; then
+        die "ADMIN_USER and ADMIN_PASSWORD are required in non-interactive mode."
     fi
     ADMIN_USER="${ADMIN_USER:-admin}"
     read -r -p "$(echo -e "${CYAN}[..]${NC} Panel admin login [default: $ADMIN_USER]: ")" ADMIN_USER

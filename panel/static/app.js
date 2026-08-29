@@ -1355,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const syncVersionSelect = (select) => {
         if (!select) return;
-        const wanted = select.dataset.initialVersion || select.value || '3.6.0';
+        const wanted = select.dataset.initialVersion || select.value || latestFetchedXuiVersion;
         if (wanted && !Array.from(select.options).some(o => o.value === wanted)) {
             const opt = document.createElement('option');
             opt.value = wanted;
@@ -1366,6 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshCustomSelect(select);
     };
 
+    let latestFetchedXuiVersion = '';
     const loadXuiVersions = async () => {
         let versions = [];
         try {
@@ -1375,20 +1376,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (Array.isArray(data.versions) && data.versions.length) versions = data.versions;
             }
         } catch (e) { }
-        if (versions.length === 0) versions = ['latest', '3.6.0', '3.5.0'];
+        if (versions.length === 0) return;
+
+        if (!versions.includes('latest')) {
+            versions.unshift('latest');
+        } else {
+            versions = ['latest', ...versions.filter(v => v !== 'latest')];
+        }
+        const latestConcrete = versions.find(v => v !== 'latest') || 'latest';
+        latestFetchedXuiVersion = latestConcrete;
+
         ['xui_version', 'update_xui_version'].forEach(id => {
             const select = document.getElementById(id);
             if (!select) return;
-            const wanted = select.dataset.initialVersion || select.value || '3.6.0';
+            const initVal = select.dataset.initialVersion;
+            const currentVal = select.value;
+            let wanted = latestConcrete;
+            if (initVal) {
+                wanted = initVal;
+            } else if (currentVal) {
+                wanted = currentVal;
+            }
             select.innerHTML = '';
-            const list = versions.includes(wanted) ? versions : [wanted].concat(versions);
+            const list = (wanted && !versions.includes(wanted)) ? [wanted].concat(versions) : versions;
             list.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v;
                 opt.textContent = v;
                 select.appendChild(opt);
             });
-            select.value = list.includes(wanted) ? wanted : versions[0];
+            select.value = wanted;
             refreshCustomSelect(select);
         });
     };
@@ -1441,16 +1458,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 freedom_port: parseInt(document.getElementById('freedom_port').value) || 22,
                 freedom_user: document.getElementById('freedom_user').value.trim() || 'root',
                 freedom_auth_type: document.getElementById('freedom_auth_type').value,
-                freedom_xui_username: getFieldValueOrDefault('freedom_xui_username'),
-                freedom_sub_secret: getFieldValueOrDefault('freedom_sub_secret'),
+                freedom_xui_username: getFieldValue('freedom_xui_username'),
+                freedom_sub_secret: getFieldValue('freedom_sub_secret'),
                 freedom_client_name: document.getElementById('freedom_client_name').value.trim(),
 
                 proxy_host: document.getElementById('proxy_host').value.trim(),
                 proxy_port: parseInt(document.getElementById('proxy_port').value) || 22,
                 proxy_user: document.getElementById('proxy_user').value.trim() || 'root',
                 proxy_auth_type: document.getElementById('proxy_auth_type').value,
-                proxy_xui_username: getFieldValueOrDefault('proxy_xui_username'),
-                proxy_sub_secret: getFieldValueOrDefault('proxy_sub_secret'),
+                proxy_xui_username: getFieldValue('proxy_xui_username'),
+                proxy_sub_secret: getFieldValue('proxy_sub_secret'),
                 proxy_client_tcp_list: document.getElementById('proxy_client_tcp_list').value.trim(),
                 proxy_client_xhttp_list: document.getElementById('proxy_client_xhttp_list').value.trim(),
                 foreign_sub_url: document.getElementById('foreign_sub_url') ? document.getElementById('foreign_sub_url').value.trim() : '',
@@ -1460,12 +1477,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_vps_user: document.getElementById('sub_vps_user').value.trim() || 'root',
                 sub_auth_type: document.getElementById('sub_auth_type').value,
                 sub_domain: document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : document.getElementById('sub_vps_host').value.trim(),
-                sub_secret_path: getFieldValueOrDefault('sub_secret_path'),
+                sub_secret_path: getFieldValue('sub_secret_path'),
                 sub_russian_url: document.getElementById('sub_russian_url').value.trim(),
                 sub_foreign_url: document.getElementById('sub_foreign_url').value.trim(),
                 sub_proxy_clients: document.getElementById('sub_proxy_clients').value.trim(),
                 sub_freedom_clients: document.getElementById('sub_freedom_clients').value.trim(),
-                sub_admin_user: getFieldValueOrDefault('sub_admin_user'),
+                sub_admin_user: getFieldValue('sub_admin_user'),
                 rollback_sub_backup_file: document.getElementById('rollback_sub_backup_file') ? document.getElementById('rollback_sub_backup_file').value : '',
 
                 backup_vps_host: document.getElementById('backup_vps_host') ? document.getElementById('backup_vps_host').value.trim() : '',
@@ -1480,17 +1497,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 recovery_vps_user: document.getElementById('recovery_vps_user') ? document.getElementById('recovery_vps_user').value.trim() || 'root' : 'root',
                 recovery_auth_type: document.getElementById('recovery_auth_type') ? document.getElementById('recovery_auth_type').value : 'password',
                 recovery_backup_file: document.getElementById('recovery_backup_file') ? document.getElementById('recovery_backup_file').value : '',
-                recovery_xui_username: getFieldValueOrDefault('recovery_xui_username'),
+                recovery_xui_username: getFieldValue('recovery_xui_username'),
 
                 update_vps_host: document.getElementById('update_vps_host') ? document.getElementById('update_vps_host').value.trim() : '',
                 update_vps_port: document.getElementById('update_vps_port') ? parseInt(document.getElementById('update_vps_port').value) || 22 : 22,
                 update_vps_user: document.getElementById('update_vps_user') ? document.getElementById('update_vps_user').value.trim() || 'root' : 'root',
                 update_auth_type: document.getElementById('update_auth_type') ? document.getElementById('update_auth_type').value : 'password',
-                update_xui_version: document.getElementById('update_xui_version') ? document.getElementById('update_xui_version').value.trim() : '3.6.0',
+                update_xui_version: document.getElementById('update_xui_version') ? document.getElementById('update_xui_version').value.trim() || latestFetchedXuiVersion : latestFetchedXuiVersion,
 
-                xui_username: getFieldValueOrDefault('xui_username'),
-                sub_secret: getFieldValueOrDefault('sub_secret'),
-                xui_version: document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() : '3.6.0',
+                xui_username: getFieldValue('xui_username'),
+                sub_secret: getFieldValue('sub_secret'),
+                xui_version: document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || latestFetchedXuiVersion : latestFetchedXuiVersion,
                 client_tcp_list: document.getElementById('client_tcp_list').value.trim(),
                 client_xhttp_list: document.getElementById('client_xhttp_list').value.trim(),
                 ui_open_categories: ['category-full', 'category-single', 'category-maintenance']
@@ -2387,13 +2404,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return field ? field.value.trim() : '';
     };
 
-    const getFieldValueOrDefault = (fieldId) => {
-        const field = document.getElementById(fieldId);
-        if (!field) return '';
-        const v = field.value.trim();
-        return v ? v : (field.placeholder || '').trim();
-    };
-
     const REQUIRED_FIELDS = [
         // --- Group: at least one subscription URL must be filled ---
         {
@@ -2415,46 +2425,85 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         },
 
-        // --- Single node: host / port / user ---
+        // --- Single / Component node: SSH connection ---
         { id: 'vps_host', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите домен VPS сервера' },
         { id: 'vps_port', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите SSH порт VPS сервера' },
         { id: 'vps_user', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите SSH пользователя VPS сервера' },
+        { id: 'vps_password', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], when: () => (document.getElementById('vps_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль VPS сервера' },
+        { id: 'vps_key', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], when: () => document.getElementById('vps_auth_type')?.value === 'key', message: 'Укажите SSH ключ VPS сервера' },
 
-        // --- Sub-server: host / port / user ---
-        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
-        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
-        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
-
-        // --- Backup: host / port / user ---
-        { id: 'backup_vps_host', step: 2, modes: ['backup'], message: 'Укажите домен сервера для бэкапа' },
-        { id: 'backup_vps_port', step: 2, modes: ['backup'], message: 'Укажите SSH порт сервера для бэкапа' },
-        { id: 'backup_vps_user', step: 2, modes: ['backup'], message: 'Укажите SSH пользователя сервера для бэкапа' },
-        { id: 'backup_name', step: 3, modes: ['backup'], message: 'Укажите имя файла бэкапа' },
-        { id: 'sub_backup_name', step: 3, modes: ['backup_sub'], message: 'Укажите имя файла бэкапа' },
-
-        // --- Recovery: host / port / user ---
-        { id: 'recovery_vps_host', step: 2, modes: ['recovery'], message: 'Укажите домен сервера для восстановления' },
-        { id: 'recovery_vps_port', step: 2, modes: ['recovery'], message: 'Укажите SSH порт сервера для восстановления' },
-        { id: 'recovery_vps_user', step: 2, modes: ['recovery'], message: 'Укажите SSH пользователя сервера для восстановления' },
-
-        // --- Recovery: panel admin credentials (needed to rewrite domain via the panel API) ---
-        { id: 'recovery_xui_username', step: 3, modes: ['recovery'], message: 'Укажите логин админа 3X-UI из бэкапа' },
-        { id: 'recovery_xui_password', step: 3, modes: ['recovery'], message: 'Укажите пароль админа 3X-UI из бэкапа' },
-
-        // --- Update/restart: host / port / user ---
-        { id: 'update_vps_host', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите домен сервера для обновления/перезапуска' },
-        { id: 'update_vps_port', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH порт сервера для обновления/перезапуска' },
-        { id: 'update_vps_user', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH пользователя сервера для обновления/перезапуска' },
-
-        // --- Cascade: Freedom host / port / user ---
+        // --- Cascade: Freedom node SSH ---
         { id: 'freedom_host', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите домен Freedom Node' },
         { id: 'freedom_port', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH порт Freedom Node' },
         { id: 'freedom_user', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH пользователя Freedom Node' },
+        { id: 'freedom_password', step: 2, modes: ['cascade', 'cascade_sub'], when: () => (document.getElementById('freedom_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль Freedom Node' },
+        { id: 'freedom_key', step: 2, modes: ['cascade', 'cascade_sub'], when: () => document.getElementById('freedom_auth_type')?.value === 'key', message: 'Укажите SSH ключ Freedom Node' },
 
-        // --- Cascade: Proxy host / port / user ---
+        // --- Cascade: Proxy node SSH ---
         { id: 'proxy_host', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите домен Proxy Node' },
         { id: 'proxy_port', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH порт Proxy Node' },
         { id: 'proxy_user', step: 2, modes: ['cascade', 'cascade_sub'], message: 'Укажите SSH пользователя Proxy Node' },
+        { id: 'proxy_password', step: 2, modes: ['cascade', 'cascade_sub'], when: () => (document.getElementById('proxy_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль Proxy Node' },
+        { id: 'proxy_key', step: 2, modes: ['cascade', 'cascade_sub'], when: () => document.getElementById('proxy_auth_type')?.value === 'key', message: 'Укажите SSH ключ Proxy Node' },
+
+        // --- Sub-server: SSH connection ---
+        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
+        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
+        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
+        { id: 'sub_vps_password', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], when: () => (document.getElementById('sub_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль Сервера подписок' },
+        { id: 'sub_vps_key', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], when: () => document.getElementById('sub_auth_type')?.value === 'key', message: 'Укажите SSH ключ Сервера подписок' },
+
+        // --- Backup: SSH connection ---
+        { id: 'backup_vps_host', step: 2, modes: ['backup'], message: 'Укажите домен сервера для бэкапа' },
+        { id: 'backup_vps_port', step: 2, modes: ['backup'], message: 'Укажите SSH порт сервера для бэкапа' },
+        { id: 'backup_vps_user', step: 2, modes: ['backup'], message: 'Укажите SSH пользователя сервера для бэкапа' },
+        { id: 'backup_vps_password', step: 2, modes: ['backup'], when: () => (document.getElementById('backup_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль сервера для бэкапа' },
+        { id: 'backup_vps_key', step: 2, modes: ['backup'], when: () => document.getElementById('backup_auth_type')?.value === 'key', message: 'Укажите SSH ключ сервера для бэкапа' },
+
+        // --- Recovery: SSH connection ---
+        { id: 'recovery_vps_host', step: 2, modes: ['recovery'], message: 'Укажите домен сервера для восстановления' },
+        { id: 'recovery_vps_port', step: 2, modes: ['recovery'], message: 'Укажите SSH порт сервера для восстановления' },
+        { id: 'recovery_vps_user', step: 2, modes: ['recovery'], message: 'Укажите SSH пользователя сервера для восстановления' },
+        { id: 'recovery_vps_password', step: 2, modes: ['recovery'], when: () => (document.getElementById('recovery_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль сервера для восстановления' },
+        { id: 'recovery_vps_key', step: 2, modes: ['recovery'], when: () => document.getElementById('recovery_auth_type')?.value === 'key', message: 'Укажите SSH ключ сервера для восстановления' },
+
+        // --- Update/restart: SSH connection ---
+        { id: 'update_vps_host', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите домен сервера для обновления/перезапуска' },
+        { id: 'update_vps_port', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH порт сервера для обновления/перезапуска' },
+        { id: 'update_vps_user', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], message: 'Укажите SSH пользователя сервера для обновления/перезапуска' },
+        { id: 'update_vps_password', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], when: () => (document.getElementById('update_auth_type')?.value || 'password') === 'password', message: 'Укажите SSH пароль сервера для обновления/перезапуска' },
+        { id: 'update_vps_key', step: 2, modes: ['update_3xui', 'restart_panel', 'restart_server'], when: () => document.getElementById('update_auth_type')?.value === 'key', message: 'Укажите SSH ключ сервера для обновления/перезапуска' },
+
+        // --- Panel 3X-UI Credentials & Secrets (Step 3) ---
+        { id: 'xui_username', step: 3, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите логин админа 3X-UI' },
+        { id: 'xui_password', step: 3, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите пароль админа 3X-UI' },
+        { id: 'sub_secret', step: 3, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите секретную фразу панели' },
+
+        // --- Cascade: Freedom Panel Credentials (Step 3) ---
+        { id: 'freedom_xui_username', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите логин админа Freedom 3X-UI' },
+        { id: 'freedom_xui_password', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите пароль админа Freedom 3X-UI' },
+        { id: 'freedom_sub_secret', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите секретную фразу Freedom панели' },
+
+        // --- Cascade: Proxy Panel Credentials (Step 3) ---
+        { id: 'proxy_xui_username', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите логин админа Proxy 3X-UI' },
+        { id: 'proxy_xui_password', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите пароль админа Proxy 3X-UI' },
+        { id: 'proxy_sub_secret', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите секретную фразу Proxy панели' },
+
+        // --- Sub-server Panel Credentials (Step 3) ---
+        { id: 'sub_secret_path', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите префикс пути подписок Сервера подписок' },
+        { id: 'sub_admin_user', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите логин админа Сервера подписок' },
+        { id: 'sub_admin_password', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите пароль админа Сервера подписок' },
+
+        // --- Proxy Only: Foreign Sub URL (Step 3) ---
+        { id: 'foreign_sub_url', step: 3, modes: ['proxy_only'], message: 'Укажите ссылку подписки Freedom ноды (FOREIGN_SUB_URL)' },
+
+        // --- Recovery: Backup file and admin credentials ---
+        { id: 'recovery_backup_file', step: 3, modes: ['recovery'], message: 'Выберите архив бэкапа для восстановления' },
+        { id: 'recovery_xui_username', step: 3, modes: ['recovery'], message: 'Укажите логин админа 3X-UI из бэкапа' },
+        { id: 'recovery_xui_password', step: 3, modes: ['recovery'], message: 'Укажите пароль админа 3X-UI из бэкапа' },
+
+        // --- Rollback Sub: Backup file ---
+        { id: 'rollback_sub_backup_file', step: 3, modes: ['rollback_sub'], message: 'Выберите архив бэкапа Сервера подписок' }
     ];
 
     const collectPasswordErrors = () => {
@@ -2573,7 +2622,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btnStartDeploy.classList.add('hidden');
 
-        const commonVersion = document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || '3.6.0' : '3.6.0';
+        const commonVersion = document.getElementById('xui_version') ? document.getElementById('xui_version').value.trim() || latestFetchedXuiVersion : latestFetchedXuiVersion;
 
         let payload = {
             deploy_mode: mode,
@@ -2588,11 +2637,16 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.vps_user = document.getElementById('vps_user').value.trim() || 'root';
             payload.vps_password = document.getElementById('vps_password').value;
             payload.vps_key = document.getElementById('vps_key').value;
-            payload.xui_username = getFieldValueOrDefault('xui_username');
-            payload.xui_password = getFieldValueOrDefault('xui_password');
-            payload.sub_secret = getFieldValueOrDefault('sub_secret');
+            payload.xui_username = getFieldValue('xui_username');
+            payload.xui_password = getFieldValue('xui_password');
+            payload.sub_secret = getFieldValue('sub_secret');
             payload.client_tcp_list = document.getElementById('client_tcp_list').value.trim();
             payload.client_xhttp_list = document.getElementById('client_xhttp_list').value.trim();
+            if (mode === 'freedom_component') {
+                payload.freedom_client_name = getFieldValue('freedom_client_name') || 'local-proxy-node-client';
+            } else {
+                payload.freedom_client_name = getFieldValue('freedom_client_name');
+            }
             if (mode === 'proxy_only') {
                 payload.foreign_sub_url = document.getElementById('foreign_sub_url').value.trim();
             }
@@ -2603,11 +2657,12 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.vps_user = document.getElementById('vps_user').value.trim() || 'root';
             payload.vps_password = document.getElementById('vps_password').value;
             payload.vps_key = document.getElementById('vps_key').value;
-            payload.xui_username = getFieldValueOrDefault('xui_username');
-            payload.xui_password = getFieldValueOrDefault('xui_password');
-            payload.sub_secret = getFieldValueOrDefault('sub_secret');
+            payload.xui_username = getFieldValue('xui_username');
+            payload.xui_password = getFieldValue('xui_password');
+            payload.sub_secret = getFieldValue('sub_secret');
             payload.client_tcp_list = document.getElementById('client_tcp_list').value.trim();
             payload.client_xhttp_list = document.getElementById('client_xhttp_list').value.trim();
+            payload.freedom_client_name = getFieldValue('freedom_client_name');
 
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
             payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
@@ -2615,9 +2670,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_vps_password = document.getElementById('sub_vps_password').value;
             payload.sub_vps_key = document.getElementById('sub_vps_key').value;
             payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
-            payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
-            payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
-            payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
+            payload.sub_secret_path = getFieldValue('sub_secret_path');
+            payload.sub_admin_user = getFieldValue('sub_admin_user');
+            payload.sub_admin_password = getFieldValue('sub_admin_password');
         } else if (mode === 'sub_only') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
             payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
@@ -2625,13 +2680,13 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.sub_vps_password = document.getElementById('sub_vps_password').value;
             payload.sub_vps_key = document.getElementById('sub_vps_key').value;
             payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
-            payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
+            payload.sub_secret_path = getFieldValue('sub_secret_path');
             payload.sub_russian_url = document.getElementById('sub_russian_url').value.trim();
             payload.sub_foreign_url = document.getElementById('sub_foreign_url').value.trim();
             payload.sub_proxy_clients = document.getElementById('sub_proxy_clients').value.trim();
             payload.sub_freedom_clients = document.getElementById('sub_freedom_clients').value.trim();
-            payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
-            payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
+            payload.sub_admin_user = getFieldValue('sub_admin_user');
+            payload.sub_admin_password = getFieldValue('sub_admin_password');
         } else if (mode === 'backup') {
             payload.backup_vps_host = document.getElementById('backup_vps_host').value.trim();
             payload.backup_vps_port = parseInt(document.getElementById('backup_vps_port').value) || 22;
@@ -2646,8 +2701,8 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.recovery_vps_password = document.getElementById('recovery_vps_password').value;
             payload.recovery_vps_key = document.getElementById('recovery_vps_key').value;
             payload.recovery_backup_file = document.getElementById('recovery_backup_file').value;
-            payload.recovery_xui_username = getFieldValueOrDefault('recovery_xui_username');
-            payload.recovery_xui_password = getFieldValueOrDefault('recovery_xui_password');
+            payload.recovery_xui_username = getFieldValue('recovery_xui_username');
+            payload.recovery_xui_password = getFieldValue('recovery_xui_password');
         } else if (mode === 'update_3xui' || mode === 'restart_panel' || mode === 'restart_server') {
             payload.update_vps_host = document.getElementById('update_vps_host').value.trim();
             payload.update_vps_port = parseInt(document.getElementById('update_vps_port').value) || 22;
@@ -2655,7 +2710,7 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.update_vps_password = document.getElementById('update_vps_password').value;
             payload.update_vps_key = document.getElementById('update_vps_key').value;
             if (mode === 'update_3xui') {
-                payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || '3.6.0';
+                payload.update_xui_version = document.getElementById('update_xui_version').value.trim() || latestFetchedXuiVersion;
             }
         } else if (mode === 'restart_sub' || mode === 'update_sub' || mode === 'backup_sub' || mode === 'rollback_sub') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
@@ -2676,11 +2731,11 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.freedom_user = document.getElementById('freedom_user').value.trim() || 'root';
             payload.freedom_password = document.getElementById('freedom_password').value;
             payload.freedom_key = document.getElementById('freedom_key').value;
-            payload.freedom_xui_username = getFieldValueOrDefault('freedom_xui_username');
-            payload.freedom_xui_password = getFieldValueOrDefault('freedom_xui_password');
-            payload.freedom_sub_secret = getFieldValueOrDefault('freedom_sub_secret');
+            payload.freedom_xui_username = getFieldValue('freedom_xui_username');
+            payload.freedom_xui_password = getFieldValue('freedom_xui_password');
+            payload.freedom_sub_secret = getFieldValue('freedom_sub_secret');
             payload.freedom_xui_version = commonVersion;
-            payload.freedom_client_name = document.getElementById('freedom_client_name').value.trim() || 'local-proxy-node-client';
+            payload.freedom_client_name = getFieldValue('freedom_client_name') || 'local-proxy-node-client';
 
             payload.proxy_host = document.getElementById('proxy_host').value.trim();
             payload.proxy_host_for_ssh = payload.proxy_host;
@@ -2688,9 +2743,9 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.proxy_user = document.getElementById('proxy_user').value.trim() || 'root';
             payload.proxy_password = document.getElementById('proxy_password').value;
             payload.proxy_key = document.getElementById('proxy_key').value;
-            payload.proxy_xui_username = getFieldValueOrDefault('proxy_xui_username');
-            payload.proxy_xui_password = getFieldValueOrDefault('proxy_xui_password');
-            payload.proxy_sub_secret = getFieldValueOrDefault('proxy_sub_secret');
+            payload.proxy_xui_username = getFieldValue('proxy_xui_username');
+            payload.proxy_xui_password = getFieldValue('proxy_xui_password');
+            payload.proxy_sub_secret = getFieldValue('proxy_sub_secret');
             payload.proxy_xui_version = commonVersion;
             payload.proxy_client_tcp_list = document.getElementById('proxy_client_tcp_list').value.trim();
             payload.proxy_client_xhttp_list = document.getElementById('proxy_client_xhttp_list').value.trim();
@@ -2702,9 +2757,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.sub_vps_password = document.getElementById('sub_vps_password').value;
                 payload.sub_vps_key = document.getElementById('sub_vps_key').value;
                 payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
-                payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
-                payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
-                payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
+                payload.sub_secret_path = getFieldValue('sub_secret_path');
+                payload.sub_admin_user = getFieldValue('sub_admin_user');
+                payload.sub_admin_password = getFieldValue('sub_admin_password');
             }
         }
 
@@ -2745,6 +2800,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await resp.json();
             if (!res.ok) {
                 appendLog(`[ERROR] ${res.message}`, 'error');
+                showToast(res.message, 'error');
                 updateBadgeStatus('Ошибка запуска', '#ef4444');
                 stopDeployTimer();
                 btnStartDeploy.classList.remove('hidden');
@@ -2958,7 +3014,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (mode === 'update_3xui') {
                     const uHost = result.update_host || cfg.update_vps_host || '';
-                    const ver = result.xui_version || cfg.update_xui_version || '3.6.0';
+                    const ver = result.xui_version || cfg.update_xui_version || latestFetchedXuiVersion;
                     const xuiUrl = result.xui_url || `https://${uHost}/`;
                     panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>', xuiUrl, uHost, ver, 'Сервер', 'Версия 3X-UI', false));
                     return;
@@ -3711,7 +3767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         return window.crypto.subtle.deriveKey(
             { name: "PBKDF2", salt: enc.encode("3x-ui-salt-v2"), iterations: 600000, hash: "SHA-256" },
-            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+            keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
         );
     };
 
@@ -3722,8 +3778,61 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         return window.crypto.subtle.deriveKey(
             { name: "PBKDF2", salt: enc.encode("3x-ui-salt-v1"), iterations: 100000, hash: "SHA-256" },
-            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+            keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
         );
+    };
+
+    const getVaultCookie = () => {
+        const name = "vault_key=";
+        const decoded = decodeURIComponent(document.cookie || '');
+        const ca = decoded.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(name) === 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return "";
+    };
+
+    const setVaultCookie = (keyB64) => {
+        const maxAge = 86400; // 24 hours in seconds
+        document.cookie = `vault_key=${encodeURIComponent(keyB64)}; max-age=${maxAge}; path=/; SameSite=Strict`;
+    };
+
+    const clearVaultCookie = () => {
+        document.cookie = "vault_key=; max-age=0; path=/; SameSite=Strict";
+    };
+
+    const restoreVaultKeyFromCookie = async () => {
+        const keyB64 = getVaultCookie();
+        if (!keyB64) return false;
+        try {
+            const rawStr = atob(keyB64);
+            const rawBytes = new Uint8Array(rawStr.length);
+            for (let i = 0; i < rawStr.length; i++) {
+                rawBytes[i] = rawStr.charCodeAt(i);
+            }
+            const key = await window.crypto.subtle.importKey(
+                "raw", rawBytes, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]
+            );
+            if (serversList.length > 0) {
+                const testSrv = serversList.find(s => s.enc_pass || s.enc_key);
+                if (testSrv) {
+                    const sampleField = testSrv.enc_pass || testSrv.enc_key;
+                    const plain = await decryptData(sampleField, key);
+                    if (plain === "[Ошибка расшифровки]") {
+                        clearVaultCookie();
+                        return false;
+                    }
+                }
+            }
+            cryptoKey = key;
+            return true;
+        } catch (e) {
+            clearVaultCookie();
+            return false;
+        }
     };
 
     const getPayloadVersion = (encryptedBase64) => {
@@ -3774,6 +3883,11 @@ document.addEventListener('DOMContentLoaded', () => {
             serversList = Array.isArray(data) ? data : [];
             serversLoaded = true;
             serversLoadError = '';
+
+            if (!cryptoKey && serversList.length > 0) {
+                await restoreVaultKeyFromCookie();
+            }
+
             renderSavedServers();
         } catch(e) {
             console.error('Failed to fetch servers', e);
@@ -4435,6 +4549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 serversList = [];
                 serversLoaded = true;
                 serversLoadError = '';
+                clearVaultCookie();
                 cryptoKey = null;
                 showToast('Все серверы удалены. PIN-код сброшен.', 'success');
                 renderSavedServers();
@@ -4640,6 +4755,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         cryptoKey = keyV2;
+        try {
+            const exported = await window.crypto.subtle.exportKey("raw", keyV2);
+            const keyB64 = btoa(String.fromCharCode(...new Uint8Array(exported)));
+            setVaultCookie(keyB64);
+        } catch (e) { }
         masterPasswordModal.classList.remove('active');
         if (inputEl) inputEl.value = '';
 

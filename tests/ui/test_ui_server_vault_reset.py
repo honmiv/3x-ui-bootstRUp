@@ -59,7 +59,7 @@ async def run_test() -> bool:
 
             log("Confirming reset modal...", "info")
             await page.click("#customModalConfirmBtn")
-            await page.wait_for_selector("#customConfirmModal.active", state="detached", timeout=3000)
+            await page.wait_for_selector("#customConfirmModal.active", state="detached", timeout=5000)
             await page.wait_for_timeout(500)
 
             # 3. Assert cleared

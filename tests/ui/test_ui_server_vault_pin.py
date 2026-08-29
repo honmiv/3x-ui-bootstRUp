@@ -75,6 +75,16 @@ async def run_test() -> bool:
             assert "enc_pass" in data[0] and len(data[0]["enc_pass"]) > 20
             log("✅ [SECURITY VERIFIED] Password encrypted via AES-GCM on disk.", "success")
 
+            # 5. Reload Page and Verify Vault Remains Unlocked via 24h Cookie
+            log("Reloading page to verify 24h cookie session persistence...", "info")
+            await page.reload(wait_until="networkidle")
+            await page.wait_for_timeout(500)
+            reloaded_card = page.locator(".server-card").first
+            await reloaded_card.wait_for(state="visible", timeout=5000)
+            reloaded_host = await reloaded_card.locator(".server-card-host").text_content()
+            assert "95.217.100.50" in reloaded_host
+            log("✅ [Cookie Persistence Verified] Vault stayed unlocked after page reload!", "success")
+
             log("🎉 TEST PASSED!", "success")
             return True
         finally:

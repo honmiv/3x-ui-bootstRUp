@@ -184,7 +184,8 @@ apply_template_values() {
     local target_path="$1"
     local xui_ver domain web_base sub_path web_port sub_port caddy_port tcp_port xhttp_port
     local tcp_priv tcp_pub tcp_sids xhttp_priv xhttp_pub xhttp_sids
-    xui_ver="${XUI_VERSION:-3.6.0}"
+    xui_ver="${XUI_VERSION:-}"
+    [[ -n "$xui_ver" ]] || die "XUI_VERSION is required."
     xui_ver="$(sed_escape_replacement "$xui_ver")"
     domain="$(sed_escape_replacement "${DOMAIN}")"
     web_base="$(sed_escape_replacement "${XUI_WEB_BASE_PATH}")"
@@ -429,6 +430,9 @@ prompt_secret_phrase() {
         success "Secret phrase provided via environment."
         return 0
     fi
+    if [[ ! -t 0 ]]; then
+        die "SECRET_PHRASE is required in non-interactive mode."
+    fi
     DEFAULT_SECRET_PHRASE=$(tr -dc '0-9' < /dev/urandom | head -c 16)
     section "$MSG_SEC_SECRET_TITLE"
     echo -e "${YELLOW}${MSG_SEC_SECRET_DESC}${NC}"
@@ -440,6 +444,9 @@ prompt_panel_credentials() {
     if [[ -n "${USERNAME:-}" && -n "${USER_PASSWORD:-}" ]]; then
         success "Panel credentials provided via environment."
         return 0
+    fi
+    if [[ ! -t 0 ]]; then
+        die "USERNAME and USER_PASSWORD are required in non-interactive mode."
     fi
     prompt_with_default "$MSG_REQ_LOGIN" "admin" USERNAME
     prompt_secret_with_default "$MSG_REQ_PASSWORD" "admin" USER_PASSWORD

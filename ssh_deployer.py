@@ -639,10 +639,151 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return True, out
         return False, out
 
+def validate_deployment_config(config: Dict[str, Any]) -> Tuple[bool, str]:
+    mode = config.get("deploy_mode", "").strip()
+    if not mode:
+        mode = "cascade" if config.get("is_cascade", False) else "single"
+
+    def _check_ssh(host_key: str, port_key: str, user_key: str, pass_key: str, key_key: str, label: str) -> Optional[str]:
+        host = str(config.get(host_key, "") or "").strip()
+        if not host:
+            return f"Укажите домен {label}"
+        port_val = config.get(port_key)
+        try:
+            p = int(port_val or 22)
+            if p <= 0 or p > 65535:
+                return f"Укажите корректный SSH порт {label} (1-65535)"
+        except (ValueError, TypeError):
+            return f"Укажите корректный SSH порт {label}"
+        user = str(config.get(user_key, "") or "").strip()
+        if not user:
+            return f"Укажите SSH пользователя {label}"
+        password = str(config.get(pass_key, "") or "")
+        key_data = str(config.get(key_key, "") or "")
+        if not password and not key_data:
+            return f"Укажите SSH пароль или ключ {label}"
+        return None
+
+    if mode in ["single", "proxy_only", "freedom_only", "freedom_component", "freedom_sub"]:
+        err = _check_ssh("vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "VPS сервера")
+        if err:
+            return False, err
+        if not str(config.get("xui_username", "") or "").strip():
+            return False, "Укажите логин админа 3X-UI"
+        if not str(config.get("xui_password", "") or "").strip():
+            return False, "Укажите пароль админа 3X-UI"
+        if not str(config.get("sub_secret", "") or "").strip():
+            return False, "Укажите секретную фразу панели"
+        if mode == "proxy_only":
+            if not str(config.get("foreign_sub_url", "") or "").strip():
+                return False, "Укажите ссылку подписки Freedom ноды (FOREIGN_SUB_URL)"
+        elif mode in ["freedom_only", "freedom_sub"]:
+            tcp = str(config.get("client_tcp_list", "") or "").strip()
+            xhttp = str(config.get("client_xhttp_list", "") or "").strip()
+            if not tcp and not xhttp:
+                return False, "Укажите хотя бы одного клиента (VLESS TCP или VLESS XHTTP)"
+
+        if mode == "freedom_sub":
+            err = _check_ssh("sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "Сервера подписок")
+            if err:
+                return False, err
+            if not str(config.get("sub_secret_path", "") or "").strip():
+                return False, "Укажите префикс пути подписок Сервера подписок"
+            if not str(config.get("sub_admin_user", "") or "").strip():
+                return False, "Укажите логин админа Сервера подписок"
+            if not str(config.get("sub_admin_password", "") or "").strip():
+                return False, "Укажите пароль админа Сервера подписок"
+
+    elif mode in ["cascade", "cascade_sub"]:
+        err = _check_ssh("freedom_host", "freedom_port", "freedom_user", "freedom_password", "freedom_key", "Freedom Node")
+        if err:
+            return False, err
+        if not str(config.get("freedom_xui_username", "") or "").strip():
+            return False, "Укажите логин админа Freedom 3X-UI"
+        if not str(config.get("freedom_xui_password", "") or "").strip():
+            return False, "Укажите пароль админа Freedom 3X-UI"
+        if not str(config.get("freedom_sub_secret", "") or "").strip():
+            return False, "Укажите секретную фразу Freedom панели"
+
+        err = _check_ssh("proxy_host", "proxy_port", "proxy_user", "proxy_password", "proxy_key", "Proxy Node")
+        if err:
+            return False, err
+        if not str(config.get("proxy_xui_username", "") or "").strip():
+            return False, "Укажите логин админа Proxy 3X-UI"
+        if not str(config.get("proxy_xui_password", "") or "").strip():
+            return False, "Укажите пароль админа Proxy 3X-UI"
+        if not str(config.get("proxy_sub_secret", "") or "").strip():
+            return False, "Укажите секретную фразу Proxy панели"
+
+        if mode == "cascade_sub":
+            err = _check_ssh("sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "Сервера подписок")
+            if err:
+                return False, err
+            if not str(config.get("sub_secret_path", "") or "").strip():
+                return False, "Укажите префикс пути подписок Сервера подписок"
+            if not str(config.get("sub_admin_user", "") or "").strip():
+                return False, "Укажите логин админа Сервера подписок"
+            if not str(config.get("sub_admin_password", "") or "").strip():
+                return False, "Укажите пароль админа Сервера подписок"
+
+    elif mode == "sub_only":
+        err = _check_ssh("sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "Сервера подписок")
+        if err:
+            return False, err
+        if not str(config.get("sub_secret_path", "") or "").strip():
+            return False, "Укажите префикс пути подписок Сервера подписок"
+        if not str(config.get("sub_admin_user", "") or "").strip():
+            return False, "Укажите логин админа Сервера подписок"
+        if not str(config.get("sub_admin_password", "") or "").strip():
+            return False, "Укажите пароль админа Сервера подписок"
+        sub_rus = str(config.get("sub_russian_url", "") or "").strip()
+        sub_for = str(config.get("sub_foreign_url", "") or "").strip()
+        if not sub_rus and not sub_for:
+            return False, "Укажите хотя бы одну ссылку подписки (RUSSIAN_SUB_URL или FOREIGN_SUB_URL)"
+
+    elif mode == "backup":
+        err = _check_ssh("backup_vps_host", "backup_vps_port", "backup_vps_user", "backup_vps_password", "backup_vps_key", "сервера для бэкапа")
+        if err:
+            return False, err
+
+    elif mode == "recovery":
+        err = _check_ssh("recovery_vps_host", "recovery_vps_port", "recovery_vps_user", "recovery_vps_password", "recovery_vps_key", "сервера для восстановления")
+        if err:
+            return False, err
+        if not str(config.get("recovery_backup_file", "") or "").strip():
+            return False, "Выберите архив бэкапа для восстановления"
+        if not str(config.get("recovery_xui_username", "") or "").strip():
+            return False, "Укажите логин админа 3X-UI из бэкапа"
+        if not str(config.get("recovery_xui_password", "") or "").strip():
+            return False, "Укажите пароль админа 3X-UI из бэкапа"
+
+    elif mode in ["update", "update_3xui", "restart_panel", "restart_server"]:
+        err = _check_ssh("update_vps_host", "update_vps_port", "update_vps_user", "update_vps_password", "update_vps_key", "сервера для обновления/перезапуска")
+        if err:
+            return False, err
+        if mode in ["update", "update_3xui"]:
+            ver = str(config.get("update_xui_version", "") or config.get("xui_version", "") or "").strip()
+            if not ver:
+                return False, "Укажите версию 3X-UI для обновления"
+
+    elif mode in ["restart_sub", "update_sub", "backup_sub", "rollback_sub"]:
+        err = _check_ssh("sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password", "sub_vps_key", "Сервера подписок")
+        if err:
+            return False, err
+        if mode == "rollback_sub" and not str(config.get("rollback_sub_backup_file", "") or "").strip():
+            return False, "Выберите архив бэкапа Сервера подписок"
+
+    return True, ""
+
 async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> Tuple[bool, Dict[str, Any]]:
     bundle_dir = config.get("bundle_source_dir")
     def log(msg: str, level: str = "info"):
         log_callback(msg, level)
+
+    valid, err_msg = validate_deployment_config(config)
+    if not valid:
+        log(f"[ERROR] {err_msg}", "error")
+        return False, {"error": err_msg}
 
     deploy_mode = config.get("deploy_mode", "").strip()
     if not deploy_mode:

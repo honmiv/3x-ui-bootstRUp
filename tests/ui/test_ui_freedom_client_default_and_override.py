@@ -67,6 +67,14 @@ async def run_test() -> bool:
             await page.click("#btnNext1")
             await page.wait_for_timeout(300)
 
+            # Step 3: Fill required panel credentials and test freedom_client_name
+            await page.fill("#freedom_xui_username", "admin")
+            await page.fill("#freedom_xui_password", "admin_pass")
+            await page.fill("#freedom_sub_secret", "freedom_secret")
+            await page.fill("#proxy_xui_username", "admin")
+            await page.fill("#proxy_xui_password", "proxy_pass")
+            await page.fill("#proxy_sub_secret", "proxy_secret")
+
             # 1. Test Default Value when input is cleared on Step 3
             log("1. Testing empty input fallback to default on deploy...", "info")
             await page.fill("#freedom_client_name", "")

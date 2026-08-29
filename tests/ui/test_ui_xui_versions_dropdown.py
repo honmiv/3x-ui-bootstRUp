@@ -54,11 +54,28 @@ async def run_test() -> bool:
             )
             log(f"Loaded XUI versions in select: {version_options[:5]}...", "info")
             assert len(version_options) > 0, "XUI versions dropdown should have options populated!"
-            assert "latest" in version_options or any("." in v for v in version_options)
+            assert version_options[0] == "latest", f"Expected 'latest' at top of dropdown, got '{version_options[0]}'"
+
+            selected_val = await page.locator("#xui_version").input_value()
+            assert selected_val != "latest", f"Selected version should be concrete release, got '{selected_val}'"
+            log(f"✅ [XUI Default Verified] Selected default is '{selected_val}' (not 'latest').", "success")
+
+            # 3. Verify user can explicitly select 'latest'
+            assert "latest" in version_options, "'latest' option should be present in dropdown list"
+            await page.select_option("#xui_version", "latest", force=True)
+            selected_latest = await page.locator("#xui_version").input_value()
+            assert selected_latest == "latest", f"Expected 'latest' to be selectable, got '{selected_latest}'"
+            log("✅ [XUI 'latest' Option Verified] User can explicitly select 'latest'.", "success")
+
             log("✅ [XUI Versions Verified] Dropdown populated with Docker tags.", "success")
 
             log("🎉 TEST PASSED!", "success")
             return True
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            log(f"Test error: {e}", "error")
+            return False
         finally:
             await context.close()
             await browser.close()

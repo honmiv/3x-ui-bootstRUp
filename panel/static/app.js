@@ -74,10 +74,7 @@ function showConfirm(message, title = 'Подтверждение', options = {}
         const confirmBtn = document.getElementById('customModalConfirmBtn');
         const cancelBtn = document.getElementById('customModalCancelBtn');
 
-        if (!modal || !confirmBtn || !cancelBtn) {
-            resolve(window.nativeConfirm ? window.nativeConfirm(message) : true);
-            return;
-        }
+        
 
         if (activeModalResolve) {
             activeModalResolve(false);
@@ -157,9 +154,6 @@ function showAlert(message, title = 'Уведомление', type = 'info') {
         icon: type === 'success' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polyline points="20 6 9 17 4 12"/></svg>' : (type === 'error' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>')
     });
 }
-
-window.nativeAlert = window.alert;
-window.nativeConfirm = window.confirm;
 
 window.showToast = showToast;
 window.showAlert = showAlert;

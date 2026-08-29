@@ -81,6 +81,9 @@ case "$TARGET" in
     stop|cancel|test_ui_deploy_cancellation.py)
         TESTS_TO_RUN=("$UI_DIR/test_ui_deploy_cancellation.py")
         ;;
+    notifications|buttons|test_ui_button_notifications.py)
+        TESTS_TO_RUN=("$UI_DIR/test_ui_button_notifications.py")
+        ;;
     versions|test_ui_xui_versions_dropdown.py)
         TESTS_TO_RUN=("$UI_DIR/test_ui_xui_versions_dropdown.py")
         ;;

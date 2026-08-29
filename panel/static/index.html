@@ -1429,6 +1429,21 @@
         </div>
     </div>
 
+    <!-- Reusable Custom Dialog Modal -->
+    <div id="customConfirmModal" class="modal-overlay">
+        <div class="modal-card custom-modal-card">
+            <div class="custom-modal-icon-wrapper" id="customModalIconWrapper">
+                <span id="customModalIcon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            </div>
+            <h2 id="customModalTitle" class="custom-modal-title">Подтверждение</h2>
+            <div id="customModalMessage" class="custom-modal-message">Вы уверены?</div>
+            <div class="custom-modal-actions" id="customModalActions">
+                <button type="button" class="btn" id="customModalCancelBtn">Отмена</button>
+                <button type="button" class="btn btn-primary" id="customModalConfirmBtn">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toastContainer" class="toast-container"></div>
 

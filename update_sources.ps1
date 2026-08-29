@@ -14,32 +14,44 @@ $TmpDir = Join-Path $env:TEMP ("3x-ui-update-" + [System.Guid]::NewGuid().ToStri
 New-Item -ItemType Directory -Path $TmpDir | Out-Null
 
 try {
-    Write-Host "[..] Downloading latest sources from $ArchiveUrl..."
-    Invoke-WebRequest -Uri $ArchiveUrl -OutFile (Join-Path $TmpDir "src.zip") -UseBasicParsing
-
-    Expand-Archive -Path (Join-Path $TmpDir "src.zip") -DestinationPath $TmpDir
-
-    $src = Get-ChildItem -LiteralPath $TmpDir -Directory | Where-Object { $_.Name -ne '__MACOSX' } | Select-Object -First 1
-    if (-not $src) {
-        Write-Host "[ERROR] Downloaded archive is empty or invalid." -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "[..] Cleaning working directory at $TargetDir..."
-    Write-Host "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
-
-    $preserve = @('backups_panel', 'backups_sub_server', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', 'panel')
-    Get-ChildItem -LiteralPath $TargetDir -Force | ForEach-Object {
-        if ($preserve -contains $_.Name) {
-            Write-Host "[KEEP] $($_.Name)"
-        } else {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    if ((Test-Path (Join-Path $TargetDir ".git")) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Host "[..] Detected Git repository. Updating via git fetch & reset..."
+        Push-Location $TargetDir
+        try {
+            git fetch origin $Branch
+            git reset --hard "origin/$Branch"
+            Write-Host "[OK] Git repository reset to origin/$Branch."
+        } finally {
+            Pop-Location
         }
-    }
+    } else {
+        Write-Host "[..] Downloading latest sources from $ArchiveUrl..."
+        Invoke-WebRequest -Uri $ArchiveUrl -OutFile (Join-Path $TmpDir "src.zip") -UseBasicParsing
 
-    Write-Host "[..] Extracting updated files..."
-    Get-ChildItem -LiteralPath $src.FullName -Force | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination $TargetDir -Recurse -Force
+        Expand-Archive -Path (Join-Path $TmpDir "src.zip") -DestinationPath $TmpDir
+
+        $src = Get-ChildItem -LiteralPath $TmpDir -Directory | Where-Object { $_.Name -ne '__MACOSX' } | Select-Object -First 1
+        if (-not $src) {
+            Write-Host "[ERROR] Downloaded archive is empty or invalid." -ForegroundColor Red
+            exit 1
+        }
+
+        Write-Host "[..] Cleaning working directory at $TargetDir..."
+        Write-Host "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+
+        $preserve = @('backups_panel', 'backups_sub_server', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', 'panel')
+        Get-ChildItem -LiteralPath $TargetDir -Force | ForEach-Object {
+            if ($preserve -contains $_.Name) {
+                Write-Host "[KEEP] $($_.Name)"
+            } else {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force
+            }
+        }
+
+        Write-Host "[..] Extracting updated files..."
+        Get-ChildItem -LiteralPath $src.FullName -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $TargetDir -Recurse -Force
+        }
     }
 
     Write-Host "[OK] Project files updated successfully."

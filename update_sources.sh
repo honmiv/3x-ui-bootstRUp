@@ -19,42 +19,49 @@ require_cmd() {
 }
 
 main() {
-    require_cmd curl
-    require_cmd tar
-    require_cmd mktemp
-
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
-
-    echo "[..] Downloading latest sources from ${ARCHIVE_URL}..."
-    curl -fsSL "$ARCHIVE_URL" | tar -xz -C "$tmp_dir"
-
-    src_dir="$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-    [[ -n "$src_dir" && -d "$src_dir" ]] || die "Downloaded archive is empty or invalid."
-
     mkdir -p "$TARGET_DIR"
     cd "$TARGET_DIR"
     TARGET_DIR_ABS="$PWD"
 
-    echo "[..] Cleaning working directory at ${TARGET_DIR_ABS}..."
-    echo "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+    if [[ -d "$TARGET_DIR_ABS/.git" ]] && command -v git >/dev/null 2>&1; then
+        echo "[..] Detected Git repository. Updating via git fetch & reset..."
+        git fetch origin "${BRANCH}"
+        git reset --hard "origin/${BRANCH}"
+        echo "[OK] Git repository reset to origin/${BRANCH}."
+    else
+        require_cmd curl
+        require_cmd tar
+        require_cmd mktemp
 
-    shopt -s dotglob nullglob
-    for item in *; do
-        name="$(basename "$item")"
-        if [[ "$name" == "." || "$name" == ".." ]]; then
-            continue
-        fi
-        if [[ "$name" == "backups_panel" || "$name" == "backups_sub_server" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" || "$name" == "panel" ]]; then
-            echo "[KEEP] $name"
-            continue
-        fi
-        rm -rf "$item"
-    done
-    shopt -u dotglob nullglob
+        tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "$tmp_dir"' EXIT
 
-    echo "[..] Extracting updated files..."
-    cp -a "$src_dir"/. "$TARGET_DIR_ABS"/
+        echo "[..] Downloading latest sources from ${ARCHIVE_URL}..."
+        curl -fsSL "$ARCHIVE_URL" | tar -xz -C "$tmp_dir"
+
+        src_dir="$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+        [[ -n "$src_dir" && -d "$src_dir" ]] || die "Downloaded archive is empty or invalid."
+
+        echo "[..] Cleaning working directory at ${TARGET_DIR_ABS}..."
+        echo "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+
+        shopt -s dotglob nullglob
+        for item in *; do
+            name="$(basename "$item")"
+            if [[ "$name" == "." || "$name" == ".." ]]; then
+                continue
+            fi
+            if [[ "$name" == "backups_panel" || "$name" == "backups_sub_server" || "$name" == "backup" || "$name" == "setup_backup.yml" || "$name" == "setup_backup.yaml" || "$name" == "servers.json" || "$name" == ".git" || "$name" == "panel" ]]; then
+                echo "[KEEP] $name"
+                continue
+            fi
+            rm -rf "$item"
+        done
+        shopt -u dotglob nullglob
+
+        echo "[..] Extracting updated files..."
+        cp -a "$src_dir"/. "$TARGET_DIR_ABS"/
+    fi
 
     echo "[..] Setting script execution permissions..."
     for script in panel/setup.sh panel_update.sh panel_recover.sh start_3x_ui_deployment_manager.sh update_sources.sh panel_backup.sh; do

@@ -63,7 +63,11 @@
                 <div class="form-group">
                     <div id="smPassGroup">
                         <label>Пароль</label>
-                        <input type="password" id="sm_pass" placeholder="••••••••">
+                        <div class="input-password-wrapper">
+                            <input type="password" id="sm_pass" placeholder="••••••••">
+                            <button type="button" class="btn-toggle-eye" data-target="sm_pass"
+                                title="Показать/Скрыть пароль">👁️</button>
+                        </div>
                     </div>
                     <div id="smKeyGroup" class="hidden">
                         <label>SSH Ключ</label>
@@ -75,15 +79,26 @@
                     <label>URL панели / саб-сервера (опционально)</label>
                     <input type="text" id="sm_panel_url" placeholder="https://example.com/secret_path/">
                 </div>
-                <button type="button" class="btn btn-primary" id="btnSaveServer"
-                    style="width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                        <polyline points="17 21 17 13 7 13 7 21" />
-                        <polyline points="7 3 7 8 15 8" />
-                    </svg> <span id="btnSaveServerText">Сохранить сервер</span>
-                </button>
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="button" class="btn btn-secondary" id="btnTestServerForm"
+                        title="Проверить SSH подключение"
+                        style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; flex-shrink: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        <span>Тест</span>
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnSaveServer"
+                        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg> <span id="btnSaveServerText" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Сохранить</span>
+                    </button>
+                </div>
                 <button type="button" class="btn" id="btnCancelEditServer"
                     style="width: 100%; margin-top: 8px; display: none;">
                     Отменить редактирование
@@ -547,13 +562,7 @@
                                             <input type="password" id="vps_password" placeholder="password"
                                                 class="ssh-input">
                                             <button type="button" class="btn-toggle-eye" data-target="vps_password"
-                                                title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                                    width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                    stroke-linejoin="round">
-                                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                    <circle cx="12" cy="12" r="3" />
-                                                </svg></button>
+                                                title="Показать/Скрыть пароль">👁️</button>
                                         </div>
                                     </div>
                                     <div class="auth-field-wrapper hidden" id="vpsKeyGroup">
@@ -600,13 +609,7 @@
                                                 <input type="password" id="freedom_password" placeholder="password"
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
-                                                    data-target="freedom_password" title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    data-target="freedom_password" title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="freedomKeyGroup">
@@ -650,13 +653,7 @@
                                                 <input type="password" id="proxy_password" placeholder="password"
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
-                                                    data-target="proxy_password" title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    data-target="proxy_password" title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="proxyKeyGroup">
@@ -703,13 +700,7 @@
                                                 <input type="password" id="sub_vps_password" placeholder="password"
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
-                                                    data-target="sub_vps_password" title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    data-target="sub_vps_password" title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="subKeyGroup">
@@ -757,13 +748,7 @@
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
                                                     data-target="backup_vps_password"
-                                                    title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="backupKeyGroup">
@@ -811,13 +796,7 @@
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
                                                     data-target="recovery_vps_password"
-                                                    title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="recoveryKeyGroup">
@@ -865,13 +844,7 @@
                                                     class="ssh-input">
                                                 <button type="button" class="btn-toggle-eye"
                                                     data-target="update_vps_password"
-                                                    title="Показать/Скрыть пароль"><svg
-                                                        xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                        <circle cx="12" cy="12" r="3" />
-                                                    </svg></button>
+                                                    title="Показать/Скрыть пароль">👁️</button>
                                             </div>
                                         </div>
                                         <div class="auth-field-wrapper hidden" id="updateKeyGroup">
@@ -953,12 +926,7 @@
                                 <div class="input-password-wrapper">
                                     <input type="password" id="xui_password" name="password" autocomplete="current-password" placeholder="admin">
                                     <button type="button" class="btn-toggle-eye" data-target="xui_password"
-                                        title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                        </svg></button>
+                                        title="Показать/Скрыть пароль">👁️</button>
                                 </div>
                             </div>
                             <div class="form-group full-width">
@@ -985,7 +953,7 @@
                                 <label for="foreign_sub_url">Ссылка подписки Freedom ноды (для outbound и
                                     маршрутизации)</label>
                                 <input type="text" id="foreign_sub_url"
-                                    placeholder="https://freedom.example.com/1a2b3c4d5e6f7a8b">
+                                    placeholder="https://freedom.example.com/1a2b3c4d5e6f7a8b/local-proxy-node-client">
                             </div>
                         </div>
                     </div>
@@ -1004,13 +972,7 @@
                                     <div class="input-password-wrapper">
                                         <input type="password" id="freedom_xui_password" name="password" autocomplete="current-password" placeholder="admin">
                                         <button type="button" class="btn-toggle-eye" data-target="freedom_xui_password"
-                                            title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg></button>
+                                            title="Показать/Скрыть пароль">👁️</button>
                                     </div>
                                 </div>
                                 <div class="form-group full-width">
@@ -1041,13 +1003,7 @@
                                     <div class="input-password-wrapper">
                                         <input type="password" id="proxy_xui_password" name="password" autocomplete="current-password" placeholder="admin">
                                         <button type="button" class="btn-toggle-eye" data-target="proxy_xui_password"
-                                            title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg></button>
+                                            title="Показать/Скрыть пароль">👁️</button>
                                     </div>
                                 </div>
                                 <div class="form-group full-width">
@@ -1089,13 +1045,7 @@
                                     <div class="input-password-wrapper">
                                         <input type="password" id="sub_admin_password" name="password" autocomplete="current-password" placeholder="admin">
                                         <button type="button" class="btn-toggle-eye" data-target="sub_admin_password"
-                                            title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg></button>
+                                            title="Показать/Скрыть пароль">👁️</button>
                                     </div>
                                 </div>
                                 <div id="subOnlyTargetGroup" class="form-grid full-width hidden">
@@ -1163,13 +1113,7 @@
                                     <div class="input-password-wrapper">
                                         <input type="password" id="recovery_xui_password" name="password" autocomplete="current-password" placeholder="admin">
                                         <button type="button" class="btn-toggle-eye" data-target="recovery_xui_password"
-                                            title="Показать/Скрыть пароль"><svg xmlns="http://www.w3.org/2000/svg"
-                                                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg></button>
+                                            title="Показать/Скрыть пароль">👁️</button>
                                     </div>
                                 </div>
                             </div>

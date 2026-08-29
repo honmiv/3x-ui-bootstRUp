@@ -1586,10 +1586,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!input) return;
             if (input.type === 'password') {
                 input.type = 'text';
-                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+                btn.textContent = '🙈';
             } else {
                 input.type = 'password';
-                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+                btn.textContent = '👁️';
             }
         });
     });
@@ -2729,7 +2729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="summary-label">${escPassLabel}</span>
                                 <div class="val-code-wrapper">
                                     ${passSecret ? `<span class="val-code secret-val" data-secret="${escPass}">••••••••</span>` : `<span class="val-code">${escPass}</span>`}
-                                    ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>` : ''}
+                                    ${passSecret ? `<button type="button" class="btn-sm btn-eye-secret">👁️</button>` : ''}
                                     <button type="button" class="btn-sm btn-copy" data-copy="${escPass}"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                                 </div>
                             </div>` : ''}
@@ -2746,10 +2746,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             const realSecret = valSpan.getAttribute('data-secret');
                             if (valSpan.textContent === '••••••••') {
                                 valSpan.textContent = realSecret;
-                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+                                btn.textContent = '🙈';
                             } else {
                                 valSpan.innerHTML = '••••••••';
-                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+                                btn.textContent = '👁️';
                             }
                         };
                     });
@@ -3458,6 +3458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const smKey = document.getElementById('sm_key');
     const smPanelUrl = document.getElementById('sm_panel_url');
     const btnSaveServer = document.getElementById('btnSaveServer');
+    const btnTestServerForm = document.getElementById('btnTestServerForm');
     const savedServersList = document.getElementById('savedServersList');
     const btnResetServers = document.getElementById('btnResetServers');
 
@@ -4061,7 +4062,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setEditingMode = (index) => {
         editingServerIndex = index;
-        if (btnSaveServerText) btnSaveServerText.textContent = index === null ? 'Сохранить сервер' : 'Обновить сервер';
+        if (btnSaveServerText) btnSaveServerText.textContent = index === null ? 'Сохранить' : 'Обновить сервер';
         if (btnCancelEditServer) btnCancelEditServer.style.display = index === null ? 'none' : 'block';
     };
 
@@ -4213,6 +4214,59 @@ document.addEventListener('DOMContentLoaded', () => {
             
             renderSavedServers();
         };
+
+    if (btnTestServerForm) {
+        const origTestHtml = btnTestServerForm.innerHTML;
+        btnTestServerForm.addEventListener('click', async () => {
+            const host = smHost ? smHost.value.trim() : '';
+            if (!host) {
+                showToast('Укажите IP или Домен сервера', 'warning');
+                if (smHost) smHost.focus();
+                return;
+            }
+
+            const user = (smUser ? smUser.value.trim() : '') || 'root';
+            const port = parseInt(smPort ? smPort.value : 22) || 22;
+            const authType = smAuthType ? smAuthType.value : 'password';
+            const pass = authType === 'key' ? '' : (smPass ? smPass.value : '');
+            const key = authType === 'key' ? (smKey ? smKey.value : '') : '';
+
+            btnTestServerForm.disabled = true;
+            btnTestServerForm.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg><span>Тест...</span>`;
+
+            try {
+                const resp = await fetch('/api/ssh/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vps_host: host,
+                        vps_port: port,
+                        vps_user: user,
+                        vps_password: pass,
+                        vps_key: key
+                    })
+                });
+                const res = await resp.json();
+                if (res.ok) {
+                    showToast(`Успешное SSH-подключение к ${host}:${port}`, 'success');
+                    btnTestServerForm.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span style="color: #22c55e;">OK</span>`;
+                } else {
+                    showToast(`Ошибка SSH (${host}): ${res.message || 'Ошибка подключения'}`, 'error');
+                    btnTestServerForm.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color: #ef4444;">Ошибка</span>`;
+                }
+            } catch (err) {
+                showToast(`Ошибка сети: ${err.message}`, 'error');
+                btnTestServerForm.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color: #ef4444;">Ошибка</span>`;
+            } finally {
+                setTimeout(() => {
+                    if (btnTestServerForm) {
+                        btnTestServerForm.disabled = false;
+                        btnTestServerForm.innerHTML = origTestHtml;
+                    }
+                }, 2500);
+            }
+        });
+    }
 
     if (btnSaveServer) {
         btnSaveServer.addEventListener('click', async () => {

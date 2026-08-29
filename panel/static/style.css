@@ -522,6 +522,10 @@ textarea.required-password-empty {
     width: 120px;
     flex: 0 0 120px;
 }
+.input-password-wrapper {
+    position: relative;
+    width: 100%;
+}
 .input-password-wrapper input {
     padding-right: 40px;
     height: 40px !important;

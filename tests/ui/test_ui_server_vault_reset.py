@@ -46,6 +46,10 @@ async def run_test() -> bool:
             await page.click("#btnSubmitMasterPassword")
             await page.wait_for_selector("#masterPasswordModal.active", state="detached", timeout=5000)
 
+            card = page.locator(".server-card").first
+            await card.wait_for(state="visible", timeout=5000)
+            await asyncio.sleep(0.5)
+
             assert os.path.exists(servers_file), "servers.json should exist on disk"
 
             # 2. Click Reset

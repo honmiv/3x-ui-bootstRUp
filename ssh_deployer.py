@@ -650,7 +650,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     xui_username = config.get("xui_username", "").strip()
     xui_password = config.get("xui_password", "").strip()
-    xui_version = config.get("xui_version", "").strip() or "3.6.0"
+    xui_version = config.get("xui_version", "").strip()
     sub_secret = config.get("sub_secret", "").strip()
 
     # Remote Server Backup Mode
@@ -908,7 +908,7 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         user = (config.get("update_vps_user") or config.get("vps_user") or "root").strip()
         password = config.get("update_vps_password") if config.get("update_vps_password") is not None else config.get("vps_password", "")
         key_data = config.get("update_vps_key") if config.get("update_vps_key") is not None else config.get("vps_key", "")
-        target_version = (config.get("update_xui_version") or config.get("xui_version") or "3.6.0").strip()
+        target_version = (config.get("update_xui_version") or config.get("xui_version")).strip()
 
         if not host:
             log("[ERROR] Remote host is required for update mode.", "error")

@@ -567,6 +567,22 @@ update_panel_settings_api() {
     fi
 
     local sub_url_value="https://${DOMAIN}/${XUI_SUB_PATH}/"
+    local happ_routing_file=""
+    if [[ -f "./working/3x-ui/happ-routing.json" ]]; then
+        happ_routing_file="./working/3x-ui/happ-routing.json"
+    elif [[ -f "${SCRIPT_DIR}/templates/3x-ui/happ-routing.json" ]]; then
+        happ_routing_file="${SCRIPT_DIR}/templates/3x-ui/happ-routing.json"
+    elif [[ -f "./panel/templates/3x-ui/happ-routing.json" ]]; then
+        happ_routing_file="./panel/templates/3x-ui/happ-routing.json"
+    fi
+
+    local sub_routing_rules=""
+    if [[ -n "$happ_routing_file" && -f "$happ_routing_file" ]]; then
+        local encoded_rules
+        encoded_rules=$(jq -c . "$happ_routing_file" | base64 | tr -d '\r\n')
+        sub_routing_rules="happ://routing/onadd/${encoded_rules}"
+    fi
+
     local payload
     payload=$(echo "$current_settings" | jq -r \
         --arg webPort "$XUI_WEB_PORT" \
@@ -574,12 +590,16 @@ update_panel_settings_api() {
         --arg subPort "$XUI_SUB_PORT" \
         --arg subPath "/${XUI_SUB_PATH}/" \
         --arg subURI "$sub_url_value" \
+        --arg subRoutingRules "$sub_routing_rules" \
         '.obj
          | .webPort = ($webPort | tonumber)
          | .webBasePath = $webBasePath
          | .subPort = ($subPort | tonumber)
          | .subPath = $subPath
          | .subURI = $subURI
+         | .subUpdates = 1
+         | .subEnableRouting = (if ($subRoutingRules != "") then true else (.subEnableRouting // false) end)
+         | .subRoutingRules = (if ($subRoutingRules != "") then $subRoutingRules else (.subRoutingRules // "") end)
          | to_entries
          | map("\(.key)=\(.value | tostring | @uri)")
          | join("&")')

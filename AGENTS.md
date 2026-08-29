@@ -109,6 +109,7 @@ main.py (Orchestrator)
   - `check_github_update()`: checks latest releases/tags from GitHub repository and compares against local version (cached for 1h)
 - **API Endpoints**:
   - `GET/POST /api/config` - load/save form state (passwords and `*_key` stripped)
+  - `GET/POST /api/happ_routing` - load and save custom client routing configuration (`happ-routing.json`)
   - `GET /api/xui_versions`, `GET /api/backups`, `GET /api/status`, `GET /api/update_check`
   - `GET/POST /api/servers`, `DELETE /api/servers/reset` - saved VPS profiles (supports lock & edit)
   - `POST /api/deploy`, `GET /api/deploy/logs` (SSE), `POST /api/deploy/stop` - run/cancel deployments
@@ -208,6 +209,7 @@ panel/
 └── templates/            # Configuration templates ({{VARIABLE}} syntax)
     ├── users.yml         # (Optional) Initial users for 3x-ui
     └── 3x-ui/
+    │   ├── happ-routing.json             # Default client routing config for Happ
     │   ├── vless-tcp-reality.template    # Inbound protocol config
     │   └── vless-xhttp-reality.template  # Alternative protocol
     ├── caddy/
@@ -993,7 +995,6 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
 12. **Misc Local-Orchestrator & Frontend Security/Refactoring** — *RESOLVED*:
     - Removed `importlib.reload(ssh_deployer)` and redundant imports in `main.py`; `run_deployment` is invoked directly.
     - Replaced external QR generator `api.qrserver.com` in both `panel` control plane and `sub-server` admin UI with a local, zero-leak client-side SVG QR generator (`resources/qrcode/qrcode.min.js` and embedded JS), ensuring confidential subscription URLs never leak to third-party services.
-    - Version `"3.6.0"` serves as a reliable offline/fallback default when registry network calls are unavailable.
 
 13. **Master Password & PBKDF2 V2 Hardening with Auto-Migration** — *RESOLVED*:
     - Replaced rigid 5-digit PIN modal with a universal Master Password field (supporting arbitrary passwords, phrases, or legacy PINs).
@@ -1096,6 +1097,12 @@ Start debugging by checking the log stream in main.py → trace to ssh_deployer.
     - Blocked reserved routing keywords (`login`, `logout`, `api`, `static`, `logs`) from being added as client names.
     - Added `try ... catch` error boundary around `JSON.parse(event.data)` in SSE listener in `app.js`.
     - Added non-empty validation for Reality key generation in `panel/setup.sh` and EOF check in input prompts.
+
+45. **Happ Client Routing Configuration & Interactive Modal Editor** — *RESOLVED*:
+    - Externalized Happ VPN client routing rules into `panel/templates/3x-ui/happ-routing.json` (DoH DNS Яндекс/Google, GeoIP/GeoSite lists, `.ru`/`.рф` and domestic services bypass in `DirectSites`, IP checkers in `DirectSites` to prevent VPN detection by apps like MAX, and `GlobalProxy: "true"` for routing all unspecified traffic through VPN).
+    - In `panel/setup.sh: update_panel_settings_api()`, automatically minifies (`jq -c .`), encodes to Base64, and injects `subRoutingRules="happ://routing/onadd/${encoded_rules}"`, `subEnableRouting=true`, and `subUpdates=1` into 3x-UI settings via `panel/api/setting/update`.
+    - Added interactive UI banner and modal JSON editor (`#happRoutingModal`) in Step 3 of the control panel backed by `GET/POST /api/happ_routing` in `main.py`, enabling pre-deployment inspection, formatting, and customization (e.g. adding custom subscription server domains to `DirectSites`).
+    - Excluded `happ-routing.json` from `_is_code_file` in `main.py` so user modifications do not trigger false positive update notifications, while regular project updates still safely overwrite it with upstream changes via `git reset --hard` / tar.
 
 ---
 

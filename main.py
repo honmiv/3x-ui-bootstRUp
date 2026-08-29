@@ -89,7 +89,7 @@ def _is_code_file(rel: str) -> bool:
     parts = rel.split("/")
     if any(p in EXCLUDED_DIRS for p in parts):
         return False
-    if rel in ("servers.json", "setup_backup.yml") or rel.endswith(".pyc"):
+    if rel in ("servers.json", "setup_backup.yml") or rel.endswith("happ-routing.json") or rel.endswith(".pyc"):
         return False
     return True
 
@@ -671,7 +671,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
             try:
                 self.send_json({"versions": fetch_xui_versions()})
             except Exception as e:
-                self.send_json({"versions": ["latest", "3.6.0"], "error": str(e)})
+                self.send_json({"versions": ["latest"], "error": str(e)})
             return
 
         if url_path == "/api/update_check":
@@ -685,6 +685,19 @@ class WebUIHandler(BaseHTTPRequestHandler):
             force = "force" in params or "1" in params.get("force", [])
             info = check_for_update(force=force)
             self.send_json({"ok": True, "changelog": info.get("changelog", ""), "update_available": info.get("update_available", False)})
+            return
+
+        if url_path == "/api/happ_routing":
+            happ_file = os.path.join(APP_DIR, "panel", "templates", "3x-ui", "happ-routing.json")
+            if os.path.exists(happ_file):
+                try:
+                    with open(happ_file, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    self.send_json({"ok": True, "content": content})
+                except Exception as e:
+                    self.send_json({"ok": False, "error": str(e)}, 500)
+            else:
+                self.send_json({"ok": False, "error": "happ-routing.json not found"}, 404)
             return
 
         if url_path == "/api/backups":
@@ -826,6 +839,25 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True})
             else:
                 self.send_json({"ok": False, "error": "Failed to save setup_backup.yml"}, 500)
+            return
+
+        if url_path == "/api/happ_routing":
+            happ_file = os.path.join(APP_DIR, "panel", "templates", "3x-ui", "happ-routing.json")
+            try:
+                content = payload.get("content", "")
+                if not content:
+                    self.send_json({"ok": False, "error": "Content is required"}, 400)
+                    return
+                parsed = json.loads(content)
+                formatted = json.dumps(parsed, indent=4, ensure_ascii=False)
+                os.makedirs(os.path.dirname(happ_file), exist_ok=True)
+                with open(happ_file, "w", encoding="utf-8") as f:
+                    f.write(formatted + "\n")
+                self.send_json({"ok": True, "content": formatted})
+            except json.JSONDecodeError as jde:
+                self.send_json({"ok": False, "error": f"Ошибка JSON: {str(jde)}"}, 400)
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, 500)
             return
 
         if url_path == "/api/ssh/test":

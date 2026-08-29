@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         userGroup.className = 'form-group';
         userGroup.innerHTML = `
             <label for="sub_admin_user">Логин админа Сервера подписок</label>
-            <input type="text" id="sub_admin_user" value="admin" placeholder="admin">
+            <input type="text" id="sub_admin_user" placeholder="admin">
         `;
 
         const passGroupEl = document.createElement('div');
@@ -932,6 +932,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTopologyDiagram(mode);
         updateStep3Header(mode);
+
+        const isPanelMode = ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'cascade', 'cascade_sub'].includes(mode);
+        const happRoutingBlock = document.getElementById('happRoutingBlock');
+        if (happRoutingBlock) {
+            happRoutingBlock.classList[isPanelMode ? 'remove' : 'add']('hidden');
+        }
 
         if (backupNodeSection) backupNodeSection.classList.add('hidden');
         if (recoveryNodeSection) recoveryNodeSection.classList.add('hidden');
@@ -3120,6 +3126,158 @@ document.addEventListener('DOMContentLoaded', () => {
             hideChangelogModal();
         }
     });
+
+    // --- Happ Routing Modal & Editor ---
+    const happRoutingModal = document.getElementById('happRoutingModal');
+    const happRoutingEditor = document.getElementById('happRoutingEditor');
+    const happRoutingStatus = document.getElementById('happRoutingStatus');
+    const btnOpenHappRoutingModal = document.getElementById('btnOpenHappRoutingModal');
+    const btnCloseHappRoutingModal = document.getElementById('btnCloseHappRoutingModal');
+    const btnCancelHappRoutingModal = document.getElementById('btnCancelHappRoutingModal');
+    const btnSaveHappRoutingModal = document.getElementById('btnSaveHappRoutingModal');
+    const btnFormatHappRouting = document.getElementById('btnFormatHappRouting');
+
+    const showHappRoutingModal = async () => {
+        if (!happRoutingModal || !happRoutingEditor) return;
+        if (happRoutingStatus) {
+            happRoutingStatus.textContent = '';
+            happRoutingStatus.classList.add('hidden');
+        }
+        happRoutingEditor.value = 'Загрузка happ-routing.json...';
+        happRoutingModal.classList.add('active');
+
+        try {
+            const res = await fetch('/api/happ_routing', { cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.ok && data.content) {
+                    try {
+                        const parsed = JSON.parse(data.content);
+                        happRoutingEditor.value = JSON.stringify(parsed, null, 4);
+                    } catch {
+                        happRoutingEditor.value = data.content;
+                    }
+                } else {
+                    happRoutingEditor.value = '';
+                    if (happRoutingStatus) {
+                        happRoutingStatus.textContent = data.error || 'Не удалось загрузить happ-routing.json';
+                        happRoutingStatus.classList.remove('hidden');
+                    }
+                }
+            } else {
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = 'Ошибка сервера при загрузке happ-routing.json';
+                    happRoutingStatus.classList.remove('hidden');
+                }
+            }
+        } catch (err) {
+            if (happRoutingStatus) {
+                happRoutingStatus.textContent = 'Ошибка сети: ' + err.message;
+                happRoutingStatus.classList.remove('hidden');
+            }
+        }
+    };
+
+    const hideHappRoutingModal = () => {
+        if (happRoutingModal) happRoutingModal.classList.remove('active');
+    };
+
+    if (btnOpenHappRoutingModal) btnOpenHappRoutingModal.addEventListener('click', showHappRoutingModal);
+    if (btnCloseHappRoutingModal) btnCloseHappRoutingModal.addEventListener('click', hideHappRoutingModal);
+    if (btnCancelHappRoutingModal) btnCancelHappRoutingModal.addEventListener('click', hideHappRoutingModal);
+    if (happRoutingModal) {
+        happRoutingModal.addEventListener('click', (e) => {
+            if (e.target === happRoutingModal) hideHappRoutingModal();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && happRoutingModal && happRoutingModal.classList.contains('active')) {
+            hideHappRoutingModal();
+        }
+    });
+
+    if (btnFormatHappRouting) {
+        btnFormatHappRouting.addEventListener('click', () => {
+            if (!happRoutingEditor) return;
+            try {
+                const val = happRoutingEditor.value.trim();
+                if (!val) return;
+                const parsed = JSON.parse(val);
+                happRoutingEditor.value = JSON.stringify(parsed, null, 4);
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = '';
+                    happRoutingStatus.classList.add('hidden');
+                }
+                showToast('JSON успешно отформатирован', 'info', 2000);
+            } catch (err) {
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = 'Синтаксическая ошибка JSON: ' + err.message;
+                    happRoutingStatus.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    if (btnSaveHappRoutingModal) {
+        btnSaveHappRoutingModal.addEventListener('click', async () => {
+            if (!happRoutingEditor) return;
+            const content = happRoutingEditor.value.trim();
+            if (!content) {
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = 'Контент не может быть пустым';
+                    happRoutingStatus.classList.remove('hidden');
+                }
+                return;
+            }
+
+            try {
+                JSON.parse(content);
+            } catch (err) {
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = 'Синтаксическая ошибка JSON: ' + err.message;
+                    happRoutingStatus.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (happRoutingStatus) {
+                happRoutingStatus.textContent = '';
+                happRoutingStatus.classList.add('hidden');
+            }
+
+            btnSaveHappRoutingModal.disabled = true;
+            btnSaveHappRoutingModal.textContent = 'Сохранение...';
+
+            try {
+                const res = await fetch('/api/happ_routing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    if (data.content) {
+                        happRoutingEditor.value = data.content;
+                    }
+                    showToast('happ-routing.json успешно сохранен!', 'success');
+                    hideHappRoutingModal();
+                } else {
+                    if (happRoutingStatus) {
+                        happRoutingStatus.textContent = 'Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка');
+                        happRoutingStatus.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                if (happRoutingStatus) {
+                    happRoutingStatus.textContent = 'Ошибка сети: ' + err.message;
+                    happRoutingStatus.classList.remove('hidden');
+                }
+            } finally {
+                btnSaveHappRoutingModal.disabled = false;
+                btnSaveHappRoutingModal.textContent = 'Сохранить';
+            }
+        });
+    }
 
     const setupBannerActionDelegation = (containerId) => {
         const container = document.getElementById(containerId);

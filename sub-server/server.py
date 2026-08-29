@@ -2532,6 +2532,19 @@ def fetch_subscription(url):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _enforce_https(self):
+        proto = self.headers.get("X-Forwarded-Proto", "").split(",")[0].strip().lower()
+        if proto == "http":
+            host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").strip()
+            if host:
+                self.send_response(301)
+                self.send_header("Location", f"https://{host}{self.path}")
+                self.end_headers()
+                return False
+            self.send_error(403, "HTTPS required")
+            return False
+        return True
+
     def _cookie_name(self):
         return f"sub_session_{SECRET_SUB_PATH}"
 
@@ -2694,6 +2707,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if not self._enforce_https():
+            return
         path = unquote(self.path.split("?", 1)[0]).strip("/")
         if path == f"{SECRET_SUB_PATH}/login":
             if not ADMIN_USER or not ADMIN_PASSWORD:
@@ -2786,6 +2801,8 @@ class Handler(BaseHTTPRequestHandler):
         return set(p.split("=")[0].strip() for p in query.split("&") if p.strip())
 
     def do_POST(self):
+        if not self._enforce_https():
+            return
         global FORCE_SUBS, NODES
         path = unquote(self.path.split("?", 1)[0]).strip("/")
         if path == f"{SECRET_SUB_PATH}/login":
@@ -3010,9 +3027,9 @@ class Handler(BaseHTTPRequestHandler):
     def _public_base(self):
         if PUBLIC_URL:
             return PUBLIC_URL
-        scheme = self.headers.get("X-Forwarded-Proto", "http").split(",")[0].strip().lower()
+        scheme = self.headers.get("X-Forwarded-Proto", "https").split(",")[0].strip().lower()
         if scheme not in ("http", "https"):
-            scheme = "http"
+            scheme = "https"
         host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").strip()
         return f"{scheme}://{host}".rstrip("/") if host else None
 

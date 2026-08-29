@@ -101,7 +101,8 @@ load_existing_update_values() {
         [[ -n "${ADMIN_PASSWORD:-}" || -z "$value" ]] || ADMIN_PASSWORD="$value"
     fi
     if [[ -f "$caddy_file" && -z "${DOMAIN:-}" ]]; then
-        DOMAIN=$(sed -n 's/^http:\/\/\([^ ]*\) {.*/\1/p' "$caddy_file" | head -n1)
+        DOMAIN=$(sed -n 's/.*redir https:\/\/\([^/{]*\).*/\1/p' "$caddy_file" | head -n1)
+        [[ -n "$DOMAIN" ]] || DOMAIN=$(grep -E '^[a-zA-Z0-9.-]+ \{' "$caddy_file" | head -n1 | awk '{print $1}')
     fi
 }
 
@@ -288,7 +289,6 @@ print_results() {
     section "Done"
     echo "Subscriptions available at:"
     echo "  https://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
-    echo "  http://${DOMAIN}/${SECRET_SUB_PATH}/<username>"
     echo
     echo "Panel: https://${DOMAIN}/${SECRET_SUB_PATH}"
     echo "  Admin login: ${ADMIN_USER}"

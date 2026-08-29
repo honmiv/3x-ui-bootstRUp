@@ -108,7 +108,7 @@ echo -e "${CYAN}[4/6] Installing Chromium browser and system dependencies for Pl
 if command -v sudo >/dev/null 2>&1; then
     echo -e "${YELLOW}[..] Installing OS-level shared libraries (libnspr4, nss, etc.)...${NC}"
     sudo "$PYTHON_BIN" -m playwright install-deps chromium 2>/dev/null || \
-    (sudo apt-get update -y && sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libasound2) || true
+    (sudo apt-get update -y && (sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 2>/dev/null || sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 2>/dev/null || true)) || true
 fi
 echo -e "${GREEN}[OK] Chromium and system libraries installed.${NC}"
 

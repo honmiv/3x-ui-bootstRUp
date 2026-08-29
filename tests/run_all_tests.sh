@@ -79,6 +79,32 @@ fi
 
 banner
 
+ensure_environment() {
+    local python_bin="python3"
+    if [ -x "$REPO_ROOT/.python_env/bin/python3" ]; then
+        python_bin="$REPO_ROOT/.python_env/bin/python3"
+    fi
+
+    local needs_setup=false
+
+    if ! "$python_bin" -c "import yaml; from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(headless=True); b.close(); p.stop()" >/dev/null 2>&1; then
+        needs_setup=true
+    fi
+
+    if [[ "$TARGET" != "ui" && "$TARGET" != "ui_tests" ]]; then
+        if ! docker image inspect test-vps:latest >/dev/null 2>&1; then
+            needs_setup=true
+        fi
+    fi
+
+    if [ "$needs_setup" = true ]; then
+        echo -e "${YELLOW}[..] Test environment, dependencies or browser missing. Provisioning via setup_tests.sh...${NC}"
+        "$TESTS_DIR/setup_tests.sh"
+    fi
+}
+
+ensure_environment
+
 echo -e "${YELLOW}[..] Ensuring clean slate: tearing down any leftover test containers...${NC}"
 docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 

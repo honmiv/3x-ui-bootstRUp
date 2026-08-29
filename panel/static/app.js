@@ -3681,8 +3681,8 @@ document.addEventListener('DOMContentLoaded', () => {
         savedServersList.innerHTML = '';
 
         const typeNames = {
-            'proxy_host': 'Proxy (Вход)',
-            'freedom_host': 'Freedom (Выход)',
+            'proxy_host': 'Proxy',
+            'freedom_host': 'Freedom',
             'sub_vps_host': 'Подписки',
             'vps_host': 'Одиночный',
             'backup_vps_host': 'Бэкап',

@@ -2140,6 +2140,7 @@ body {
     border-radius: 4px;
     font-weight: 600;
     line-height: 1.2;
+    white-space: nowrap;
 }
 .server-card-host {
     font-weight: 700;

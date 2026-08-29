@@ -2523,12 +2523,34 @@ def save_force_subs(force=None):
         yaml.safe_dump(force, f, allow_unicode=True, sort_keys=True, default_flow_style=False)
 
 
-def fetch_subscription(url):
+FORWARD_EXCLUDED_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+    "content-length",
+    "date",
+    "server",
+}
+
+
+def fetch_subscription(url, user_agent=None, extra_headers=None):
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    req = urllib.request.Request(url, headers={"User-Agent": "sub-server/1.0"})
+    req_headers = {}
+    if user_agent:
+        req_headers["User-Agent"] = user_agent
+    else:
+        req_headers["User-Agent"] = "sub-server/1.0"
+    if extra_headers:
+        req_headers.update(extra_headers)
+    req = urllib.request.Request(url, headers=req_headers)
     with urllib.request.urlopen(req, timeout=15) as resp:
-        return resp.read()
+        return resp.read(), resp.headers
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2771,8 +2793,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         quoted_client = urllib.parse.quote(client, safe='')
         url = f"{base_url.rstrip('/')}/{quoted_client}"
+        client_ua = self.headers.get("User-Agent")
+        extra_headers = {}
+        for h in ("Accept", "Accept-Language"):
+            val = self.headers.get(h)
+            if val:
+                extra_headers[h] = val
         try:
-            body = fetch_subscription(url)
+            body, upstream_headers = fetch_subscription(url, user_agent=client_ua, extra_headers=extra_headers)
         except urllib.error.HTTPError as e:
             log.error("502 fetch failed for %s (%s): HTTP %s %s (url=%s)", client, node_name, e.code, e.reason, url)
             _record_activity(client, 502, 0, group, node_name, "node")
@@ -2791,7 +2819,16 @@ class Handler(BaseHTTPRequestHandler):
         log.info("200 %s (%s) <- %s (%d bytes)", client, node_name, url, len(body))
         _record_activity(client, 200, len(body), group, node_name, "node")
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        has_content_type = False
+        if upstream_headers:
+            for key, value in upstream_headers.items():
+                if key.lower() in FORWARD_EXCLUDED_HEADERS:
+                    continue
+                if key.lower() == "content-type":
+                    has_content_type = True
+                self.send_header(key, value)
+        if not has_content_type:
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)

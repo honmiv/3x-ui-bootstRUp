@@ -99,6 +99,59 @@ class TestSubServerHttps(unittest.TestCase):
         handler.headers = {"Host": "sub.example.com"}
         self.assertEqual(handler._public_base(), "https://sub.example.com")
 
+    def test_subscription_forwards_routing_and_profile_headers(self):
+        import email.message
+        fake_headers = email.message.EmailMessage()
+        fake_headers["Routing"] = "happ://routing/onadd/test12345"
+        fake_headers["Routing-Enable"] = "true"
+        fake_headers["Profile-Update-Interval"] = "12"
+        fake_headers["Profile-Web-Page-Url"] = "https://example.com/subs/alice"
+        fake_headers["Subscription-Userinfo"] = "upload=100; download=200; total=0; expire=0"
+        fake_headers["Content-Type"] = "text/plain; charset=utf-8"
+        fake_headers["Server"] = "upstream-caddy"
+        fake_headers["Connection"] = "keep-alive"
+
+        captured_args = {}
+
+        def mock_fetch(url, user_agent=None, extra_headers=None):
+            captured_args["url"] = url
+            captured_args["user_agent"] = user_agent
+            captured_args["extra_headers"] = extra_headers
+            return b"vless://fake-config\n", fake_headers
+
+        orig_fetch = self.sub_mod.fetch_subscription
+        self.sub_mod.fetch_subscription = mock_fetch
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", self.port)
+            conn.request(
+                "GET",
+                "/subs/alice",
+                headers={
+                    "Host": "sub.example.com",
+                    "X-Forwarded-Proto": "https",
+                    "User-Agent": "Happ/3.0.0",
+                    "Accept": "*/*",
+                },
+            )
+            resp = conn.getresponse()
+            body = resp.read()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(body, b"vless://fake-config\n")
+            self.assertEqual(resp.getheader("Routing"), "happ://routing/onadd/test12345")
+            self.assertEqual(resp.getheader("Routing-Enable"), "true")
+            self.assertEqual(resp.getheader("Profile-Update-Interval"), "12")
+            self.assertEqual(resp.getheader("Profile-Web-Page-Url"), "https://example.com/subs/alice")
+            self.assertEqual(resp.getheader("Subscription-Userinfo"), "upload=100; download=200; total=0; expire=0")
+            self.assertEqual(resp.getheader("Content-Length"), str(len(b"vless://fake-config\n")))
+            self.assertIsNone(resp.getheader("Server"))
+
+            self.assertEqual(captured_args["url"], "https://example.com/subs/alice")
+            self.assertEqual(captured_args["user_agent"], "Happ/3.0.0")
+            self.assertEqual(captured_args["extra_headers"].get("Accept"), "*/*")
+            conn.close()
+        finally:
+            self.sub_mod.fetch_subscription = orig_fetch
+
 
 if __name__ == "__main__":
     unittest.main()

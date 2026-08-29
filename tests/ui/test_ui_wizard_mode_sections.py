@@ -59,10 +59,26 @@ async def run_test() -> bool:
             assert not await page.is_visible("#cascadeNodeSection"), "Cascade section must be hidden"
             log("✅ [Freedom Only] Single node section is visible, extra sections hidden.", "success")
 
-            # 3. Recovery Mode
-            log("Checking 'Recovery' mode...", "info")
+            # 3. Freedom Node + Sub Server (freedom_sub)
+            log("Checking 'Freedom + Sub Server' mode...", "info")
             await page.click("#btnBackToStep1")
             await page.wait_for_timeout(300)
+            await page.click("input[name='deploy_mode'][value='freedom_sub']")
+            await page.click("#btnNextStep1")
+            await page.wait_for_timeout(300)
+
+            assert await page.is_visible("#singleNodeSection"), "Single SSH section should be visible for Freedom Node"
+            assert await page.is_visible("#subServerSshSection"), "Sub-Server SSH section should be visible"
+            assert not await page.is_visible("#cascadeNodeSection"), "Cascade Dual Node section must be hidden"
+            log("✅ [Freedom+Sub] Step 2 sections verified.", "success")
+
+            # Check Step 3 for freedom_sub
+            # Temporarily fill dummy values to proceed to Step 3 or click Step 3 button
+            await page.click("#btnBackToStep1")
+            await page.wait_for_timeout(300)
+
+            # 4. Recovery Mode
+            log("Checking 'Recovery' mode...", "info")
             await page.click("input[name='deploy_mode'][value='recovery']")
             await page.click("#btnNextStep1")
             await page.wait_for_timeout(300)

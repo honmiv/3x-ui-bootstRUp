@@ -225,7 +225,7 @@
                                         </svg> Сетевые архитектуры</span>
                                     <span class="category-sub">Полный стек развертывания</span>
                                 </summary>
-                                <div class="radio-group mode-grid-3">
+                                <div class="radio-group mode-grid-4">
                                     <label class="radio-card">
                                         <input type="radio" name="deploy_mode" value="cascade_sub"
                                             id="mode_cascade_sub" checked>
@@ -255,6 +255,21 @@
                                                         d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                                                 </svg> Каскад</span>
                                             <span class="card-desc">Freedom Node + Proxy Node</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-card">
+                                        <input type="radio" name="deploy_mode" value="freedom_sub"
+                                            id="mode_freedom_sub">
+                                        <div class="card-content">
+                                            <span class="card-title"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                                    height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    style="color: #a78bfa">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z" />
+                                                    <line x1="2" x2="22" y1="12" y2="12" />
+                                                </svg> Freedom + Подписки</span>
+                                            <span class="card-desc">Freedom Node + Sub Server</span>
                                         </div>
                                     </label>
                                     <label class="radio-card">
@@ -333,7 +348,7 @@
                                                     <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
                                                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                                 </svg> Сервер подписок</span>
-                                            <span class="card-desc">Отдельный Caddy Sub-Server</span>
+                                            <span class="card-desc">Отдельный Sub-Server</span>
                                         </div>
                                     </label>
                                 </div>
@@ -536,7 +551,7 @@
                     <p class="step-desc">Укажите доменные имена и параметры авторизации для каждого сервера.</p>
 
                     <!-- Single Node Form -->
-                    <div id="singleNodeSection" class="section-block hidden">
+                    <div id="singleNodeSection" class="section-block server-drop-zone hidden" data-drop-host="vps_host">
                         <div class="section-title">Подключение к серверу 3X-UI</div>
                         <div class="form-grid">
                             <div class="form-group full-width domain-port-row">
@@ -583,7 +598,7 @@
                     <!-- Cascade Dual Node Form -->
                     <div id="cascadeNodeSection">
                         <!-- Foreign Node -->
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="freedom_host">
                             <div class="section-title">2.1. Freedom Node (Выходной сервер)</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row">
@@ -627,7 +642,7 @@
                             </div>
                         </div>
                         <!-- Local Node -->
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="proxy_host">
                             <div class="section-title">2.2. Proxy Node (Входной сервер)</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row">
@@ -674,7 +689,7 @@
 
                     <!-- Subscription Server SSH & Host Form -->
                     <div id="subServerSshSection" class="hidden">
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="sub_vps_host">
                             <div class="section-title">2.3 Сервер подписок (Отдельный VPS)</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row" id="subHostDetailGroup">
@@ -721,7 +736,7 @@
 
                     <!-- Backup Remote Node Form -->
                     <div id="backupNodeSection" class="hidden">
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="backup_vps_host">
                             <div class="section-title">Сервер для создания бэкапа</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row">
@@ -769,7 +784,7 @@
 
                     <!-- Recovery Target Node Form -->
                     <div id="recoveryNodeSection" class="hidden">
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="recovery_vps_host">
                             <div class="section-title">Целевой сервер для восстановления бэкапа</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row">
@@ -817,7 +832,7 @@
 
                     <!-- Update 3X-UI Target Node Form -->
                     <div id="updateNodeSection" class="hidden">
-                        <div class="section-block">
+                        <div class="section-block server-drop-zone" data-drop-host="update_vps_host">
                             <div class="section-title">Сервер для обновления 3X-UI панели</div>
                             <div class="form-grid">
                                 <div class="form-group full-width domain-port-row">
@@ -915,7 +930,7 @@
                     </div>
 
                     <!-- Single Server Panel Settings -->
-                    <div id="singlePanelSection" class="hidden">
+                    <div id="singlePanelSection" class="section-block hidden">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="xui_username">Логин админа 3X-UI</label>

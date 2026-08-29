@@ -1371,6 +1371,135 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         }
         return ok, result_data
 
+    if deploy_mode == "freedom_sub":
+        host = config.get("vps_host", "").strip()
+        port = int(config.get("vps_port") or 22)
+        user = config.get("vps_user", "root").strip()
+        password = config.get("vps_password", "")
+        key_data = config.get("vps_key", "")
+        target_domain = config.get("domain", "").strip() or host
+
+        log("╔════════════════════════════════════════════╗", "info")
+        log("║ [STAGE 1/2] FREEDOM NODE (Foreign Server)    ║", "info")
+        log("╠════════════════════════════════════════════╣", "info")
+        log(f"║ CURRENTLY DEPLOYING: {host:35} ║", "info")
+        log("╚════════════════════════════════════════════╝", "info")
+
+        env_vars = {
+            "DOMAIN": target_domain,
+            "USERNAME": xui_username,
+            "USER_PASSWORD": xui_password,
+            "XUI_VERSION": xui_version,
+            "SECRET_PHRASE": sub_secret,
+            "CLIENTS_TCP_LIST": clients_tcp_str,
+            "CLIENTS_XHTTP_LIST": clients_xhttp_str,
+            "CASCADE_CHOICE": "y",
+            "NODE_TYPE_CHOICE": "1",
+            "FOREIGN_SUB_URL": ""
+        }
+
+        ok1, out1 = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        if not ok1:
+            log("[ERROR] Stage 1 failed: Could not deploy Freedom Node.", "error")
+            return False, {}
+        log("", "success")
+        log("✅ [STAGE 1 COMPLETE] Freedom Node deployed successfully!", "success")
+        log("", "success")
+
+        parsed_xui_url, parsed_clients = parse_deployment_results(out1) if ok1 else ("", [])
+        final_xui_url = parsed_xui_url or f"https://{target_domain}/{web_base_path}/"
+
+        freedom_sub_base = ""
+        if parsed_clients and parsed_clients[0].get("sub_url"):
+            freedom_sub_base = parsed_clients[0]["sub_url"].rsplit("/", 1)[0]
+        if not freedom_sub_base:
+            freedom_sub_base = f"https://{target_domain}/{derive_sub_path(sub_secret)}"
+
+        log("╔════════════════════════════════════════════╗", "info")
+        log("║ [STAGE 2/2] SUBSCRIPTION SERVER (Relay)   ║", "info")
+        log("╠════════════════════════════════════════════╣", "info")
+        log(f"║ CURRENTLY DEPLOYING: {config.get('sub_vps_host', '').strip():35} ║", "info")
+        log("╚════════════════════════════════════════════╝", "info")
+
+        sub_host = config.get("sub_vps_host", "").strip()
+        sub_port = int(config.get("sub_vps_port") or 22)
+        sub_user = config.get("sub_vps_user", "root").strip() or "root"
+        sub_password = config.get("sub_vps_password", "")
+        sub_key = config.get("sub_vps_key", "")
+        sub_domain = config.get("sub_domain", "").strip() or sub_host
+        sub_secret_path = config.get("sub_secret_path", "").strip() or "subs"
+        sub_secret_path = sub_secret_path.strip("/")
+
+        if not sub_host:
+            log("[ERROR] Stage 2 failed: Subscription Server host address is required.", "error")
+            return False, {}
+
+        freedom_client_names = [n.strip() for n in re.split(r'[\s,]+', f"{clients_tcp_str} {clients_xhttp_str}") if n.strip()]
+
+        sub_admin_user = config.get("sub_admin_user", "").strip()
+        sub_admin_password = config.get("sub_admin_password", "").strip()
+
+        resolved_proxy, resolved_freedom, extra_sub_env = resolve_sub_server_urls(
+            "", freedom_sub_base,
+        )
+
+        sub_env = {
+            "DOMAIN": sub_domain,
+            "SECRET_SUB_PATH": sub_secret_path,
+            "RUSSIAN_SUB_URL": resolved_proxy,
+            "FOREIGN_SUB_URL": resolved_freedom,
+            "PROXY_CLIENTS": "",
+            "FREEDOM_CLIENTS": " ".join(freedom_client_names),
+            "ADMIN_USER": sub_admin_user,
+            "ADMIN_PASSWORD": sub_admin_password,
+            **extra_sub_env,
+        }
+
+        ok2, out2 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir)
+        if not ok2:
+            log("[ERROR] Stage 2 failed: Subscription Server deployment failed.", "error")
+            return False, {}
+
+        log("", "success")
+        log("✅ [STAGE 2 COMPLETE] Subscription Server deployed successfully!", "success")
+        log("", "success")
+
+        base_sub_url = f"https://{sub_domain}/{sub_secret_path}"
+        result_data = {
+            "deploy_mode": deploy_mode,
+            "xui_url": final_xui_url,
+            "xui_username": xui_username,
+            "xui_password": xui_password,
+            "sub_secret": sub_secret,
+            "domain": target_domain,
+            "freedom_xui_url": final_xui_url,
+            "freedom_username": xui_username,
+            "freedom_password": xui_password,
+            "freedom_sub_secret": sub_secret,
+            "freedom_domain": target_domain,
+            "sub_domain": sub_domain,
+            "sub_secret_path": sub_secret_path,
+            "sub_base_url": base_sub_url,
+            "sub_admin_user": sub_admin_user,
+            "sub_admin_password": sub_admin_password,
+            "clients": parsed_clients
+        }
+
+        for cl in parsed_clients:
+            cl["sub_server_url"] = f"{base_sub_url}/{cl['name']}"
+
+        log("╔════════════════════════════════════════════╗", "success")
+        log("║         🎉 ALL STAGES COMPLETED! 🎉         ║", "success")
+        log("╚════════════════════════════════════════════╝", "success")
+        log("", "success")
+        log(f"Panel (Freedom Node): {final_xui_url}", "success")
+        log(f"  - Admin User: {xui_username}", "success")
+        log(f"  - Admin Password: ••••••••", "success")
+        log(f"Subscription Server: https://{sub_domain}/{sub_secret_path}/<username>", "success")
+        log(f"  - Admin: {sub_admin_user or 'admin'} / password: ••••••••", "success")
+        log("=========================================", "success")
+        return True, result_data
+
     # Cascade modes: "cascade" or "cascade_sub"
     freedom_host = config.get("freedom_host", "").strip()
     freedom_port = int(config.get("freedom_port") or 22)

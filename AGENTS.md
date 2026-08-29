@@ -136,13 +136,14 @@ main.py (Orchestrator)
   1. **single** - Deploy one standalone panel (node type `custom`, no RU blocking)
   2. **cascade** - Deploy two panels (freedom → proxy with subscription URL)
   3. **cascade_sub** - Deploy panels + subscription server (3 stages)
-  4. **sub_only** - Deploy only subscription server
-  5. **proxy_only** / **freedom_only** / **freedom_component** - Deploy a single cascade component (useful when a node was banned)
-  6. **backup** - Create remote ./working/ archive, download to ./backups_panel/
-  7. **recovery** - Restore from backup, auto-replace domain
-  8. **update_3xui** - Upgrade 3x-ui version (creates pre-update backup first)
-  9. **restart_panel** / **restart_server** - Restart panel containers or reboot the VPS
-  10. **restart_sub** / **update_sub** / **backup_sub** / **rollback_sub** - Subscription server maintenance
+  4. **freedom_sub** - Deploy Freedom panel + subscription server (2 stages)
+  5. **sub_only** - Deploy only subscription server
+  6. **proxy_only** / **freedom_only** / **freedom_component** - Deploy a single cascade component (useful when a node was banned)
+  7. **backup** - Create remote ./working/ archive, download to ./backups_panel/
+  8. **recovery** - Restore from backup, auto-replace domain
+  9. **update_3xui** - Upgrade 3x-ui version (creates pre-update backup first)
+  10. **restart_panel** / **restart_server** - Restart panel containers or reboot the VPS
+  11. **restart_sub** / **update_sub** / **backup_sub** / **rollback_sub** - Subscription server maintenance
 
 - **When to Look Here**:
   - Debugging SSH/connection issues

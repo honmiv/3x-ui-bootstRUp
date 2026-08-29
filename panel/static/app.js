@@ -595,13 +595,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        } else if (mode === 'freedom_sub') {
+            html = `
+                <div class="topology-stage">
+                    <div class="topology-stage-title">1. Получение подписки (Сервер подписок)</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+                            <span class="node-title">Клиент</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Запрос</span>
+                            <span class="arrow-label">подписки</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
+                            <span class="node-title">Сервер подписок</span>
+                            <span class="node-desc">Sub-Server</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="topology-stage">
+                    <div class="topology-stage-title">2. Прямое подключение через зарубежный сервер</div>
+                    <div class="topology-flow">
+                        <div class="topology-node">
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+                            <span class="node-title">Клиент</span>
+                            <span class="node-desc">С подпиской</span>
+                            <span class="topology-badge topology-badge-ru"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">VLESS</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+                        </div>
+                        <div class="topology-node configurable">
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span>
+                            <span class="node-title">Freedom Node</span>
+                            <span class="node-desc">3X-UI Панель</span>
+                            <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
+                        </div>
+                        <div class="topology-arrow">
+                            <span class="arrow-label">Выход</span>
+                            <span class="arrow-label">в сеть</span>
+                            <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+                        </div>
+                        <div class="topology-node">
+                            <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                            <span class="node-title">Свободный Web</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         } else if (mode === 'cascade' || mode === 'cascade_sub') {
             const subTitle = mode === 'cascade_sub' ? '1. Получение единой подписки (Сервер подписок)' : '1. Получение подписки (Прямо с нод)';
             const subNodeHtml = mode === 'cascade_sub' ? `
                 <div class="topology-node configurable">
                     <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                     <span class="node-title">Сервер подписок</span>
-                    <span class="node-desc">Caddy Sub-Server</span>
+                    <span class="node-desc">Sub-Server</span>
                     <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Зарубежье</span>
                 </div>
             ` : `
@@ -674,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'sub_only') {
             html = `
                 <div class="topology-stage">
-                    <div class="topology-stage-title">Автономный Сервер подписок (Caddy Sub-Server)</div>
+                    <div class="topology-stage-title">Автономный Сервер подписок (Sub-Server)</div>
                     <div class="topology-flow">
                         <div class="topology-node">
                             <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
@@ -689,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="topology-node configurable">
                             <span class="node-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg></span>
                             <span class="node-title">Сервер подписок</span>
-                            <span class="node-desc">Caddy Sub-Server</span>
+                            <span class="node-desc">Sub-Server</span>
                             <span class="topology-badge topology-badge-configurable"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Caddy</span>
                         </div>
                         <div class="topology-arrow">
@@ -860,6 +914,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'cascade' || mode === 'cascade_sub') {
             title = '3. Настройки панелей и VPN-клиентов';
             desc = 'Учетные данные панелей (Freedom и Proxy) и список подключаемых пользователей (опционально).';
+        } else if (mode === 'freedom_sub') {
+            title = '3. Настройки Freedom панели и Сервера подписок';
+            desc = 'Учетные данные Freedom 3X-UI панели, список клиентов и параметры Сервера подписок.';
         } else if (mode === 'sub_only') {
             title = '3. Настройки Сервера подписок';
             desc = 'Параметры Сервера подписок: путь подписки, ссылки на ноды и админ-доступ.';
@@ -933,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTopologyDiagram(mode);
         updateStep3Header(mode);
 
-        const isPanelMode = ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'cascade', 'cascade_sub'].includes(mode);
+        const isPanelMode = ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'cascade', 'cascade_sub', 'freedom_sub'].includes(mode);
         const happRoutingBlock = document.getElementById('happRoutingBlock');
         if (happRoutingBlock) {
             happRoutingBlock.classList[isPanelMode ? 'remove' : 'add']('hidden');
@@ -963,6 +1020,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
             singleNodeSection.classList.remove('hidden');
+            const singleTitle = singleNodeSection.querySelector('.section-title');
+            if (singleTitle) singleTitle.textContent = 'Подключение к серверу 3X-UI';
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.add('hidden');
 
@@ -987,6 +1046,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     clientXhttpInput.placeholder = 'Опционально (например: alex, mom, phone)';
                 }
             }
+        } else if (mode === 'freedom_sub') {
+            singleNodeSection.classList.remove('hidden');
+            const singleTitle = singleNodeSection.querySelector('.section-title');
+            if (singleTitle) singleTitle.textContent = '2.1 Freedom Node (Выходной сервер 3X-UI)';
+            cascadeNodeSection.classList.add('hidden');
+            subServerSshSection.classList.remove('hidden');
+            const subTitle = subServerSshSection.querySelector('.section-title');
+            if (subTitle) subTitle.textContent = '2.2 Сервер подписок (Отдельный VPS)';
+
+            if (xuiVersionBlock) xuiVersionBlock.classList.remove('hidden');
+            if (singlePanelSection) singlePanelSection.classList.remove('hidden');
+            if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
+            if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
+            if (subOnlyTargetGroup) subOnlyTargetGroup.classList.add('hidden');
+            const foreignSubUrlGroup = document.getElementById('foreignSubUrlGroup');
+            if (foreignSubUrlGroup) foreignSubUrlGroup.classList.add('hidden');
+            const freedomOnlyBanner = document.querySelector('.freedom-only-banner');
+            if (freedomOnlyBanner) freedomOnlyBanner.classList.add('hidden');
+            const clientXhttpInput = document.getElementById('client_xhttp_list');
+            if (clientXhttpInput) clientXhttpInput.placeholder = 'Опционально (например: alex, mom, phone)';
         } else if (mode === 'cascade') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.remove('hidden');
@@ -1000,6 +1079,8 @@ document.addEventListener('DOMContentLoaded', () => {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.remove('hidden');
             subServerSshSection.classList.remove('hidden');
+            const subTitle = subServerSshSection.querySelector('.section-title');
+            if (subTitle) subTitle.textContent = '2.3 Сервер подписок (Отдельный VPS)';
 
             if (xuiVersionBlock) xuiVersionBlock.classList.remove('hidden');
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
@@ -1010,7 +1091,8 @@ document.addEventListener('DOMContentLoaded', () => {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
             subServerSshSection.classList.remove('hidden');
-
+            const subTitle = subServerSshSection.querySelector('.section-title');
+            if (subTitle) subTitle.textContent = 'Сервер подписок (Отдельный VPS)';
 
             if (xuiVersionBlock) xuiVersionBlock.classList.add('hidden');
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
@@ -1937,6 +2019,56 @@ document.addEventListener('DOMContentLoaded', () => {
                         testResult.className = 'test-result error';
                         testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${res.message}`;
                     }
+                } else if (mode === 'freedom_sub') {
+                    const fHost = document.getElementById('vps_host').value.trim();
+                    const fPort = parseInt(document.getElementById('vps_port').value) || 22;
+                    const fUser = document.getElementById('vps_user').value.trim() || 'root';
+                    const fPass = document.getElementById('vps_password').value;
+                    const fKey = document.getElementById('vps_key').value;
+
+                    const sHost = document.getElementById('sub_vps_host').value.trim();
+                    const sPort = parseInt(document.getElementById('sub_vps_port').value) || 22;
+                    const sUser = document.getElementById('sub_vps_user').value.trim() || 'root';
+                    const sPass = document.getElementById('sub_vps_password').value;
+                    const sKey = document.getElementById('sub_vps_key').value;
+
+                    if (!fHost || !sHost) {
+                        testResult.className = 'test-result error';
+                        testResult.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Укажите хосты для Freedom Node и Сервера подписок';
+                        return;
+                    }
+
+                    testResult.className = 'test-result info';
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Freedom Node (${fHost}:${fPort})...`;
+                    const r1 = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vps_host: fHost, vps_port: fPort, vps_user: fUser, vps_password: fPass, vps_key: fKey })
+                    });
+                    const res1 = await r1.json();
+                    if (!res1.ok) {
+                        testResult.className = 'test-result error';
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка подключения к Freedom Node (${fHost}): ${res1.message}`;
+                        return;
+                    }
+
+                    testResult.className = 'test-result info';
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Проверяем подключение к Серверу подписок (${sHost}:${sPort})...`;
+                    const r2 = await fetch('/api/ssh/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vps_host: sHost, vps_port: sPort, vps_user: sUser, vps_password: sPass, vps_key: sKey })
+                    });
+                    const res2 = await r2.json();
+                    if (!res2.ok) {
+                        testResult.className = 'test-result error';
+                        testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-danger"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Ошибка подключения к Серверу подписок (${sHost}): ${res2.message}`;
+                        return;
+                    }
+
+                    testResult.className = 'test-result success';
+                    testResult.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon text-success"><path d="M20 6L9 17l-5-5"/></svg> Успешная проверка Freedom Node и Сервера подписок!`;
+                    btnNext1.classList.remove('hidden');
                 } else {
                     const fHost = document.getElementById('freedom_host').value.trim();
                     const fPort = parseInt(document.getElementById('freedom_port').value) || 22;
@@ -2047,16 +2179,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const initProgressIndicator = (hasSub = false) => {
+    const initProgressIndicator = (hasSub = false, isFreedomSub = false) => {
         const stage1 = document.getElementById('stage1');
         const stage2 = document.getElementById('stage2');
         const stage3 = document.getElementById('stage3');
         const connector23 = document.getElementById('connector23');
         
         if (stage1) stage1.classList.add('active');
-        if (stage2) stage2.classList.remove('active', 'completed');
+        if (stage2) {
+            stage2.classList.remove('active', 'completed');
+            const stage2Name = stage2.querySelector('.stage-name');
+            if (stage2Name) {
+                stage2Name.textContent = isFreedomSub ? 'Sub Server' : 'Proxy Node';
+            }
+        }
         if (stage3) {
-            if (hasSub) {
+            if (hasSub && !isFreedomSub) {
                 stage3.classList.remove('hidden');
                 if (connector23) connector23.classList.remove('hidden');
             } else {
@@ -2097,9 +2235,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Stage 2 Detection
-        if (message.includes('STAGE 2') && message.includes('PROXY NODE')) {
+        if (message.includes('STAGE 2') && (message.includes('PROXY NODE') || message.includes('SUBSCRIPTION SERVER'))) {
             if (stage2) stage2.classList.add('active');
-            infoText.innerHTML = `<span class="info-icon"><span class="rocket-slot rocket-slot-progress">${rocketSvg('')}</span></span><span class="info-text">STAGE 2: Развертывание Proxy Node...</span>`;
+            const stageName = message.includes('SUBSCRIPTION SERVER') ? 'Subscription Server' : 'Proxy Node';
+            infoText.innerHTML = `<span class="info-icon"><span class="rocket-slot rocket-slot-progress">${rocketSvg('')}</span></span><span class="info-text">STAGE 2: Развертывание ${stageName}...</span>`;
         }
 
         // Stage 2 Complete
@@ -2271,20 +2410,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 mode: 'any',
                 fields: ['client_tcp_list', 'client_xhttp_list'],
                 step: 3,
-                modes: ['freedom_only'],
+                modes: ['freedom_only', 'freedom_sub'],
                 message: 'Укажите хотя бы одного клиента (VLESS TCP или VLESS XHTTP)'
             }
         },
 
         // --- Single node: host / port / user ---
-        { id: 'vps_host', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите домен VPS сервера' },
-        { id: 'vps_port', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите SSH порт VPS сервера' },
-        { id: 'vps_user', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component'], message: 'Укажите SSH пользователя VPS сервера' },
+        { id: 'vps_host', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите домен VPS сервера' },
+        { id: 'vps_port', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите SSH порт VPS сервера' },
+        { id: 'vps_user', step: 2, modes: ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'freedom_sub'], message: 'Укажите SSH пользователя VPS сервера' },
 
         // --- Sub-server: host / port / user ---
-        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
-        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
-        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
+        { id: 'sub_vps_host', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите домен Сервера подписок' },
+        { id: 'sub_vps_port', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH порт Сервера подписок' },
+        { id: 'sub_vps_user', step: 2, modes: ['sub_only', 'cascade_sub', 'freedom_sub', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'], message: 'Укажите SSH пользователя Сервера подписок' },
 
         // --- Backup: host / port / user ---
         { id: 'backup_vps_host', step: 2, modes: ['backup'], message: 'Укажите домен сервера для бэкапа' },
@@ -2457,6 +2596,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'proxy_only') {
                 payload.foreign_sub_url = document.getElementById('foreign_sub_url').value.trim();
             }
+        } else if (mode === 'freedom_sub') {
+            payload.vps_host = document.getElementById('vps_host').value.trim();
+            payload.domain = payload.vps_host;
+            payload.vps_port = parseInt(document.getElementById('vps_port').value) || 22;
+            payload.vps_user = document.getElementById('vps_user').value.trim() || 'root';
+            payload.vps_password = document.getElementById('vps_password').value;
+            payload.vps_key = document.getElementById('vps_key').value;
+            payload.xui_username = getFieldValueOrDefault('xui_username');
+            payload.xui_password = getFieldValueOrDefault('xui_password');
+            payload.sub_secret = getFieldValueOrDefault('sub_secret');
+            payload.client_tcp_list = document.getElementById('client_tcp_list').value.trim();
+            payload.client_xhttp_list = document.getElementById('client_xhttp_list').value.trim();
+
+            payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
+            payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
+            payload.sub_vps_user = document.getElementById('sub_vps_user').value.trim() || 'root';
+            payload.sub_vps_password = document.getElementById('sub_vps_password').value;
+            payload.sub_vps_key = document.getElementById('sub_vps_key').value;
+            payload.sub_domain = (document.getElementById('sub_domain') ? document.getElementById('sub_domain').value.trim() : '') || payload.sub_vps_host;
+            payload.sub_secret_path = getFieldValueOrDefault('sub_secret_path');
+            payload.sub_admin_user = getFieldValueOrDefault('sub_admin_user');
+            payload.sub_admin_password = getFieldValueOrDefault('sub_admin_password');
         } else if (mode === 'sub_only') {
             payload.sub_vps_host = document.getElementById('sub_vps_host').value.trim();
             payload.sub_vps_port = parseInt(document.getElementById('sub_vps_port').value) || 22;
@@ -2553,6 +2714,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateBadgeStatus(`Развертывание Proxy Node...`, '#f59e0b', true);
         } else if (mode === 'freedom_only' || mode === 'freedom_component') {
             updateBadgeStatus(`Развертывание Freedom Node...`, '#f59e0b', true);
+        } else if (mode === 'freedom_sub') {
+            updateBadgeStatus('Развертывание Freedom + Sub Server...', '#f59e0b', true);
         } else if (mode === 'sub_only') {
             updateBadgeStatus('Развертывание Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'backup') {
@@ -2591,9 +2754,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Show progress indicator for cascade deployments
             const progressContainer = document.getElementById('deployProgressContainer');
-            if ((mode === 'cascade' || mode === 'cascade_sub') && progressContainer) {
+            if ((mode === 'cascade' || mode === 'cascade_sub' || mode === 'freedom_sub') && progressContainer) {
                 progressContainer.classList.remove('hidden');
-                initProgressIndicator(mode === 'cascade_sub');
+                initProgressIndicator(mode === 'cascade_sub', mode === 'freedom_sub');
             }
 
             const eventSource = new EventSource('/api/deploy/logs');
@@ -2838,14 +3001,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                     const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
                     const subPass = result.sub_admin_password || 'admin';
-                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Caddy Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                    panelsContainer.appendChild(renderPanelBlock('Сервер подписок (Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                } else if (mode === 'freedom_sub') {
+                    const freedomHost = result.freedom_domain || result.domain || cfg.vps_host || 'Freedom Node';
+                    const freedomUrl = result.freedom_xui_url || result.xui_url || `https://${freedomHost}/`;
+                    const freedomUser = result.freedom_username || result.xui_username || cfg.xui_username || 'admin';
+                    const freedomPass = result.freedom_password || result.xui_password || cfg.xui_password || 'admin';
+
+                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>', freedomUrl, freedomUser, freedomPass));
+
+                    const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain || cfg.sub_vps_host}/${cfg.sub_secret_path || 'subs'}`;
+                    const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
+                    const subPass = result.sub_admin_password || 'admin';
+                    panelsContainer.appendChild(renderPanelBlock('2. Сервер подписок (Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                 } else if (mode === 'cascade' || mode === 'cascade_sub') {
                     const freedomHost = result.freedom_domain || cfg.freedom_host || 'Freedom Node';
                     const freedomUrl = result.freedom_xui_url || `https://${freedomHost}/`;
                     const freedomUser = result.freedom_username || cfg.freedom_xui_username || 'admin';
                     const freedomPass = result.freedom_password || cfg.freedom_xui_password || 'admin';
 
-                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>', freedomUrl, freedomUser, freedomPass));
+                    panelsContainer.appendChild(renderPanelBlock('1. Панель управления Freedom Node (Выходной сервер)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>', freedomUrl, freedomUser, freedomPass));
 
                     const proxyHost = result.domain || cfg.proxy_host || 'Proxy Node';
                     const proxyUrl = result.xui_url || `https://${proxyHost}/`;
@@ -2858,7 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                         const subUser = result.sub_admin_user || cfg.sub_admin_user || 'admin';
                         const subPass = result.sub_admin_password || 'admin';
-                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Caddy Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
+                        panelsContainer.appendChild(renderPanelBlock('3. Сервер подписок (Sub-Server)', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>', `${subBaseUrl}`, subUser, subPass, 'Логин панели подписок', 'Пароль панели подписок', true, 'Адрес подписок (URL)', subBaseUrl));
                     }
                 } else {
                     const host = result.domain || cfg.vps_host || 'Server';
@@ -2887,6 +3062,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (mode === 'sub_only') {
                         const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain}/${cfg.sub_secret_path}`;
                         const subHost = cfg.sub_vps_host || cfg.vps_host || cfg.sub_domain;
+                        if (subHost) hostUrlMap[subHost.toLowerCase()] = subBaseUrl;
+                        if (cfg.sub_domain) hostUrlMap[cfg.sub_domain.toLowerCase()] = subBaseUrl;
+                    } else if (mode === 'freedom_sub') {
+                        const freedomHost = result.freedom_domain || result.domain || cfg.vps_host;
+                        const freedomUrl = result.freedom_xui_url || result.xui_url || (freedomHost ? `https://${freedomHost}/` : '');
+                        if (freedomHost && freedomUrl) hostUrlMap[freedomHost.toLowerCase()] = freedomUrl;
+                        if (cfg.vps_host && freedomUrl) hostUrlMap[cfg.vps_host.toLowerCase()] = freedomUrl;
+
+                        const subBaseUrl = result.sub_base_url || `https://${cfg.sub_domain || cfg.sub_vps_host}/${cfg.sub_secret_path || 'subs'}`;
+                        const subHost = cfg.sub_vps_host || cfg.sub_domain;
                         if (subHost) hostUrlMap[subHost.toLowerCase()] = subBaseUrl;
                         if (cfg.sub_domain) hostUrlMap[cfg.sub_domain.toLowerCase()] = subBaseUrl;
                     } else if (mode === 'cascade' || mode === 'cascade_sub') {
@@ -3754,8 +3939,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 draggedServerIndex = index;
-                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.effectAllowed = 'copyMove';
                 e.dataTransfer.setData('text/plain', String(index));
+                document.body.classList.add('dragging-server-card');
                 setTimeout(() => card.classList.add('dragging'), 0);
             });
 
@@ -3782,6 +3968,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.addEventListener('dragend', () => {
                 draggedServerIndex = null;
+                document.body.classList.remove('dragging-server-card');
+                document.querySelectorAll('.server-drop-over').forEach(el => el.classList.remove('server-drop-over'));
                 if (savedServersList) {
                     savedServersList.querySelectorAll('.server-card').forEach(c => {
                         c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
@@ -3927,18 +4115,30 @@ document.addEventListener('DOMContentLoaded', () => {
         let prefix = hostId.replace('_host', '');
         
         const elHost = document.getElementById(hostId);
-        if (elHost) elHost.value = srv.host || '';
+        if (elHost) {
+            elHost.value = srv.host || '';
+            elHost.dispatchEvent(new Event('input', { bubbles: true }));
+            elHost.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         
         if (hostId === 'backup_vps_host') updateBackupName();
         
         const elPort = document.getElementById(`${prefix}_port`);
-        if (elPort) elPort.value = srv.port || 22;
+        if (elPort) {
+            elPort.value = srv.port || 22;
+            elPort.dispatchEvent(new Event('input', { bubbles: true }));
+            elPort.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         
         const elUser = document.getElementById(`${prefix}_user`);
-        if (elUser) elUser.value = srv.user || 'root';
+        if (elUser) {
+            elUser.value = srv.user || 'root';
+            elUser.dispatchEvent(new Event('input', { bubbles: true }));
+            elUser.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         
         const authType = srv.auth_type === 'key' ? 'key' : 'password';
-        const elAuthType = document.getElementById(`${prefix}_auth_type`);
+        const elAuthType = document.getElementById(`${prefix}_auth_type`) || document.getElementById(`${prefix.replace('_vps', '')}_auth_type`);
         if (elAuthType) {
             elAuthType.value = authType;
             elAuthType.dispatchEvent(new Event('change', { bubbles: true }));
@@ -3946,15 +4146,98 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const pass = await decryptData(srv.enc_pass, cryptoKey);
         const elPass = document.getElementById(`${prefix}_password`);
-        if (elPass) elPass.value = pass || '';
+        if (elPass) {
+            elPass.value = pass || '';
+            elPass.dispatchEvent(new Event('input', { bubbles: true }));
+            elPass.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         
         const key = srv.enc_key ? await decryptData(srv.enc_key, cryptoKey) : '';
         const elKey = document.getElementById(`${prefix}_key`);
-        if (elKey) elKey.value = key || '';
+        if (elKey) {
+            elKey.value = key || '';
+            elKey.dispatchEvent(new Event('input', { bubbles: true }));
+            elKey.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
         if (glowRefresher) glowRefresher();
 
         showToast('Данные сервера успешно подставлены!', 'success');
+    };
+
+    const initServerDropZones = () => {
+        const dropZones = document.querySelectorAll('.server-drop-zone, [data-drop-host]');
+        
+        dropZones.forEach(zone => {
+            let dragEnterCounter = 0;
+
+            zone.addEventListener('dragenter', (e) => {
+                if (draggedServerIndex === null && !e.dataTransfer.types.includes('text/plain')) return;
+                e.preventDefault();
+                dragEnterCounter++;
+                zone.classList.add('server-drop-over');
+            });
+
+            zone.addEventListener('dragover', (e) => {
+                if (draggedServerIndex === null && !e.dataTransfer.types.includes('text/plain')) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                if (!zone.classList.contains('server-drop-over')) {
+                    zone.classList.add('server-drop-over');
+                }
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                dragEnterCounter--;
+                if (dragEnterCounter <= 0) {
+                    dragEnterCounter = 0;
+                    zone.classList.remove('server-drop-over');
+                }
+            });
+
+            zone.addEventListener('drop', async (e) => {
+                dragEnterCounter = 0;
+                zone.classList.remove('server-drop-over');
+                document.body.classList.remove('dragging-server-card');
+                
+                const rawIdx = draggedServerIndex !== null 
+                    ? draggedServerIndex 
+                    : e.dataTransfer.getData('text/plain');
+                
+                const index = parseInt(rawIdx, 10);
+                if (isNaN(index) || index < 0 || index >= serversList.length) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                const hostId = zone.dataset.dropHost || (zone.querySelector('input[id$="_host"], input[id="vps_host"]') || {}).id;
+                if (!hostId) return;
+
+                if (!cryptoKey) {
+                    showToast('Сначала разблокируйте список сохраненных серверов', 'warning');
+                    return;
+                }
+
+                const srv = serversList[index];
+                if (!srv) return;
+                if (srv.locked) {
+                    zone.classList.add('server-drop-locked');
+                    setTimeout(() => zone.classList.remove('server-drop-locked'), 500);
+                    showToast('Сервер заблокирован. Снимите замочек для выполнения действий.', 'warning');
+                    return;
+                }
+
+                await applyServerData(index, hostId);
+                zone.classList.add('server-drop-success');
+                setTimeout(() => zone.classList.remove('server-drop-success'), 850);
+            });
+        });
+
+        window.addEventListener('dragend', () => {
+            draggedServerIndex = null;
+            document.body.classList.remove('dragging-server-card');
+            document.querySelectorAll('.server-drop-over').forEach(el => el.classList.remove('server-drop-over'));
+        });
     };
 
     window.fillServerData = async (index) => {
@@ -4389,5 +4672,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    initServerDropZones();
     fetchServers();
 });

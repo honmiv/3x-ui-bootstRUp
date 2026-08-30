@@ -172,6 +172,14 @@ window.confirm = function(msg) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    const terminalLogsInit = document.getElementById('terminalLogs');
+    if (terminalLogsInit && terminalLogsInit.children.length === 0) {
+        const initLine = document.createElement('div');
+        initLine.className = 'log-line info';
+        initLine.textContent = '[INIT] Готов к развертыванию. Нажмите кнопку "Запустить развертывание"...';
+        terminalLogsInit.appendChild(initLine);
+    }
+
     document.querySelectorAll('[data-rocket-slot]').forEach((slot) => {
         slot.innerHTML = rocketSvg(slot.dataset.rocketClass || '');
     });
@@ -2491,15 +2499,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isUserScrolledUp = false;
 
-    if (terminalLogs) {
-        terminalLogs.addEventListener('scroll', () => {
-            const distanceFromBottom = terminalLogs.scrollHeight - terminalLogs.clientHeight - terminalLogs.scrollTop;
-            isUserScrolledUp = distanceFromBottom > 30;
-        });
-    }
+    const appendLog = (message, level = 'info') => {
+        const line = document.createElement('div');
+        line.className = `log-line ${level}`;
+        line.textContent = message;
+        terminalLogs.appendChild(line);
+
+        // Update progress indicator based on log message
+        updateProgressIndicator(message);
+
+        line.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    };
 
     const initProgressIndicator = (hasSub = false, isFreedomSub = false) => {
         const stage1 = document.getElementById('stage1');
+
         const stage2 = document.getElementById('stage2');
         const stage3 = document.getElementById('stage3');
         const connector23 = document.getElementById('connector23');
@@ -2588,20 +2602,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // All stages complete
         if (message.includes('ALL STAGES COMPLETED')) {
             infoText.innerHTML = `<span class="info-icon"><span class="rocket-slot rocket-slot-progress">${rocketSvg('')}</span></span><span class="info-text">Все этапы завершены успешно!</span>`;
-        }
-    };
-
-    const appendLog = (message, level = 'info') => {
-        const line = document.createElement('div');
-        line.className = `log-line ${level}`;
-        line.textContent = message;
-        terminalLogs.appendChild(line);
-
-        // Update progress indicator based on log message
-        updateProgressIndicator(message);
-
-        if (!isUserScrolledUp) {
-            terminalLogs.scrollTop = terminalLogs.scrollHeight;
         }
     };
 

@@ -123,7 +123,8 @@ async def test_freedom_sub_vpn() -> bool:
     log(f"Deployment result: {result}", "success")
 
     # Fetch TCP client subscription from Sub-Server via host TLS
-    sub_path = f"{SECRET_SUB_PATH}/client-freedom-tcp"
+    s_sub_base = hashlib.md5(config['sub_secret_path'].encode("utf-8")).hexdigest()[:16]
+    sub_path = f"{s_sub_base}/client-freedom-tcp"
     log(f"Fetching subscription from Sub-Server: {sub_path}...", "info")
     status, body = fetch_subscription_via_host_tls(SUB_CONTAINER, SUB_DOMAIN, sub_path)
     links = decode_vless_subscription(body)

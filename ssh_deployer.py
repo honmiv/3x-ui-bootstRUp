@@ -81,7 +81,15 @@ def parse_deployment_results(output_text: str) -> Tuple[str, List[Dict[str, str]
 
 
 def derive_sub_path(secret: str) -> str:
-    return hashlib.md5(f"{secret}-sub".encode('utf-8')).hexdigest()[:16]
+    if not secret or not str(secret).strip():
+        return ""
+    return hashlib.md5(f"{secret.strip()}-sub".encode('utf-8')).hexdigest()[:16]
+
+
+def derive_sub_server_path(secret: str) -> str:
+    if not secret or not str(secret).strip():
+        return ""
+    return hashlib.md5(secret.strip().encode('utf-8')).hexdigest()[:16]
 
 
 # ---------------------------------------------------------------------------
@@ -1463,8 +1471,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_password = config.get("sub_vps_password", config.get("vps_password", ""))
         sub_key = config.get("sub_vps_key", config.get("vps_key", ""))
         sub_domain = config.get("sub_domain", "").strip() or sub_host
-        sub_secret_path = config.get("sub_secret_path", "").strip()
-        sub_secret_path = sub_secret_path.strip("/")
+        sub_secret_raw = (config.get("sub_secret_path", "") or config.get("sub_secret", "") or "").strip()
+        sub_secret_path = derive_sub_server_path(sub_secret_raw) if sub_secret_raw else ""
 
         sub_russian_url = config.get("sub_russian_url", "").strip()
         sub_foreign_url = config.get("sub_foreign_url", "").strip()
@@ -1652,8 +1660,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_password = config.get("sub_vps_password", "")
         sub_key = config.get("sub_vps_key", "")
         sub_domain = config.get("sub_domain", "").strip() or sub_host
-        sub_secret_path = config.get("sub_secret_path", "").strip() or "subs"
-        sub_secret_path = sub_secret_path.strip("/")
+        sub_secret_raw = (config.get("sub_secret_path", "") or "subs").strip()
+        sub_secret_path = derive_sub_server_path(sub_secret_raw)
 
         if not sub_host:
             log("[ERROR] Stage 2 failed: Subscription Server host address is required.", "error")
@@ -1853,8 +1861,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_password = config.get("sub_vps_password", "")
         sub_key = config.get("sub_vps_key", "")
         sub_domain = config.get("sub_domain", "").strip() or sub_host
-        sub_secret_path = config.get("sub_secret_path", "").strip()
-        sub_secret_path = sub_secret_path.strip("/")
+        sub_secret_raw = (config.get("sub_secret_path", "") or "subs").strip()
+        sub_secret_path = derive_sub_server_path(sub_secret_raw)
 
         if not sub_host:
             log("[ERROR] Stage 3 failed: Subscription Server host address is required.", "error")

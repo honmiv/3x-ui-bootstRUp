@@ -64,11 +64,13 @@ async def test_sub_server_deployment() -> bool:
     log("Subscription Server deployment returned success!", "success")
     log(f"Result details: {result}", "info")
 
+    derived_sub_path = hashlib.md5(SECRET_SUB_PATH.encode("utf-8")).hexdigest()[:16]
+
     # 1. Verify expected containers are running inside vps-sub-only
     if not check_inner_containers_running(CONTAINER_NAME, ["subs-server", "sub-caddy", "sub-nginx-decoy"]):
         return False
 
-    # 2. Verify HTTPS response via Caddy on /subs/login
+    # 2. Verify HTTPS response via Caddy on login
     res = subprocess.run(
         [
             "docker",
@@ -78,7 +80,7 @@ async def test_sub_server_deployment() -> bool:
             "-s",
             "-k",
             "-L",
-            f"https://{DOMAIN}/{SECRET_SUB_PATH}/login",
+            f"https://{DOMAIN}/{derived_sub_path}/login",
         ],
         capture_output=True,
         text=True,
@@ -100,7 +102,7 @@ async def test_sub_server_deployment() -> bool:
             "-k",
             "-w",
             "%{http_code}",
-            f"https://{DOMAIN}/{SECRET_SUB_PATH}/nonexistent-client",
+            f"https://{DOMAIN}/{derived_sub_path}/nonexistent-client",
         ],
         capture_output=True,
         text=True,
@@ -163,7 +165,7 @@ async def test_sub_server_deployment() -> bool:
 
     # 5a. Fetch user1-tcp → 200 with pre-seeded fake vless content
     log(f"Fetching subscription for '{FAKE_CLIENT}' (expect 200 with pre-seeded override)...", "info")
-    ov_status, ov_body = fetch_subscription_via_host_tls(CONTAINER_NAME, DOMAIN, f"{SECRET_SUB_PATH}/{FAKE_CLIENT}")
+    ov_status, ov_body = fetch_subscription_via_host_tls(CONTAINER_NAME, DOMAIN, f"{derived_sub_path}/{FAKE_CLIENT}")
     if ov_status != 200:
         log(f"Pre-seeded override fetch failed: status={ov_status}", "error")
         return False
@@ -181,7 +183,7 @@ async def test_sub_server_deployment() -> bool:
     ADMIN_USER = config["sub_admin_user"]
     ADMIN_PASS = config["sub_admin_password"]
     tls_port = TLS_HOST_PORTS[CONTAINER_NAME]
-    base_url = f"https://{DOMAIN}:{tls_port}/{SECRET_SUB_PATH}"
+    base_url = f"https://{DOMAIN}:{tls_port}/{derived_sub_path}"
 
     log("Logging in to clear override...", "info")
     login_res = subprocess.run(
@@ -227,7 +229,7 @@ async def test_sub_server_deployment() -> bool:
 
     # 5c. Fetch again → 502 (backend unreachable, override gone)
     log(f"Fetching '{FAKE_CLIENT}' after clear (expect 502)...", "info")
-    cl_status2, _ = fetch_subscription_via_host_tls(CONTAINER_NAME, DOMAIN, f"{SECRET_SUB_PATH}/{FAKE_CLIENT}")
+    cl_status2, _ = fetch_subscription_via_host_tls(CONTAINER_NAME, DOMAIN, f"{derived_sub_path}/{FAKE_CLIENT}")
     if cl_status2 == 502:
         log("After clearing override: 502 — correct!", "success")
     else:

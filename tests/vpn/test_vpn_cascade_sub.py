@@ -96,14 +96,15 @@ async def test_cascade_sub_deployment() -> bool:
 
     f_sub_base = hashlib.md5(f"{config['freedom_sub_secret']}-sub".encode("utf-8")).hexdigest()[:16]
     p_sub_base = hashlib.md5(f"{config['proxy_sub_secret']}-sub".encode("utf-8")).hexdigest()[:16]
+    s_sub_base = hashlib.md5(config['sub_secret_path'].encode("utf-8")).hexdigest()[:16]
 
     checks = [
         ("Freedom", FREEDOM_CONTAINER, FREEDOM_DOMAIN, f"{f_sub_base}/local-proxy-node-client"),
         ("Proxy TCP", PROXY_CONTAINER, PROXY_DOMAIN, f"{p_sub_base}/client-cascade-tcp"),
         ("Proxy XHTTP", PROXY_CONTAINER, PROXY_DOMAIN, f"{p_sub_base}/client-cascade-xhttp"),
-        ("Sub TCP", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-cascade-tcp"),
-        ("Sub XHTTP", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-cascade-xhttp"),
-        ("Sub LocalProxy", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/local-proxy-node-client"),
+        ("Sub TCP", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-cascade-tcp"),
+        ("Sub XHTTP", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-cascade-xhttp"),
+        ("Sub LocalProxy", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/local-proxy-node-client"),
     ]
 
     for label, container, domain, path in checks:

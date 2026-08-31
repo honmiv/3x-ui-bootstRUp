@@ -988,7 +988,10 @@
                                 </div>
                             </div>
                             <div class="form-group full-width">
-                                <label for="sub_secret">Секретная фраза панели</label>
+                                <div class="form-label-row">
+                                    <label for="sub_secret">Секретная фраза панели</label>
+                                    <span class="secret-hash-preview" id="sub_secret_preview"></span>
+                                </div>
                                 <input type="text" id="sub_secret" placeholder="panel">
                             </div>
                             <div class="form-group full-width" style="margin-top: 4px;">
@@ -1070,7 +1073,10 @@
                                     </div>
                                 </div>
                                 <div class="form-group full-width">
-                                    <label for="freedom_sub_secret">Секретная фраза Freedom панели</label>
+                                    <div class="form-label-row">
+                                        <label for="freedom_sub_secret">Секретная фраза Freedom панели</label>
+                                        <span class="secret-hash-preview" id="freedom_sub_secret_preview"></span>
+                                    </div>
                                     <input type="text" id="freedom_sub_secret" placeholder="panel">
                                 </div>
                                 <div class="form-group full-width" style="margin-top: 4px;">
@@ -1137,7 +1143,10 @@
                                     </div>
                                 </div>
                                 <div class="form-group full-width">
-                                    <label for="proxy_sub_secret">Секретная фраза Proxy панели</label>
+                                    <div class="form-label-row">
+                                        <label for="proxy_sub_secret">Секретная фраза Proxy панели</label>
+                                        <span class="secret-hash-preview" id="proxy_sub_secret_preview"></span>
+                                    </div>
                                     <input type="text" id="proxy_sub_secret" placeholder="panel">
                                 </div>
                                 <div class="form-group full-width" style="margin-top: 4px;">
@@ -1187,9 +1196,11 @@
                             <div class="section-title">Параметры Сервера подписок</div>
                             <div class="form-grid">
                                 <div class="form-group full-width">
-                                    <label for="sub_secret_path">Префикс пути подписок (например, subs ->
-                                        https://domain/subs/username)</label>
-                                    <input type="text" id="sub_secret_path" placeholder="subs">
+                                    <div class="form-label-row">
+                                        <label for="sub_secret_path">Секретная фраза Сервера подписок</label>
+                                        <span class="secret-hash-preview" id="sub_secret_path_preview"></span>
+                                    </div>
+                                    <input type="text" id="sub_secret_path" placeholder="sub_secret">
                                 </div>
                                 <div class="form-group">
                                     <label for="sub_admin_user">Логин админа Сервера подписок</label>

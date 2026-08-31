@@ -138,14 +138,19 @@ prompt_sub_path() {
         info "Using secret sub path from environment: $SECRET_SUB_PATH"
         return
     fi
-    if [[ ! -t 0 ]]; then
-        die "SECRET_SUB_PATH is required in non-interactive mode."
+    if [[ -n "${SECRET_PHRASE:-}" ]]; then
+        SECRET_SUB_PATH=$(echo -n "${SECRET_PHRASE}" | md5sum | awk '{print $1}' | cut -c 1-16)
+        info "Using secret sub path derived from SECRET_PHRASE: $SECRET_SUB_PATH"
+        return
     fi
-    local default="subs"
-    read -r -p "$(echo -e "${CYAN}[..]${NC} Path prefix [default: $default]: ")" SECRET_SUB_PATH
-    SECRET_SUB_PATH="${SECRET_SUB_PATH:-$default}"
-    SECRET_SUB_PATH="${SECRET_SUB_PATH#/}"
-    SECRET_SUB_PATH="${SECRET_SUB_PATH%/}"
+    if [[ ! -t 0 ]]; then
+        die "SECRET_SUB_PATH or SECRET_PHRASE is required in non-interactive mode."
+    fi
+    local default_phrase
+    default_phrase=$(tr -dc '0-9' < /dev/urandom | head -c 16)
+    read -r -p "$(echo -e "${CYAN}[..]${NC} Secret phrase [default: $default_phrase]: ")" user_phrase
+    user_phrase="${user_phrase:-$default_phrase}"
+    SECRET_SUB_PATH=$(echo -n "${user_phrase}" | md5sum | awk '{print $1}' | cut -c 1-16)
 }
 
 prompt_subscription_urls() {

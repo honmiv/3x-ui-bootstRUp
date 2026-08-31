@@ -451,7 +451,7 @@ subs-server (Port 8080, Docker port 8000)
 FORCE_FILE               # Path to force-subs.yml (overrides), e.g. ./force-subs.yml
 NODES_FILE               # Path to nodes.json (node registry), e.g. ./nodes.json
 LOG_FILE                 # Path to a log file tailed by the /api/logs SSE stream, e.g. /data/sub-server.log
-SECRET_SUB_PATH          # e.g., subs or secret123
+SECRET_SUB_PATH          # e.g., a1b2c3d4e5f60718 (derived from secret phrase via md5)
 DOMAIN                   # e.g., sub.example.com
 RUSSIAN_SUB_URL          # e.g., https://proxy-node/subs (fallback only)
 FOREIGN_SUB_URL          # e.g., https://freedom-node/subs (fallback only)
@@ -625,7 +625,7 @@ Stage 3: Deploy Subscription Server (with both node URLs)
 | Variable | Example | Usage | Source |
 |----------|---------|-------|--------|
 | `{{DOMAIN}}` | sub.example.com | Caddy server_name, Let's Encrypt | User input (form) |
-| `{{SECRET_SUB_PATH}}` | subs | Subscription endpoint path | User input (form) |
+| `{{SECRET_SUB_PATH}}` | a1b2c3d4e5f60718 | Subscription endpoint path | Derived from sub secret phrase (md5) |
 | `{{RUSSIAN_SUB_URL}}` | https://proxy-node/subs | Proxy node subscription URL | Previous deployment (Stage 2) |
 | `{{FOREIGN_SUB_URL}}` | https://freedom-node/subs | Freedom node subscription URL | Previous deployment (Stage 1) |
 | `{{ADMIN_USER}}` | admin | Subscription server admin | User input (form) |

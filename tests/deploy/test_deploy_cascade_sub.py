@@ -120,14 +120,15 @@ async def test_cascade_sub_deployment() -> bool:
     # 4. Verify TLS on all 3 nodes via host --resolve (Caddy L4 end-to-end)
     f_sub_base = hashlib.md5(f"{config['freedom_sub_secret']}-sub".encode("utf-8")).hexdigest()[:16]
     p_sub_base = hashlib.md5(f"{config['proxy_sub_secret']}-sub".encode("utf-8")).hexdigest()[:16]
+    s_sub_base = hashlib.md5(config['sub_secret_path'].encode("utf-8")).hexdigest()[:16]
 
     tls_checks = [
         ("Proxy node", PROXY_CONTAINER, PROXY_DOMAIN, f"{p_sub_base}/client-cascade-tcp"),
         ("Proxy node", PROXY_CONTAINER, PROXY_DOMAIN, f"{p_sub_base}/client-cascade-xhttp"),
         ("Freedom node", FREEDOM_CONTAINER, FREEDOM_DOMAIN, f"{f_sub_base}/local-proxy-node-client"),
-        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-cascade-tcp"),
-        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-cascade-xhttp"),
-        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/local-proxy-node-client"),
+        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-cascade-tcp"),
+        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-cascade-xhttp"),
+        ("Sub-Server", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/local-proxy-node-client"),
     ]
     for label, container, domain, path in tls_checks:
         tls_status, tls_body = fetch_subscription_via_host_tls(container, domain, path)

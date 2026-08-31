@@ -94,12 +94,13 @@ async def test_freedom_sub_deployment() -> bool:
 
     # 3. Verify TLS on both nodes via host --resolve (Caddy L4 end-to-end)
     f_sub_base = hashlib.md5(f"{config['sub_secret']}-sub".encode("utf-8")).hexdigest()[:16]
+    s_sub_base = hashlib.md5(config['sub_secret_path'].encode("utf-8")).hexdigest()[:16]
 
     tls_checks = [
         ("Freedom node (TCP)", FREEDOM_CONTAINER, FREEDOM_DOMAIN, f"{f_sub_base}/client-freedom-tcp"),
         ("Freedom node (XHTTP)", FREEDOM_CONTAINER, FREEDOM_DOMAIN, f"{f_sub_base}/client-freedom-xhttp"),
-        ("Sub-Server (TCP)", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-freedom-tcp"),
-        ("Sub-Server (XHTTP)", SUB_CONTAINER, SUB_DOMAIN, f"{SECRET_SUB_PATH}/client-freedom-xhttp"),
+        ("Sub-Server (TCP)", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-freedom-tcp"),
+        ("Sub-Server (XHTTP)", SUB_CONTAINER, SUB_DOMAIN, f"{s_sub_base}/client-freedom-xhttp"),
     ]
     for label, container, domain, path in tls_checks:
         tls_status, tls_body = fetch_subscription_via_host_tls(container, domain, path)

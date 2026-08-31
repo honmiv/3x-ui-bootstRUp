@@ -57,8 +57,10 @@ async def test_sub_server_deployment() -> bool:
 
     log(f"Result: {result}", "success")
 
+    s_sub_base = hashlib.md5(config['sub_secret_path'].encode("utf-8")).hexdigest()[:16]
+
     for client in ["user1-tcp", "user2-xhttp", "freedom-direct"]:
-        path = f"{SECRET_SUB_PATH}/{client}"
+        path = f"{s_sub_base}/{client}"
         log(f"Fetching subscription for '{client}'...", "info")
         status, body = fetch_subscription_via_host_tls(CONTAINER_NAME, DOMAIN, path)
         links = decode_vless_subscription(body)

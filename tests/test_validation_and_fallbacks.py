@@ -236,6 +236,28 @@ class TestValidationAndFallbacks(unittest.TestCase):
         finally:
             server.shutdown()
 
+    def test_derive_sub_paths(self):
+        import hashlib
+        from ssh_deployer import derive_sub_path, derive_sub_server_path
+
+        secret = "my_secret_phrase"
+        # Panel sub path must append "-sub"
+        expected_panel_sub = hashlib.md5(f"{secret}-sub".encode("utf-8")).hexdigest()[:16]
+        self.assertEqual(derive_sub_path(secret), expected_panel_sub)
+
+        # Sub-server path must NOT append "-sub"
+        expected_sub_server = hashlib.md5(secret.encode("utf-8")).hexdigest()[:16]
+        self.assertEqual(derive_sub_server_path(secret), expected_sub_server)
+        self.assertNotEqual(derive_sub_server_path(secret), derive_sub_path(secret))
+
+        # Empty or whitespace string must return empty string
+        self.assertEqual(derive_sub_path(""), "")
+        self.assertEqual(derive_sub_path("   "), "")
+        self.assertEqual(derive_sub_path(None), "")
+        self.assertEqual(derive_sub_server_path(""), "")
+        self.assertEqual(derive_sub_server_path("   "), "")
+        self.assertEqual(derive_sub_server_path(None), "")
+
 
 if __name__ == "__main__":
     unittest.main()

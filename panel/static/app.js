@@ -171,6 +171,182 @@ window.confirm = function(msg) {
     return showConfirm(msg);
 };
 
+// ==========================================
+// Secret Phrase MD5 Hash Derivation Helpers
+// ==========================================
+function md5(string) {
+    var bytes = typeof string === 'string' ? new TextEncoder().encode(string) : string;
+    var len = bytes.length;
+    var nWords = (((len + 8) >>> 6) + 1) * 16;
+    var words = new Uint32Array(nWords);
+    for (var i = 0; i < len; i++) {
+        words[i >>> 2] |= bytes[i] << ((i % 4) * 8);
+    }
+    words[len >>> 2] |= 0x80 << ((len % 4) * 8);
+    words[nWords - 2] = (len * 8) & 0xffffffff;
+    words[nWords - 1] = Math.floor((len * 8) / 0x100000000);
+
+    function rotateLeft(lValue, iShiftBits) {
+        return (lValue << iShiftBits) | (lValue >>> (32 - iShiftBits));
+    }
+    function cmn(q, a, b, x, s, t) {
+        a = (a + q + x + t) | 0;
+        return (rotateLeft(a, s) + b) | 0;
+    }
+    function ff(a, b, c, d, x, s, t) { return cmn((b & c) | (~b & d), a, b, x, s, t); }
+    function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & ~d), a, b, x, s, t); }
+    function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+    function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | ~d), a, b, x, s, t); }
+
+    var a = 0x67452301, b = 0xefcdab89, c = 0x98badcfe, d = 0x10325476;
+    for (var i = 0; i < nWords; i += 16) {
+        var aa = a, bb = b, cc = c, dd = d;
+
+        a = ff(a, b, c, d, words[i + 0], 7, 0xd76aa478);
+        d = ff(d, a, b, c, words[i + 1], 12, 0xe8c7b756);
+        c = ff(c, d, a, b, words[i + 2], 17, 0x242070db);
+        b = ff(b, c, d, a, words[i + 3], 22, 0xc1bdceee);
+        a = ff(a, b, c, d, words[i + 4], 7, 0xf57c0faf);
+        d = ff(d, a, b, c, words[i + 5], 12, 0x4787c62a);
+        c = ff(c, d, a, b, words[i + 6], 17, 0xa8304613);
+        b = ff(b, c, d, a, words[i + 7], 22, 0xfd469501);
+        a = ff(a, b, c, d, words[i + 8], 7, 0x698098d8);
+        d = ff(d, a, b, c, words[i + 9], 12, 0x8b44f7af);
+        c = ff(c, d, a, b, words[i + 10], 17, 0xffff5bb1);
+        b = ff(b, c, d, a, words[i + 11], 22, 0x895cd7be);
+        a = ff(a, b, c, d, words[i + 12], 7, 0x6b901122);
+        d = ff(d, a, b, c, words[i + 13], 12, 0xfd987193);
+        c = ff(c, d, a, b, words[i + 14], 17, 0xa679438e);
+        b = ff(b, c, d, a, words[i + 15], 22, 0x49b40821);
+
+        a = gg(a, b, c, d, words[i + 1], 5, 0xf61e2562);
+        d = gg(d, a, b, c, words[i + 6], 9, 0xc040b340);
+        c = gg(c, d, a, b, words[i + 11], 14, 0x265e5a51);
+        b = gg(b, c, d, a, words[i + 0], 20, 0xe9b6c7aa);
+        a = gg(a, b, c, d, words[i + 5], 5, 0xd62f105d);
+        d = gg(d, a, b, c, words[i + 10], 9, 0x02441453);
+        c = gg(c, d, a, b, words[i + 15], 14, 0xd8a1e681);
+        b = gg(b, c, d, a, words[i + 4], 20, 0xe7d3fbc8);
+        a = gg(a, b, c, d, words[i + 9], 5, 0x21e1cde6);
+        d = gg(d, a, b, c, words[i + 14], 9, 0xc33707d6);
+        c = gg(c, d, a, b, words[i + 3], 14, 0xf4d50d87);
+        b = gg(b, c, d, a, words[i + 8], 20, 0x455a14ed);
+        a = gg(a, b, c, d, words[i + 13], 5, 0xa9e3e905);
+        d = gg(d, a, b, c, words[i + 2], 9, 0xfcefa3f8);
+        c = gg(c, d, a, b, words[i + 7], 14, 0x676f02d9);
+        b = gg(b, c, d, a, words[i + 12], 20, 0x8d2a4c8a);
+
+        a = hh(a, b, c, d, words[i + 5], 4, 0xfffa3942);
+        d = hh(d, a, b, c, words[i + 8], 11, 0x8771f681);
+        c = hh(c, d, a, b, words[i + 11], 16, 0x6d9d6122);
+        b = hh(b, c, d, a, words[i + 14], 23, 0xfde5380c);
+        a = hh(a, b, c, d, words[i + 1], 4, 0xa4beea44);
+        d = hh(d, a, b, c, words[i + 4], 11, 0x4bdecfa9);
+        c = hh(c, d, a, b, words[i + 7], 16, 0xf6bb4b60);
+        b = hh(b, c, d, a, words[i + 10], 23, 0xbebfbc70);
+        a = hh(a, b, c, d, words[i + 13], 4, 0x289b7ec6);
+        d = hh(d, a, b, c, words[i + 0], 11, 0xeaa127fa);
+        c = hh(c, d, a, b, words[i + 3], 16, 0xd4ef3085);
+        b = hh(b, c, d, a, words[i + 6], 23, 0x04881d05);
+        a = hh(a, b, c, d, words[i + 9], 4, 0xd9d4d039);
+        d = hh(d, a, b, c, words[i + 12], 11, 0xe6db99e5);
+        c = hh(c, d, a, b, words[i + 15], 16, 0x1fa27cf8);
+        b = hh(b, c, d, a, words[i + 2], 23, 0xc4ac5665);
+
+        a = ii(a, b, c, d, words[i + 0], 6, 0xf4292244);
+        d = ii(d, a, b, c, words[i + 7], 10, 0x432aff97);
+        c = ii(c, d, a, b, words[i + 14], 15, 0xab9423a7);
+        b = ii(b, c, d, a, words[i + 5], 21, 0xfc93a039);
+        a = ii(a, b, c, d, words[i + 12], 6, 0x655b59c3);
+        d = ii(d, a, b, c, words[i + 3], 10, 0x8f0ccc92);
+        c = ii(c, d, a, b, words[i + 10], 15, 0xffeff47d);
+        b = ii(b, c, d, a, words[i + 1], 21, 0x85845dd1);
+        a = ii(a, b, c, d, words[i + 8], 6, 0x6fa87e4f);
+        d = ii(d, a, b, c, words[i + 15], 10, 0xfe2ce6e0);
+        c = ii(c, d, a, b, words[i + 6], 15, 0xa3014314);
+        b = ii(b, c, d, a, words[i + 13], 21, 0x4e0811a1);
+        a = ii(a, b, c, d, words[i + 4], 6, 0xf7537e82);
+        d = ii(d, a, b, c, words[i + 11], 10, 0xbd3af235);
+        c = ii(c, d, a, b, words[i + 2], 15, 0x2ad7d2bb);
+        b = ii(b, c, d, a, words[i + 9], 21, 0xeb86d391);
+
+        a = (a + aa) | 0;
+        b = (b + bb) | 0;
+        c = (c + cc) | 0;
+        d = (d + dd) | 0;
+    }
+
+    function hex(n) {
+        var s = '';
+        for (var j = 0; j < 4; j++) {
+            var b = (n >>> (j * 8)) & 0xff;
+            s += (b < 16 ? '0' : '') + b.toString(16);
+        }
+        return s;
+    }
+    return (hex(a) + hex(b) + hex(c) + hex(d)).toLowerCase();
+}
+
+function derivePanelPaths(secret) {
+    if (!secret || !secret.trim()) return null;
+    const s = secret.trim();
+    return {
+        web: md5(s + '-panel').slice(0, 16),
+        sub: md5(s + '-sub').slice(0, 16)
+    };
+}
+
+function deriveSubServerPath(secret) {
+    if (!secret || !secret.trim()) return null;
+    const s = secret.trim();
+    return md5(s).slice(0, 16);
+}
+
+function updateSecretHashPreviews() {
+    const updatePreview = (inputId, previewId, isSubServer) => {
+        const inputEl = document.getElementById(inputId);
+        const previewEl = document.getElementById(previewId);
+        if (!inputEl || !previewEl) return;
+        const val = inputEl.value.trim();
+        if (!val) {
+            previewEl.innerHTML = '';
+            previewEl.style.display = 'none';
+            return;
+        }
+        if (isSubServer) {
+            const p = deriveSubServerPath(val);
+            if (!p) {
+                previewEl.innerHTML = '';
+                previewEl.style.display = 'none';
+                return;
+            }
+            previewEl.style.display = 'inline-flex';
+            previewEl.innerHTML = `<span class="hash-label">sub:</span><span class="hash-val">/${p}</span>`;
+        } else {
+            const paths = derivePanelPaths(val);
+            if (!paths) {
+                previewEl.innerHTML = '';
+                previewEl.style.display = 'none';
+                return;
+            }
+            previewEl.style.display = 'inline-flex';
+            previewEl.innerHTML = `<span class="hash-label">панель:</span><span class="hash-val">/${paths.web}</span><span class="hash-sep">•</span><span class="hash-label">sub:</span><span class="hash-val">/${paths.sub}</span>`;
+        }
+    };
+
+    // 1. Single / Freedom / Proxy panel sub_secret
+    updatePreview('sub_secret', 'sub_secret_preview', false);
+
+    // 2. Freedom sub_secret (Cascade)
+    updatePreview('freedom_sub_secret', 'freedom_sub_secret_preview', false);
+
+    // 3. Proxy sub_secret (Cascade)
+    updatePreview('proxy_sub_secret', 'proxy_sub_secret_preview', false);
+
+    // 4. Sub-Server sub_secret_path
+    updatePreview('sub_secret_path', 'sub_secret_path_preview', true);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const terminalLogsInit = document.getElementById('terminalLogs');
     if (terminalLogsInit && terminalLogsInit.children.length === 0) {
@@ -1180,6 +1356,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'rollback_sub') fetchBackupList('backups_sub_server');
         }
         resetSSHValidation();
+        updateSecretHashPreviews();
 
         if (glowRefresher) glowRefresher();
     };
@@ -1977,16 +2154,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (subBkNameEl && !subBkNameEl.value.trim()) updateSubBackupName();
 
                 updateModeUI();
+                updateSecretHashPreviews();
             } else {
                 if (!document.getElementById('sub_secret').value) document.getElementById('sub_secret').value = '';
                 if (document.getElementById('freedom_sub_secret') && !document.getElementById('freedom_sub_secret').value) document.getElementById('freedom_sub_secret').value = '';
                 if (document.getElementById('proxy_sub_secret') && !document.getElementById('proxy_sub_secret').value) document.getElementById('proxy_sub_secret').value = '';
                 updateModeUI();
+                updateSecretHashPreviews();
             }
         } catch (e) { }
     };
 
     loadBackupConfig();
+
+    ['sub_secret', 'freedom_sub_secret', 'proxy_sub_secret', 'sub_secret_path'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateSecretHashPreviews);
+            el.addEventListener('change', updateSecretHashPreviews);
+            el.addEventListener('keyup', updateSecretHashPreviews);
+            el.addEventListener('paste', () => setTimeout(updateSecretHashPreviews, 10));
+        }
+    });
+    updateSecretHashPreviews();
 
     document.querySelectorAll('.btn-toggle-eye').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2666,6 +2856,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('input', () => {
         if (glowRefresher) glowRefresher();
+        updateSecretHashPreviews();
     });
 
     const applyPasswordGlow = (fieldId) => {
@@ -2792,7 +2983,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'proxy_sub_secret', step: 3, modes: ['cascade', 'cascade_sub'], message: 'Укажите секретную фразу Proxy панели' },
 
         // --- Sub-server Panel Credentials (Step 3) ---
-        { id: 'sub_secret_path', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите префикс пути подписок Сервера подписок' },
+        { id: 'sub_secret_path', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите секретную фразу Сервера подписок' },
         { id: 'sub_admin_user', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите логин админа Сервера подписок' },
         { id: 'sub_admin_password', step: 3, modes: ['sub_only', 'cascade_sub', 'freedom_sub'], message: 'Укажите пароль админа Сервера подписок' },
 

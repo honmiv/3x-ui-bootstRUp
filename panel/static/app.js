@@ -558,23 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const updateBadgeStatus = (text, color, pulse = false) => {
-        const badge = document.getElementById('statusBadge');
-        const textEl = document.getElementById('statusText');
-        const dotEl = badge.querySelector('.dot');
-
-        textEl.textContent = text;
-        dotEl.style.backgroundColor = color;
-        dotEl.style.boxShadow = `0 0 8px ${color}`;
-        badge.style.borderColor = color;
-
-        if (pulse) {
-            dotEl.classList.add('pulsing');
-        } else {
-            dotEl.classList.remove('pulsing');
-        }
-    };
-
     const getSelectedMode = () => {
         const checked = document.querySelector('input[name="deploy_mode"]:checked');
         return checked ? checked.value : 'cascade';
@@ -1175,10 +1158,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStep3Header(mode);
 
         const isPanelMode = ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'cascade', 'cascade_sub', 'freedom_sub'].includes(mode);
+        const generalSettingsCard = document.getElementById('generalSettingsCard');
+        if (generalSettingsCard) {
+            generalSettingsCard.classList[isPanelMode ? 'remove' : 'add']('hidden');
+        }
         const happRoutingBlock = document.getElementById('happRoutingBlock');
         if (happRoutingBlock) {
             happRoutingBlock.classList[isPanelMode ? 'remove' : 'add']('hidden');
         }
+
+        const singlePanelTitle = document.getElementById('singlePanelTitle');
+        const freedomPanelTitle = document.getElementById('freedomPanelTitle');
+        const proxyPanelTitle = document.getElementById('proxyPanelTitle');
+        const subServerPanelTitle = document.getElementById('subServerPanelTitle');
 
         if (backupNodeSection) backupNodeSection.classList.add('hidden');
         if (recoveryNodeSection) recoveryNodeSection.classList.add('hidden');
@@ -1213,6 +1205,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (singlePanelSection) singlePanelSection.classList.remove('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+
+            if (singlePanelTitle) {
+                if (mode === 'freedom_component' || mode === 'freedom_only') {
+                    singlePanelTitle.textContent = 'Панель и клиент Целевого сервера (Freedom Node)';
+                } else if (mode === 'proxy_only') {
+                    singlePanelTitle.textContent = 'Панель Прокси ноды (Proxy Node)';
+                } else {
+                    singlePanelTitle.textContent = 'Параметры панели 3X-UI';
+                }
+            }
+
             const foreignSubUrlGroup = document.getElementById('foreignSubUrlGroup');
             if (foreignSubUrlGroup) {
                 foreignSubUrlGroup.classList[mode === 'proxy_only' ? 'remove' : 'add']('hidden');
@@ -1244,6 +1247,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
             if (subOnlyTargetGroup) subOnlyTargetGroup.classList.add('hidden');
+
+            if (singlePanelTitle) singlePanelTitle.textContent = '3.1. Freedom Node (Выходной сервер 3X-UI)';
+            if (subServerPanelTitle) subServerPanelTitle.textContent = '3.2. Параметры Сервера подписок';
+
             const foreignSubUrlGroup = document.getElementById('foreignSubUrlGroup');
             if (foreignSubUrlGroup) foreignSubUrlGroup.classList.add('hidden');
             const freedomOnlyBanner = document.querySelector('.freedom-only-banner');
@@ -1259,6 +1266,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (singlePanelSection) singlePanelSection.classList.add('hidden');
             if (cascadePanelSection) cascadePanelSection.classList.remove('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.add('hidden');
+
+            if (freedomPanelTitle) freedomPanelTitle.textContent = '3.1. Панель и клиент Целевого сервера (Freedom Node)';
+            if (proxyPanelTitle) proxyPanelTitle.textContent = '3.2. Панель и VPN-клиенты прокси ноды (Proxy Node)';
         } else if (mode === 'cascade_sub') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.remove('hidden');
@@ -1271,6 +1281,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cascadePanelSection) cascadePanelSection.classList.remove('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
             if (subOnlyTargetGroup) subOnlyTargetGroup.classList.add('hidden');
+
+            if (freedomPanelTitle) freedomPanelTitle.textContent = '3.1. Панель и клиент Целевого сервера (Freedom Node)';
+            if (proxyPanelTitle) proxyPanelTitle.textContent = '3.2. Панель и VPN-клиенты прокси ноды (Proxy Node)';
+            if (subServerPanelTitle) subServerPanelTitle.textContent = '3.3. Параметры Сервера подписок';
         } else if (mode === 'sub_only') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
@@ -1283,6 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cascadePanelSection) cascadePanelSection.classList.add('hidden');
             if (subServerPanelSection) subServerPanelSection.classList.remove('hidden');
             if (subOnlyTargetGroup) subOnlyTargetGroup.classList.remove('hidden');
+
+            if (subServerPanelTitle) subServerPanelTitle.textContent = 'Параметры Сервера подписок';
         } else if (mode === 'update_sub') {
             singleNodeSection.classList.add('hidden');
             cascadeNodeSection.classList.add('hidden');
@@ -2279,13 +2295,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetStep) targetStep.classList.add('active');
 
         if (currentStep === 1) {
-            updateBadgeStatus('Выбор режима', '#3b82f6');
         } else if (currentStep === 2) {
-            updateBadgeStatus('Ввод параметров SSH', '#06b6d4');
         } else if (currentStep === 3) {
-            updateBadgeStatus('Настройки панели', '#8b5cf6');
         } else if (currentStep === 4) {
-            updateBadgeStatus('Готов к развертыванию', '#10b981');
         }
 
         if (glowRefresher) glowRefresher();
@@ -2795,29 +2807,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    let statusPollTimer = null;
-    let deployStartTime = null;
-    let timerInterval = null;
-
-    const startDeployTimer = () => {
-        deployStartTime = Date.now();
-        const statusTimer = document.getElementById('statusTimer');
-        if (statusTimer) statusTimer.classList.remove('hidden');
-
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (!deployStartTime) return;
-            const elapsedMs = Date.now() - deployStartTime;
-            const totalSec = Math.floor(elapsedMs / 1000);
-            const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-            const secs = String(totalSec % 60).padStart(2, '0');
-            if (statusTimer) statusTimer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${mins}:${secs}`;
-        }, 1000);
-    };
-
-    const stopDeployTimer = () => {
-        if (timerInterval) clearInterval(timerInterval);
-    };
 
     if (btnStopDeploy) {
         btnStopDeploy.addEventListener('click', async () => {
@@ -3101,8 +3090,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const mode = getSelectedMode();
 
         showStep(4);
-        updateBadgeStatus('Развертывание...', '#f59e0b', true);
-        startDeployTimer();
         isUserScrolledUp = false;
         terminalLogs.innerHTML = '';
         const summaryCardReset = document.getElementById('summaryCard');
@@ -3275,31 +3262,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (mode === 'single') {
-            updateBadgeStatus(`Развертывание ${payload.vps_host || 'сервера'}...`, '#f59e0b', true);
         } else if (mode === 'proxy_only') {
-            updateBadgeStatus(`Развертывание Proxy Node...`, '#f59e0b', true);
         } else if (mode === 'freedom_only' || mode === 'freedom_component') {
-            updateBadgeStatus(`Развертывание Freedom Node...`, '#f59e0b', true);
         } else if (mode === 'freedom_sub') {
-            updateBadgeStatus('Развертывание Freedom + Sub Server...', '#f59e0b', true);
         } else if (mode === 'sub_only') {
-            updateBadgeStatus('Развертывание Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'backup') {
-            updateBadgeStatus('Создание бэкапа сервера...', '#f59e0b', true);
         } else if (mode === 'recovery') {
-            updateBadgeStatus('Восстановление сервера...', '#f59e0b', true);
         } else if (mode === 'update_3xui') {
-            updateBadgeStatus('Обновление 3X-UI панели...', '#f59e0b', true);
         } else if (mode === 'restart_sub') {
-            updateBadgeStatus('Перезапуск Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'update_sub') {
-            updateBadgeStatus('Обновление Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'backup_sub') {
-            updateBadgeStatus('Создание бэкапа Сервера подписок...', '#f59e0b', true);
         } else if (mode === 'rollback_sub') {
-            updateBadgeStatus('Восстановление Сервера подписок...', '#f59e0b', true);
         } else {
-            updateBadgeStatus('Каскадное развертывание...', '#f59e0b', true);
         }
 
         try {
@@ -3312,8 +3286,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) {
                 appendLog(`[ERROR] ${res.message}`, 'error');
                 showToast(res.message, 'error');
-                updateBadgeStatus('Ошибка запуска', '#ef4444');
-                stopDeployTimer();
                 btnStartDeploy.classList.remove('hidden');
                 if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
                 return;
@@ -3347,8 +3319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             appendLog(`[ERROR] ${err.message}`, 'error');
-            updateBadgeStatus('Ошибка сети', '#ef4444');
-            stopDeployTimer();
             btnStartDeploy.classList.remove('hidden');
             if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
         }
@@ -3360,8 +3330,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
 
             if (data.status === 'cancelled') {
-                stopDeployTimer();
-                updateBadgeStatus('Процесс отменен', '#ef4444');
                 if (btnStartDeploy) {
                     btnStartDeploy.classList.remove('hidden');
                     btnStartDeploy.disabled = false;
@@ -3381,8 +3349,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (data.status === 'completed') {
-                updateBadgeStatus('Успешно завершено!', '#10b981');
-                stopDeployTimer();
 
                 if (btnStartDeploy) btnStartDeploy.classList.remove('hidden');
                 if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
@@ -3791,13 +3757,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     clientsContainer.appendChild(card);
                 });
             } else if (data.status === 'failed') {
-                updateBadgeStatus('Ошибка развертывания', '#ef4444');
-                stopDeployTimer();
                 if (btnStartDeploy) btnStartDeploy.classList.remove('hidden');
                 if (btnStopDeploy) btnStopDeploy.classList.add('hidden');
             }
         } catch (e) {
-            updateBadgeStatus('Ошибка развертывания', '#ef4444');
         }
     };
 
@@ -3810,7 +3773,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnUpdateSources.disabled = true;
             btnUpdateSources.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Обновление...';
-            updateBadgeStatus('Обновление исходников...', '#f59e0b', true);
 
             try {
                 const res = await fetch('/api/update_sources', { method: 'POST' });
@@ -3819,7 +3781,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Ошибка запуска обновления: ' + (data.message || 'Неизвестная ошибка'), 'error');
                     btnUpdateSources.disabled = false;
                     btnUpdateSources.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Обновить скрипт';
-                    updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
 
@@ -4120,7 +4081,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnRestart.disabled = true;
             btnRestart.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Перезапуск...';
-            updateBadgeStatus('Перезапуск сервера...', '#f59e0b', true);
 
             try {
                 const res = await fetch('/api/restart', { method: 'POST' });
@@ -4129,7 +4089,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Ошибка перезапуска: ' + (data.message || 'Ошибка'), 'error');
                     btnRestart.disabled = false;
                     btnRestart.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Перезапустить';
-                    updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
 
@@ -4165,7 +4124,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnShutdown.disabled = true;
             btnShutdown.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Выключение...';
-            updateBadgeStatus('Сервер остановлен', '#ef4444');
 
             const startShutdownReconnectPolling = () => {
                 const checkInterval = setInterval(async () => {
@@ -4188,7 +4146,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('Ошибка остановки: ' + (data.message || 'Ошибка'), 'error');
                     btnShutdown.disabled = false;
                     btnShutdown.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Выключить';
-                    updateBadgeStatus('Готов к настройке', '#3b82f6');
                     return;
                 }
                 startShutdownReconnectPolling();

@@ -1096,6 +1096,112 @@ select option {
     .cards-scroll-area { height: auto; overflow-y: visible; flex: none; mask-image: none; -webkit-mask-image: none; padding-top: 20px; }
     .log-panel { width: 100%; height: 380px; flex-shrink: 0; margin-top: 0; }
 }
+
+.info-tooltip-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.2s ease;
+}
+.info-tooltip-container:hover {
+    color: #60a5fa;
+}
+.info-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: -10px;
+    width: 270px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 15px rgba(59, 130, 246, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(6px);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+    z-index: 100;
+    pointer-events: none;
+    text-align: left;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.info-tooltip-container:hover .info-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.info-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 14px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(96, 165, 250, 0.3) transparent transparent transparent;
+}
+
+.custom-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    user-select: none;
+}
+.custom-checkbox-wrapper input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 4px;
+    outline: none;
+    background-color: rgba(15, 23, 42, 0.6);
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    margin: 0;
+    transition: all 0.2s ease;
+}
+.custom-checkbox-wrapper input[type="checkbox"]::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    transform: scale(0);
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--primary-color);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+}
+.custom-checkbox-wrapper input[type="checkbox"]:checked {
+    border-color: var(--primary-color);
+    background-color: rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+.custom-checkbox-wrapper input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+.custom-checkbox-wrapper:hover input[type="checkbox"] {
+    border-color: var(--primary-color);
+}
+.custom-checkbox-wrapper:hover {
+    color: var(--text-color);
+}
 </style>
 </head>
 <body>
@@ -1862,13 +1968,18 @@ document.addEventListener('click', function (e) {
         const body = ''
             + '<div class="edit-modal-field"><label>Имя ноды</label><input id="edit-node-name" value="' + escAttr(node.name) + '"></div>'
             + '<div class="edit-modal-field"><label>URL подписки</label><input id="edit-node-url" value="' + escAttr(node.url || '') + '"></div>'
-            + '<div class="edit-modal-hint">Схему (http:// или https://) можно не указывать — https:// добавится автоматически.</div>';
+            + '<div class="edit-modal-hint">Схему (http:// или https://) можно не указывать — https:// добавится автоматически.</div>'
+            + '<label class="custom-checkbox-wrapper" style="margin-top:16px;">'
+            + '<input type="checkbox" id="edit-node-json" ' + (node.supports_json !== false ? 'checked' : '') + '>'
+            + '<span>Поддерживает JSON подписки</span>'
+            + '</label>';
         openEditModal('Редактировать ноду · ' + node.name, body, {
             save: () => submitManagement('__API_NODE__', {
                 action: 'edit',
                 node: node.id,
                 name: document.getElementById('edit-node-name').value.trim(),
-                url: document.getElementById('edit-node-url').value.trim()
+                url: document.getElementById('edit-node-url').value.trim(),
+                supports_json: document.getElementById('edit-node-json').checked
             })
         });
         return;
@@ -1936,6 +2047,25 @@ document.addEventListener('click', function (e) {
 });
 document.getElementById('client-search')?.addEventListener('input', filterCards);
 document.addEventListener('click', function (e) {
+    const addBtn = e.target.closest('.btn-json-node-add');
+    if (addBtn) {
+        const client = addBtn.getAttribute('data-client');
+        const selectId = addBtn.getAttribute('data-select');
+        const nodeId = document.getElementById(selectId).value;
+        if (!nodeId) return;
+        submitManagement('__API_CLIENT__', { action: 'add_json_node', client: client, node: nodeId })
+            .then(() => location.reload()).catch(showManagementError);
+    }
+    const delBtn = e.target.closest('.btn-json-node-delete');
+    if (delBtn) {
+        const client = delBtn.getAttribute('data-client');
+        const nodeId = delBtn.getAttribute('data-node');
+        if (!confirm('Удалить эту ноду из дополнительных для JSON?')) return;
+        submitManagement('__API_CLIENT__', { action: 'remove_json_node', client: client, node: nodeId })
+            .then(() => location.reload()).catch(showManagementError);
+    }
+});
+document.addEventListener('click', function (e) {
     const trigger = e.target.closest('.node-select-trigger');
     if (trigger) {
         const select = trigger.closest('.node-select');
@@ -1969,8 +2099,12 @@ document.getElementById('add-client-form')?.addEventListener('submit', function 
 });
 document.getElementById('add-node-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
-    submitManagement('__API_NODE__', { action: 'add', name: document.getElementById('new-node-name').value.trim(), url: document.getElementById('new-node-url').value.trim() })
-        .then(() => location.reload()).catch(showManagementError);
+    submitManagement('__API_NODE__', { 
+        action: 'add', 
+        name: document.getElementById('new-node-name').value.trim(), 
+        url: document.getElementById('new-node-url').value.trim(),
+        supports_json: document.getElementById('new-node-json').checked
+    }).then(() => location.reload()).catch(showManagementError);
 });
 function saveUIState() {
     try {
@@ -2400,7 +2534,7 @@ def default_nodes(legacy_subs=None):
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
         if url or legacy_subs[group]:
-            nodes.append({"id": node_id, "name": name, "url": url, "clients": list(legacy_subs[group])})
+            nodes.append({"id": node_id, "name": name, "url": url, "clients": list(legacy_subs[group]), "supports_json": True})
     return nodes
 
 
@@ -2422,6 +2556,9 @@ def load_nodes(path, legacy_subs=None):
         clients = item.get("clients", [])
         if not isinstance(clients, list):
             clients = []
+        json_clients = item.get("json_clients", [])
+        if not isinstance(json_clients, list):
+            json_clients = []
         url = str(item["url"]).strip().rstrip("/")
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
@@ -2430,6 +2567,7 @@ def load_nodes(path, legacy_subs=None):
             "name": str(item["name"]).strip(),
             "url": url,
             "clients": [str(client).strip() for client in clients if str(client).strip()],
+            "json_clients": [str(client).strip() for client in json_clients if str(client).strip()],
         })
     return result or default_nodes(legacy_subs)
 
@@ -2537,6 +2675,152 @@ FORWARD_EXCLUDED_HEADERS = {
     "server",
 }
 
+
+
+def transform_configs(all_configs, routing_header_b64, client_name):
+    if not all_configs:
+        return {}
+        
+    base_config = all_configs[0]
+    is_multi = len(all_configs) > 1
+    
+    final_config = {
+        "dns": base_config.get("dns", {}),
+        "inbounds": base_config.get("inbounds", []),
+        "log": base_config.get("log", {"loglevel": "warning"}),
+        "policy": base_config.get("policy", {}),
+        "routing": base_config.get("routing", {}),
+        "stats": base_config.get("stats", {})
+    }
+    final_config["remarks"] = client_name
+    
+    target_tag_key = "outboundTag"
+    target_tag_val = "proxy"
+    proxy_tags = []
+    
+    if is_multi:
+        proxy_outbounds = []
+        for idx, conf in enumerate(all_configs):
+            outs = conf.get("outbounds", [])
+            for out in outs:
+                if out.get("tag") == "proxy" or out.get("protocol") in ("vless", "vmess", "trojan", "shadowsocks"):
+                    addr = out.get("settings", {}).get("address", f"node{idx}")
+                    net = out.get("streamSettings", {}).get("network", "tcp")
+                    new_tag = f"proxy-{addr.split('.')[0]}-{net}-{idx}"
+                    out["tag"] = new_tag
+                    proxy_outbounds.append(out)
+                    proxy_tags.append(new_tag)
+                    
+        final_outbounds = proxy_outbounds + [
+            {"protocol": "freedom", "settings": {"domainStrategy": "AsIs", "noises": [], "redirect": ""}, "tag": "direct"},
+            {"protocol": "blackhole", "settings": {"response": {"type": "http"}}, "tag": "block"}
+        ]
+        final_config["outbounds"] = final_outbounds
+        final_config["observatory"] = {
+            "subjectSelector": proxy_tags,
+            "probeURL": "https://cp.cloudflare.com/generate_204",
+            "probeInterval": "10s",
+            "enableConcurrent": True
+        }
+        target_tag_key = "balancerTag"
+        target_tag_val = "lb"
+    else:
+        final_config["outbounds"] = base_config.get("outbounds", [])
+        
+    if routing_header_b64:
+        try:
+            import json, base64
+            header_val = routing_header_b64
+            if "happ://routing/onadd/" in header_val:
+                header_val = header_val.split("happ://routing/onadd/")[-1]
+            elif "://" in header_val:
+                header_val = header_val.split("://")[-1].split("/")[-1]
+                
+            routing_data = json.loads(base64.b64decode(header_val).decode('utf-8'))
+            
+            dns = {
+                "queryStrategy": "UseIP",
+                "servers": [],
+                "tag": "dns_out"
+            }
+            if routing_data.get("DnsHosts"):
+                dns["hosts"] = routing_data["DnsHosts"]
+                
+            if routing_data.get("RemoteDns"):
+                dns["servers"].append({"address": routing_data["RemoteDns"], "skipFallback": False})
+                
+            if routing_data.get("DomesticDns"):
+                dom_dns = {"address": routing_data["DomesticDns"]}
+                dom_domains = []
+                if "domain:ru" in routing_data.get("DirectSites", []):
+                    dom_domains.append("domain:ru")
+                if "domain:xn--p1ai" in routing_data.get("DirectSites", []):
+                    dom_domains.append("domain:xn--p1ai")
+                if "geosite:category-ru" in routing_data.get("DirectSites", []):
+                    dom_domains.append("geosite:category-ru")
+                if dom_domains:
+                    dom_dns["domains"] = dom_domains
+                dns["servers"].append(dom_dns)
+                
+            final_config["dns"] = dns
+            
+            rules = []
+            
+            if routing_data.get("BlockSites"):
+                rules.append({"type": "field", "outboundTag": "block", "domain": routing_data["BlockSites"]})
+            if routing_data.get("BlockIp"):
+                rules.append({"type": "field", "outboundTag": "block", "ip": routing_data["BlockIp"]})
+                
+            if routing_data.get("ProxySites"):
+                rules.append({"type": "field", target_tag_key: target_tag_val, "domain": routing_data["ProxySites"]})
+            if routing_data.get("ProxyIp"):
+                rules.append({"type": "field", target_tag_key: target_tag_val, "ip": routing_data["ProxyIp"]})
+                
+            if routing_data.get("DirectSites"):
+                rules.append({"type": "field", "outboundTag": "direct", "domain": routing_data["DirectSites"]})
+            if routing_data.get("DirectIp"):
+                rules.append({"type": "field", "outboundTag": "direct", "ip": routing_data["DirectIp"]})
+                
+            rules.append({"network": "tcp,udp", "type": "field", target_tag_key: target_tag_val})
+            
+            final_routing = {
+                "domainStrategy": routing_data.get("DomainStrategy", "IPIfNonMatch"),
+                "rules": rules
+            }
+            if is_multi:
+                final_routing["balancers"] = [{
+                    "tag": "lb", 
+                    "selector": proxy_tags, 
+                    "strategy": {
+                        "type": "leastLoad",
+                        "settings": {"expected": 1, "maxRTT": "5s", "baselines": ["50ms", "150ms", "300ms", "500ms", "1s"], "tolerance": 0.1}
+                    }
+                }]
+            final_config["routing"] = final_routing
+
+        except Exception as e:
+            log.error("Error parsing routing header: %s", e)
+            if is_multi:
+                final_config["routing"] = {
+                    "domainStrategy": "IPIfNonMatch",
+                    "balancers": [{ "tag": "lb", "selector": proxy_tags, "strategy": {"type": "leastLoad","settings": {"expected": 1, "maxRTT": "5s", "baselines": ["50ms", "150ms", "300ms", "500ms", "1s"], "tolerance": 0.1}}}],
+                    "rules": [{"network": "tcp,udp", "balancerTag": "lb", "type": "field"}]
+                }
+            else:
+                final_config["routing"] = {
+                    "domainStrategy": "IPIfNonMatch",
+                    "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]
+                }
+    else:
+        # No routing header case
+        if is_multi:
+            final_config["routing"] = {
+                "domainStrategy": "IPIfNonMatch",
+                "balancers": [{ "tag": "lb", "selector": proxy_tags, "strategy": {"type": "leastLoad","settings": {"expected": 1, "maxRTT": "5s", "baselines": ["50ms", "150ms", "300ms", "500ms", "1s"], "tolerance": 0.1}}}],
+                "rules": [{"network": "tcp,udp", "balancerTag": "lb", "type": "field"}]
+            }
+
+    return final_config
 
 def fetch_subscription(url, user_agent=None, extra_headers=None):
     if not url.startswith(("http://", "https://")):
@@ -2762,11 +3046,16 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._list_subscriptions()
             return
-        if len(parts) != 2 or parts[0] != SECRET_SUB_PATH:
+        if len(parts) == 3 and parts[0] == SECRET_SUB_PATH and parts[1] == "json":
+            client = parts[2]
+            is_json = True
+        elif len(parts) == 2 and parts[0] == SECRET_SUB_PATH:
+            client = parts[1]
+            is_json = False
+        else:
             log.warning("404 unknown path: %s", self.path)
             self.send_error(404)
             return
-        client = parts[1]
         if client in FORCE_SUBS:
             body = FORCE_SUBS[client].encode("utf-8")
             log.info("200 %s (force) -> %d bytes", client, len(body))
@@ -2792,13 +3081,61 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(502)
             return
         quoted_client = urllib.parse.quote(client, safe='')
-        url = f"{base_url.rstrip('/')}/{quoted_client}"
         client_ua = self.headers.get("User-Agent")
         extra_headers = {}
         for h in ("Accept", "Accept-Language"):
             val = self.headers.get(h)
             if val:
                 extra_headers[h] = val
+
+        if is_json:
+            additional_json_nodes = [n for n in NODES if client in n.get("json_clients", [])]
+            all_nodes = [node] + additional_json_nodes
+            merged_json = []
+            routing_header_b64 = None
+            
+            primary_upstream_headers = None
+            for idx, n in enumerate(all_nodes):
+                n_url = f"{n['url'].rstrip('/')}/json/{quoted_client}"
+                try:
+                    b, up_headers = fetch_subscription(n_url, user_agent=client_ua, extra_headers=extra_headers)
+                    # grab routing header from primary node
+                    if idx == 0 and up_headers:
+                        primary_upstream_headers = up_headers
+                        for k, v in up_headers.items():
+                            if k.lower() == "routing":
+                                routing_header_b64 = v
+                                break
+                    import json
+                    data = json.loads(b.decode("utf-8"))
+                    if isinstance(data, list):
+                        merged_json.extend(data)
+                    else:
+                        merged_json.append(data)
+                except Exception as e:
+                    log.error("Failed to fetch JSON for %s from node %s: %s", client, n['name'], e)
+            
+            final_config = transform_configs(merged_json, routing_header_b64, client)
+            body = json.dumps(final_config, ensure_ascii=False, indent=2).encode("utf-8")
+            log.info("200 %s (transformed JSON %d nodes) <- (%d bytes)", client, len(all_nodes), len(body))
+            _record_activity(client, 200, len(body), group, node_name, "node")
+            self.send_response(200)
+            
+            if primary_upstream_headers:
+                for key, value in primary_upstream_headers.items():
+                    kl = key.lower()
+                    if kl in FORWARD_EXCLUDED_HEADERS or kl == "content-type" or kl == "content-length":
+                        continue
+                    self.send_header(key, value)
+
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        url = f"{base_url.rstrip('/')}/{quoted_client}"
+
         try:
             body, upstream_headers = fetch_subscription(url, user_agent=client_ua, extra_headers=extra_headers)
         except urllib.error.HTTPError as e:
@@ -2909,6 +3246,36 @@ class Handler(BaseHTTPRequestHandler):
                             self._send_json(500, {"ok": False, "error": f"не удалось удалить override: {exc}"})
                             return
                         FORCE_SUBS = new_force
+                elif action == "add_json_node":
+                    node_id = (data.get("node") or "").strip()
+                    target_node = next((n for n in NODES if n["id"] == node_id), None)
+                    if not target_node:
+                        self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                        return
+                    if "json_clients" not in target_node:
+                        target_node["json_clients"] = []
+                    if client not in target_node["json_clients"]:
+                        target_node["json_clients"].append(client)
+                        try:
+                            save_nodes()
+                        except Exception as e:
+                            self._send_json(500, {"ok": False, "error": str(e)})
+                            return
+                    self._send_json(200, {"ok": True})
+                elif action == "remove_json_node":
+                    node_id = (data.get("node") or "").strip()
+                    target_node = next((n for n in NODES if n["id"] == node_id), None)
+                    if not target_node:
+                        self._send_json(400, {"ok": False, "error": "нода не найдена"})
+                        return
+                    if "json_clients" in target_node and client in target_node["json_clients"]:
+                        target_node["json_clients"].remove(client)
+                        try:
+                            save_nodes()
+                        except Exception as e:
+                            self._send_json(500, {"ok": False, "error": str(e)})
+                            return
+                    self._send_json(200, {"ok": True})
                 elif action == "edit":
                     new_name = (data.get("new_name") or "").strip()
                     target_id = (data.get("node") or "").strip()
@@ -2972,7 +3339,7 @@ class Handler(BaseHTTPRequestHandler):
                     if any(node["name"].casefold() == name.casefold() for node in NODES):
                         self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
                         return
-                    NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": []})
+                    NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": [], "supports_json": bool(data.get("supports_json", True))})
                 elif action == "delete":
                     node_id = (data.get("node") or "").strip()
                     node = next((item for item in NODES if item["id"] == node_id), None)
@@ -3010,6 +3377,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     node["name"] = name
                     node["url"] = url
+                    if "supports_json" in data:
+                        node["supports_json"] = bool(data["supports_json"])
                 else:
                     self._send_json(400, {"ok": False, "error": "неизвестное действие"})
                     return
@@ -3196,6 +3565,23 @@ class Handler(BaseHTTPRequestHandler):
             '<span>QR</span></button>'
             f'</div>'
         )
+        sub_json_url = f"{base}/{SECRET_SUB_PATH}/json/{client}" if base else f"/{SECRET_SUB_PATH}/json/{client}"
+        p.append(
+            '<div class="client-link-label">'
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>'
+            '<span>Через Сервер подписок (JSON)</span></div>'
+        )
+        p.append(
+            f'<div class="client-link-row">'
+            f'<span class="client-link-text" title="{esc(sub_json_url)}">{esc(sub_json_url)}</span>'
+            f'<button type="button" class="btn-sm btn-copy" data-url="{esc(sub_json_url)}">'
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+            '<span>Копировать</span></button>'
+            f'<button type="button" class="btn-sm btn-qr" data-target="#{qr_panel_id}">'
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>'
+            '<span>QR</span></button>'
+            f'</div>'
+        )
         p.append('</div>')
 
         p.append('<div class="client-link-col">')
@@ -3205,10 +3591,27 @@ class Handler(BaseHTTPRequestHandler):
             '<span>Прямая ссылка</span></div>'
         )
         if direct_url:
+            direct_json_url = f"{node["url"]}/json/{client}"
             p.append(
                 f'<div class="client-link-row">'
                 f'<span class="client-link-text" title="{esc(direct_url)}">{esc(direct_url)}</span>'
                 f'<button type="button" class="btn-sm btn-copy" data-url="{esc(direct_url)}">'
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+                '<span>Копировать</span></button>'
+                f'<button type="button" class="btn-sm btn-qr" data-target="#{qr_panel_id}">'
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>'
+                '<span>QR</span></button>'
+                f'</div>'
+            )
+            p.append(
+                '<div class="client-link-label">'
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>'
+                '<span>Прямая ссылка (JSON)</span></div>'
+            )
+            p.append(
+                f'<div class="client-link-row">'
+                f'<span class="client-link-text" title="{esc(direct_json_url)}">{esc(direct_json_url)}</span>'
+                f'<button type="button" class="btn-sm btn-copy" data-url="{esc(direct_json_url)}">'
                 '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
                 '<span>Копировать</span></button>'
                 f'<button type="button" class="btn-sm btn-qr" data-target="#{qr_panel_id}">'
@@ -3225,12 +3628,53 @@ class Handler(BaseHTTPRequestHandler):
 
         p.append('</div>')
 
-        qr_items = [
-            f'<div class="qr-item" data-qr-val="{esc(sub_url)}"><img src="" alt="QR"><span>Через Сервер подписок</span></div>'
-        ]
+        qr_items = []
+        qr_items.append(f'<div class="qr-item" data-qr-val="{esc(sub_url)}"><img src="" alt="QR"><span>Через Сервер</span></div>')
         if direct_url:
             qr_items.append(f'<div class="qr-item" data-qr-val="{esc(direct_url)}"><img src="" alt="QR"><span>Прямая ссылка</span></div>')
+        
+        supports_json = node.get("supports_json", True)
+        if supports_json:
+            qr_items.append(f'<div class="qr-item" data-qr-val="{esc(sub_json_url)}"><img src="" alt="QR"><span>Через Сервер (JSON)</span></div>')
+            if direct_url:
+                qr_items.append(f'<div class="qr-item" data-qr-val="{esc(direct_json_url)}"><img src="" alt="QR"><span>Прямая ссылка (JSON)</span></div>')
         p.append(f'<div class="qr-panel" id="{qr_panel_id}">' + "".join(qr_items) + '</div>')
+
+        if supports_json:
+            additional_json_nodes = [n for n in NODES if client in n.get("json_clients", [])]
+            p.append('<div class="additional-nodes-section" style="margin-top: 15px; padding: 12px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 8px;">')
+            p.append('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">')
+            p.append('<div style="font-size: 13px; font-weight: 600; color: #60a5fa; display:flex; align-items:center; gap:6px;">'
+                     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>'
+                     'Дополнительные ноды (только JSON)</div>')
+            p.append('<div class="info-tooltip-container">'
+                     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+                     f'<div class="info-tooltip">В JSON-подписку клиента объединяются конфигурации основной и всех дополнительных нод. Приложение клиента каждые 30 секунд проверяет их доступность (загружая тестовый URL через каждую ноду) и автоматически перенаправляет трафик через самую быструю рабочую ноду.</div>'
+                     '</div>')
+            p.append('</div>')
+            if additional_json_nodes:
+                for an in additional_json_nodes:
+                    p.append(f'<div style="display:flex; justify-content: space-between; align-items:center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size:13px;">')
+                    p.append(f'<span>{esc(an["name"])}</span>')
+                    p.append(f'<button type="button" class="btn-sm btn-json-node-delete" data-client="{esc(client)}" data-node="{esc(an["id"])}" style="color:var(--danger-color); padding:4px; border:none; background:transparent; cursor:pointer;" title="Удалить"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path></svg></button>')
+                    p.append('</div>')
+
+            available_nodes = [n for n in NODES if n != node and client not in n.get("json_clients", [])]
+            if available_nodes:
+                opts = "".join(f'<div class="node-select-option{" selected" if n["id"] == available_nodes[0]["id"] else ""}" data-value="{esc(n["id"])}">{esc(n["name"])}</div>' for n in available_nodes)
+                first_node = available_nodes[0]
+                p.append(f'<div style="display:flex; gap: 8px; margin-top:8px; align-items:center;">')
+                p.append(f'<button type="button" class="btn btn-sm btn-json-node-add" data-client="{esc(client)}" data-select="add-json-{qr_panel_id}" style="height: 32px; padding: 0 12px; font-size:13px; font-weight:500;">Добавить</button>')
+                p.append(f'<div class="node-select" style="flex:1; min-width: 0;">'
+                         f'<input type="hidden" id="add-json-{qr_panel_id}" value="{esc(first_node["id"])}">'
+                         f'<button type="button" class="node-select-trigger" style="height: 32px; min-height: 32px; padding: 0 12px; margin: 0;"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{esc(first_node["name"])}</span>'
+                         f'<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
+                         f'<div class="node-select-options">{opts}</div>'
+                         f'</div>')
+                p.append('</div>')
+            else:
+                p.append('<div style="font-size:12px; color:var(--text-muted); margin-top:8px; text-align:center;">Нет доступных нод для добавления</div>')
+            p.append('</div>')
 
         override_raw = FORCE_SUBS.get(client)
         override_val = decode_override_value(override_raw) if override_raw else None
@@ -3349,10 +3793,15 @@ class Handler(BaseHTTPRequestHandler):
             '<div class="management-title">'
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>'
             '<span>Добавить ноду</span></div>'
-            '<form class="management-row" id="add-node-form"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="node.example/subs" required>'
+            '<form id="add-node-form">'
+            '<div class="management-row"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="node.example/subs" required>'
             '<button class="btn-sm btn-primary" type="submit">'
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>'
-            '<span>Добавить</span></button></form>'
+            '<span>Добавить</span></button></div>'
+            '<label class="custom-checkbox-wrapper" style="font-size:12px; margin-top:10px;">'
+            '<input type="checkbox" id="new-node-json" checked>'
+            '<span>Поддерживает JSON подписки (новые версии 3x-ui)</span>'
+            '</label></form>'
             '<div id="management-message" class="management-error" hidden></div></div></div>'
         )
         body = (

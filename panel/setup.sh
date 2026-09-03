@@ -596,6 +596,8 @@ update_panel_settings_api() {
         --arg subPort "$XUI_SUB_PORT" \
         --arg subPath "/${XUI_SUB_PATH}/" \
         --arg subURI "$sub_url_value" \
+        --arg subJsonPath "/${XUI_SUB_PATH}/json/" \
+        --arg subJsonURI "${sub_url_value}json/" \
         --arg subRoutingRules "$sub_routing_rules" \
         '.obj
          | .webPort = ($webPort | tonumber)
@@ -603,6 +605,9 @@ update_panel_settings_api() {
          | .subPort = ($subPort | tonumber)
          | .subPath = $subPath
          | .subURI = $subURI
+         | .subJsonEnable = true
+         | .subJsonPath = $subJsonPath
+         | .subJsonURI = $subJsonURI
          | .subUpdates = 1
          | .subEnableRouting = (if ($subRoutingRules != "") then true else (.subEnableRouting // false) end)
          | .subRoutingRules = (if ($subRoutingRules != "") then $subRoutingRules else (.subRoutingRules // "") end)

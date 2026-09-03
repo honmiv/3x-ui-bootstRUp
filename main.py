@@ -1114,16 +1114,6 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     block_on_close = False
 
 
-def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.bind((host, port))
-            return False
-        except OSError:
-            return True
-
-
 def find_pids_on_port(port: int, host: str = "127.0.0.1") -> List[int]:
     pids = set()
     current_pid = os.getpid()

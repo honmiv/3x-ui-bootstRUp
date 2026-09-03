@@ -9,6 +9,17 @@ from http.server import HTTPServer
 
 import main as backend_main
 
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((host, port))
+            return False
+        except OSError:
+            return True
+
+
+
 
 class TestServerPortManagement(unittest.TestCase):
     def test_bind_server_on_free_port(self):
@@ -42,11 +53,11 @@ class TestServerPortManagement(unittest.TestCase):
         )
 
         for _ in range(50):
-            if backend_main.is_port_in_use(8088):
+            if is_port_in_use(8088):
                 break
             time.sleep(0.1)
 
-        self.assertTrue(backend_main.is_port_in_use(8088))
+        self.assertTrue(is_port_in_use(8088))
 
         try:
             server, port = backend_main.bind_server(start_port=8088)

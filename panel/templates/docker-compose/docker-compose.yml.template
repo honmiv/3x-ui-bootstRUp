@@ -8,6 +8,7 @@ services:
     environment:
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"
+      XRAY_LOCATION_ASSET: "/app/bin"
     networks:
       - 3xui-caddy-net
 

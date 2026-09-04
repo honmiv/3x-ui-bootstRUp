@@ -2085,6 +2085,9 @@ document.addEventListener('click', function (e) {
             if (label) label.textContent = option.textContent;
             select.querySelectorAll('.node-select-option').forEach(item => item.classList.toggle('selected', item === option));
             select.classList.remove('open');
+            if (select.id === 'node-select' && typeof renderAddClientJsonNodes === 'function') {
+                renderAddClientJsonNodes();
+            }
         }
         return;
     }
@@ -2092,10 +2095,35 @@ document.addEventListener('click', function (e) {
         if (!select.contains(e.target)) select.classList.remove('open');
     });
 });
+function renderAddClientJsonNodes() {
+    const container = document.getElementById('add-client-json-nodes');
+    if (!container) return;
+    const selectedNodeId = document.getElementById('client-node')?.value;
+    const availableNodes = (NODES_DATA || []).filter(n => n.id !== selectedNodeId && n.supports_json !== false);
+    if (availableNodes.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    let html = '<div style="font-size:12px; color:var(--text-secondary); width:100%; margin-bottom:0px;">Дополнительные ноды для JSON подписки:</div>';
+    availableNodes.forEach(n => {
+        html += '<label class="custom-checkbox-wrapper" style="font-size:12px; margin-top:0;">'
+             + '<input type="checkbox" class="add-client-json-checkbox" value="' + escAttr(n.id) + '">'
+             + '<span>' + escAttr(n.name) + '</span>'
+             + '</label>';
+    });
+    container.innerHTML = html;
+}
+document.addEventListener("DOMContentLoaded", renderAddClientJsonNodes);
+
 document.getElementById('add-client-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
-    submitManagement('__API_CLIENT__', { action: 'add', node: document.getElementById('client-node').value, client: document.getElementById('new-client').value.trim() })
-        .then(() => location.reload()).catch(showManagementError);
+    const extraNodes = Array.from(document.querySelectorAll('.add-client-json-checkbox:checked')).map(cb => cb.value);
+    submitManagement('__API_CLIENT__', { 
+        action: 'add', 
+        node: document.getElementById('client-node').value, 
+        client: document.getElementById('new-client').value.trim(),
+        additional_json_nodes: extraNodes
+    }).then(() => location.reload()).catch(showManagementError);
 });
 document.getElementById('add-node-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -3229,6 +3257,14 @@ class Handler(BaseHTTPRequestHandler):
                         self._send_json(400, {"ok": False, "error": "клиент с таким именем уже существует"})
                         return
                     node.get("clients", []).append(client)
+                    if "additional_json_nodes" in data:
+                        for n_id in data["additional_json_nodes"]:
+                            target = next((n for n in NODES if n["id"] == n_id), None)
+                            if target:
+                                if "json_clients" not in target:
+                                    target["json_clients"] = []
+                                if client not in target["json_clients"]:
+                                    target["json_clients"].append(client)
                 elif action == "delete":
                     node = find_client_node(client)
                     if not node and client not in FORCE_SUBS:
@@ -3788,7 +3824,9 @@ class Handler(BaseHTTPRequestHandler):
             f'<form class="management-row" id="add-client-form">{node_picker}<input id="new-client" placeholder="Имя нового клиента" required>'
             '<button class="btn-sm btn-primary" type="submit">'
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>'
-            '<span>Добавить</span></button></form></div>'
+            '<span>Добавить</span></button></form>'
+            '<div id="add-client-json-nodes" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:10px;"></div>'
+            '</div>'
             '<div class="management-panel node-management">'
             '<div class="management-title">'
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>'
@@ -3800,7 +3838,7 @@ class Handler(BaseHTTPRequestHandler):
             '<span>Добавить</span></button></div>'
             '<label class="custom-checkbox-wrapper" style="font-size:12px; margin-top:10px;">'
             '<input type="checkbox" id="new-node-json" checked>'
-            '<span>Поддерживает JSON подписки (новые версии 3x-ui)</span>'
+            '<span>Поддерживает JSON подписки</span>'
             '</label></form>'
             '<div id="management-message" class="management-error" hidden></div></div></div>'
         )

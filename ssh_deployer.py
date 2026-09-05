@@ -1902,8 +1902,8 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         resolved_proxy, resolved_freedom, extra_sub_env = resolve_sub_server_urls(
             proxy_node_sub_base, freedom_node_sub_base,
         )
-        ru_domain = proxy_domain or proxy_host or extract_domain_from_url(resolved_proxy)
-        fr_domain = target_domain or freedom_host or extract_domain_from_url(resolved_freedom)
+        ru_domain = config.get("proxy_domain") or config.get("proxy_host") or extract_domain_from_url(resolved_proxy)
+        fr_domain = config.get("freedom_domain") or config.get("freedom_host") or extract_domain_from_url(resolved_freedom)
 
         sub_env = {
             "DOMAIN": sub_domain,

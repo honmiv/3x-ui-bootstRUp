@@ -75,11 +75,19 @@ async def run_test() -> bool:
 
             # Perform Drag and Drop: move gamma (index 2) to top (before alpha, index 0)
             log("Dragging 'gamma.example.com' to the top (position 0)...", "info")
-            card_gamma = cards.nth(2)
-            card_alpha = cards.nth(0)
 
-            # Trigger drag and drop
-            await card_gamma.drag_to(card_alpha, target_position={"x": 50, "y": 5})
+            # App uses native HTML5 drag events; dispatch them manually
+            # (Playwright's drag_to only fires mouse events, which DnD ignores)
+            await page.evaluate("""() => {
+                const cards = document.querySelectorAll('.server-card');
+                const source = cards[2], target = cards[0];
+                const dt = new DataTransfer();
+                const top = target.getBoundingClientRect().top + 5;
+                source.dispatchEvent(new DragEvent('dragstart', {bubbles: true, dataTransfer: dt}));
+                target.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, clientY: top, dataTransfer: dt}));
+                target.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, clientY: top, dataTransfer: dt}));
+                source.dispatchEvent(new DragEvent('dragend', {bubbles: true, dataTransfer: dt}));
+            }""")
             await page.wait_for_timeout(400)
 
             reordered_hosts = [h.strip() for h in await page.locator(".server-card-host").all_text_contents()]

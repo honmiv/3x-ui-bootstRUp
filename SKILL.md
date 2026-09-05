@@ -1,1 +1,1 @@
-check ./AGENTS.md
+AGENTS.md

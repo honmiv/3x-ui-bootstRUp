@@ -55,3 +55,8 @@ if [[ -f "$compose_file" ]] && grep -qE 'context:[[:space:]]+\./templates' "$com
 fi
 
 docker compose -f "$compose_file" --project-directory . up -d 3xui
+
+if [[ -f "./working/geodata/geoip-hydraponique.dat" ]]; then
+  docker cp "./working/geodata/geoip-hydraponique.dat" 3xui:/app/bin/geoip-hydraponique.dat 2>/dev/null || true
+  docker cp "./working/geodata/geosite-hydraponique.dat" 3xui:/app/bin/geosite-hydraponique.dat 2>/dev/null || true
+fi

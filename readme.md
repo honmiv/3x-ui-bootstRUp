@@ -2,6 +2,26 @@
 
 [![Telegram Channel](https://img.shields.io/badge/Telegram-вопросы%20%2F%20репорты-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/drei_x_ui_bootstrup)
 
+## 🚀 Быстрый запуск 3x-ui Deployment Manager'а
+
+### ⚠️ Запускать нужно на вашем личном компьютере
+
+### 🐧 🍎 Linux / macOS (Bash / Zsh)
+```bash
+curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz | tar -xz && cd 3x-ui-bootstRUp-master && ./start_3x_ui_deployment_manager.sh
+```
+
+### 💻 Windows CMD (cmd.exe)
+```cmd
+curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -o 3x-ui.zip && powershell -Command "Expand-Archive -Path '3x-ui.zip' -DestinationPath '.' -Force" && cd 3x-ui-bootstRUp-master && start_3x_ui_deployment_manager.bat
+```
+
+### ⚡ Windows PowerShell
+```powershell
+iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; .\start_3x_ui_deployment_manager.ps1
+```
+
+
 ## ✨ Возможности
 
 - **Удалённый деплой 3x-ui** — развёртывание панели на VPS с подключением по SSH (пароль или SSH-ключ)
@@ -46,21 +66,94 @@
 ![subs-server](preview-subscriptions-server.png)
 ---
 
-## 🚀 Быстрый запуск 3x-ui Deployment Manager'а
+## 🧭 Маршрутизация трафика
 
-### ⚠️ Запускать нужно на вашем личном компьютере
+Проект реализует двухуровневую систему маршрутизации (на клиенте и на серверах), обеспечивая прозрачный обход блокировок, максимальную скорость доступа к отечественным сервисам и защиту от выявления VPN.
 
-### 🐧 🍎 Linux / macOS (Bash / Zsh)
-```bash
-curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.tar.gz | tar -xz && cd 3x-ui-bootstRUp-master && ./start_3x_ui_deployment_manager.sh
+### 1. Клиентская маршрутизация
+
+Клиентские правила построены на базе профиля *hydraponique/roscomvpn-routing* и автоматически передаются в клиентские приложения вместе с подпиской:
+- **Happ-подписки**: правила передаются в заголовке `Routing: happ://routing/onadd/...` и автоматически применяются клиентом при добавлении подписки.
+- **JSON-подписки (Sing-box / Xray)**: сервер подписок (или панель 3x-ui) преобразует правила в нативную структуру JSON (`dns`, `route.rules` / `routing.rules`, `outbounds`, `balancers`).
+
+#### Принцип работы клиентских правил:
+- **Раздельный DNS (DoH)**:
+  - Российские домены (`.ru`, `.рф`) резолвятся через Яндекс DNS (`77.88.8.8`) по HTTPS.
+  - Остальные домены резолвятся через Google DNS (`8.8.8.8`) по HTTPS.
+  - Статические сопоставления (`DnsHosts`) для критичных ресурсов (например, `nalog.ru`).
+- **Прямое соединение (Direct — в обход VPN)**:
+  - Российские доменные зоны (`domain:ru`, `domain:xn--p1ai`) и базы `geosite:category-ru`, `geosite:whitelist`.
+  - Популярные сервисы и игры без ограничений: `microsoft`, `apple`, `steam`, `epicgames`, `riot`, `escapefromtarkov`, `twitch`, `pinterest`, `faceit`.
+  - Локальные сети (`geoip:private`).
+  - Сервисы определения IP и чекеры (`2ip.ru`, `whoer.net`, `yandex`, `speedtest`, `ipinfo.io` и др.) направляются напрямую, чтобы приложения с защитой от VPN (банковские клиенты, MAX и др.) видели реальный российский IP и не блокировали доступ.
+- **Блокировка (Block)**:
+  - Телеметрия и сбор данных Windows (`win-spy`).
+  - Торрент-трекеры (`torrent`).
+  - Рекламные сети (`category-ads`).
+- **Проксирование (Proxy)**:
+  - Заблокированные и зарубежные ресурсы (`youtube`, `telegram`, `github`, `google-play` и весь остальной трафик по умолчанию через `GlobalProxy: true`).
+- **Балансировка нагрузки (Load Balancing)**:
+  - При объединении двух нод в единую JSON-подписку на сервере подписок правила автоматически направляют проксируемый трафик на балансировщик между серверами.
+- **Кастомизация правил**:
+  - Файл конфигурации: [panel/templates/3x-ui/happ-routing.json](file:///home/honmiv/dev/3x-ui-bootstRUp/panel/templates/3x-ui/happ-routing.json).
+  - В веб-интерфейсе менеджера (Шаг 3) встроен интерактивный редактор с проверкой валидности JSON.
+
+---
+
+### 2. Маршрутизация на Proxy и Freedom нодах
+
+Маршрутизация на узлах сети работает на уровне Xray-ядра 3x-ui с интеграцией кастомных геобаз Hydraponique (`geoip-hydraponique.dat` и `geosite-hydraponique.dat`), которые автоматически обновляются ежедневно по cron в 04:00.
+
+```
+[Клиент]
+   │
+   │ VLESS Reality (Port 443)
+   ▼
+┌──────────────────────────────────────────────────────────┐
+│ PROXY NODE (РФ VPS)                                      │
+│                                                          │
+│  ├─► RU трафик / Whitelist / Игры ──► DIRECT (Интернет)  │
+│  │   (geoip:ru, category-ru, steam, apple, ...)          │
+│  │                                                       │
+│  ├─► BitTorrent / Шпионское ПО / Ads ─► BLOCKED          │
+│  │                                                       │
+│  └─► Зарубежный / Заблокированный трафик                 │
+│      (inbound-tcp, inbound-xhttp)                        │
+│             │                                            │
+└─────────────┼────────────────────────────────────────────┘
+              │ VLESS туннель (outbound-subs)
+              ▼
+┌──────────────────────────────────────────────────────────┐
+│ FREEDOM NODE (Зарубежный VPS)                            │
+│                                                          │
+│  ├─► RU трафик (geoip:ru, category-ru) ──► BLOCKED      │
+│  ├─► BitTorrent / Torrent / Ads / Spy  ──► BLOCKED      │
+│  ├─► Приватные сети (geoip:private)    ──► BLOCKED      │
+│  │                                                       │
+│  └─► Весь остальной трафик ─────────────► DIRECT         │
+│                                           (Свободный Инет)│
+└──────────────────────────────────────────────────────────┘
 ```
 
-### 💻 Windows CMD (cmd.exe)
-```cmd
-curl -fsSL https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -o 3x-ui.zip && powershell -Command "Expand-Archive -Path '3x-ui.zip' -DestinationPath '.' -Force" && cd 3x-ui-bootstRUp-master && start_3x_ui_deployment_manager.bat
-```
+#### Freedom нода (зарубежный сервер):
+- **Назначение**: безопасный выход в свободный интернет без цензуры.
+- **Блокировка трафика в РФ (`blocked`)**:
+  - Правила принудительно блокируют `geoip:ru` и `geosite:category-ru`.
+  - *Причина*: российские государственные сервисы и банки часто блокируют доступ с иностранных IP. Блокировка RU-трафика на выходном сервере исключает проблемы с доступом к отечественным ресурсам, защищает сервер от лишней нагрузки и снижает риск детекта.
+- **Защита сервера**:
+  - Блокировка протокола `bittorrent` и трекеров (защита от жалоб правообладателей и абуз хостинг-провайдера).
+  - Блокировка приватных диапазонов (`geoip:private`), рекламы (`category-ads`) и телеметрии (`win-spy`).
+- **Выход в сеть (`direct`)**: весь разрешённый зарубежный трафик отправляется напрямую в интернет.
 
-### ⚡ Windows PowerShell
-```powershell
-iwr -useb https://github.com/honmiv/3x-ui-bootstRUp/archive/refs/heads/master.zip -OutFile 3x-ui.zip; Expand-Archive 3x-ui.zip -DestinationPath . -Force; cd 3x-ui-bootstRUp-master; .\start_3x_ui_deployment_manager.ps1
-```
+#### Proxy нода (российский сервер в каскаде):
+- **Назначение**: точка входа для пользователя, фильтрация и ускорение локального трафика, туннелирование зарубежных запросов.
+- **Прямой выход (`direct`)**:
+  - Российские IP-адреса (`geoip:ru`, `ext:geoip-hydraponique.dat:direct`).
+  - Российские домены и доверенные сервисы (`geosite:category-ru`, `whitelist`).
+  - Сервисы без блокировок: `microsoft`, `apple`, `steam`, `epicgames`, `riot`, `escapefromtarkov`, `twitch`, `pinterest`, `faceit`.
+  - Трафик к этим сервисам идёт напрямую с российского IP на скорости провайдера с минимальным пингом.
+- **Блокировка (`blocked`)**: `bittorrent`, `geoip:private`, `win-spy`, `torrent`, `category-ads`, сервисы проверки IP.
+- **Каскадное туннелирование**:
+  - Весь остальной трафик с клиентских Reality-портов (`in-...-tcp` и `in-...-xhttp`) направляется через `outboundTag` на зарубежную Freedom ноду.
+  - Подключение к Freedom ноде настраивается автоматически через встроенный механизм `outbound-subs` панели 3x-ui и обновляется каждые 10 минут.
+- **Маскировка**: для провайдера соединение выглядит как защищённый TLS-трафик до сайта-заглушки (Nginx Decoy) на российском сервере.

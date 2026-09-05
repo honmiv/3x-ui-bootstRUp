@@ -85,6 +85,38 @@ GROUP_LABELS = {
     "force": "Кастом (force-subs.yml)",
 }
 
+NODE_TYPE_LABELS = {
+    "proxy": "Proxy",
+    "freedom": "Freedom",
+    "custom": "Кастом",
+}
+
+
+def extract_domain_from_url(url):
+    if not url:
+        return ""
+    u = re.sub(r"^[a-zA-Z]+://", "", url.strip())
+    return u.split("/")[0].split(":")[0].strip()
+
+
+def get_node_type(node):
+    if not node or not isinstance(node, dict):
+        return "proxy"
+    t = str(node.get("type") or "").strip().lower()
+    if t in NODE_TYPE_LABELS:
+        return t
+    nid = str(node.get("id") or "").lower()
+    nname = str(node.get("name") or "").lower()
+    if "proxy" in nid or "proxy" in nname or "рф" in nname:
+        return "proxy"
+    if "freedom" in nid or "freedom" in nname or "зарубеж" in nname:
+        return "freedom"
+    return "proxy"
+
+
+def get_node_type_label(node):
+    return NODE_TYPE_LABELS.get(get_node_type(node), "Proxy")
+
 NODES = []
 FORCE_SUBS = {}
 DATA_LOCK = threading.Lock()
@@ -209,18 +241,89 @@ body {
     flex-wrap: wrap;
     gap: 16px;
 }
-.logo-area { display: flex; align-items: center; gap: 14px; }
+.logo-area { display: flex; align-items: center; gap: 16px; }
 .logo-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 64px;
+    height: 64px;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
+    border-radius: 16px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     flex-shrink: 0;
+}
+.mailbox-svg {
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+.mb-post-sway {
+    transform-box: view-box;
+    transform-origin: 28.5px 61px;
+    animation: mb-post-sway-anim 4.2s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+}
+@keyframes mb-post-sway-anim {
+    0%, 25% { transform: rotate(0deg); }
+    28% { transform: rotate(-3.2deg); }
+    32% { transform: rotate(2.1deg); }
+    36% { transform: rotate(-1.2deg); }
+    40% { transform: rotate(0.6deg); }
+    44% { transform: rotate(-0.2deg); }
+    48%, 100% { transform: rotate(0deg); }
+}
+.mb-newspaper {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-newspaper-flight 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes mb-newspaper-flight {
+    0%, 12% { transform: translate(28px, -24px) rotate(-35deg) scale(0.7); opacity: 0; }
+    15% { opacity: 1; }
+    25% { transform: translate(4px, -3px) rotate(-8deg) scale(0.95); opacity: 1; }
+    28% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    30%, 75% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    82% { transform: translate(-5px, 2px) scale(0.85); opacity: 0; }
+    83%, 100% { opacity: 0; }
+}
+.mb-flag-arm {
+    transform-box: view-box;
+    transform-origin: 20px 29px;
+    animation: mb-flag-catch 4.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+@keyframes mb-flag-catch {
+    0%, 26% { transform: rotate(0deg); }
+    33% { transform: rotate(-98deg); }
+    37%, 74% { transform: rotate(-90deg); }
+    84%, 100% { transform: rotate(0deg); }
+}
+.mb-door {
+    transform-box: view-box;
+    transform-origin: 43px 35px;
+    animation: mb-door-catch 4.2s ease-in-out infinite;
+}
+@keyframes mb-door-catch {
+    0%, 25% { transform: rotate(0deg); }
+    27% { transform: rotate(10deg); }
+    32% { transform: rotate(2deg); }
+    36%, 75% { transform: rotate(5deg); }
+    85%, 100% { transform: rotate(0deg); }
+}
+.mb-speed-trail {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-trail-anim 4.2s ease-out infinite;
+}
+@keyframes mb-trail-anim {
+    0%, 14% { opacity: 0; transform: translate(12px, -12px); }
+    18%, 24% { opacity: 0.8; transform: translate(0, 0); }
+    27%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mb-post-sway, .mb-newspaper, .mb-flag-arm, .mb-door, .mb-speed-trail {
+        animation: none !important;
+    }
 }
 .app-header h1 {
     font-size: 1.45rem;
@@ -389,24 +492,63 @@ body {
 }
 .client-name-badge svg { flex-shrink: 0; }
 .group-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.75rem;
     color: var(--text-secondary);
     padding: 4px 10px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+.node-type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+.node-type-badge.proxy {
+    background: rgba(2, 132, 199, 0.15);
+    border: 1px solid rgba(2, 132, 199, 0.45);
+    color: #38bdf8;
+}
+.node-type-badge.freedom {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+.node-type-badge.custom {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    color: #a5b4fc;
+}
+.node-type-badge.force {
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.45);
+    color: #c4b5fd;
 }
 .force-tag {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #fbbf24;
     border: 1px solid rgba(251, 191, 36, 0.4);
     background: rgba(251, 191, 36, 0.1);
-    padding: 2px 8px;
+    padding: 4px 10px;
     border-radius: 6px;
+    line-height: 1.2;
+    box-sizing: border-box;
 }
 .client-link-group { display: flex; flex-direction: column; }
 .client-link-label {
@@ -515,7 +657,7 @@ body {
 .management-title svg { color: var(--primary-color); flex-shrink: 0; }
 .management-row {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: 8px;
     margin-top: 8px;
     position: relative;
@@ -642,13 +784,41 @@ select option {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     height: 38px;
     box-sizing: border-box;
     padding: 0 16px;
-    border: 1px solid var(--primary-color);
+    border: 1px solid rgba(59, 130, 246, 0.35);
     border-radius: 8px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #bfdbfe;
     font-size: 0.82rem;
-    font-weight: 600;
+    font-weight: 500;
+    line-height: 1;
+    flex-shrink: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+.management-row .btn-sm.btn-primary,
+.management-row .btn-primary {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+    box-shadow: none;
+}
+.management-row .btn-sm.btn-primary:hover,
+.management-row .btn-primary:hover,
+.management-row .btn-sm:hover {
+    background: rgba(59, 130, 246, 0.28);
+    border-color: rgba(59, 130, 246, 0.55);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+.management-row .btn-sm svg {
+    width: 14px;
+    height: 14px;
+    display: block;
     flex-shrink: 0;
 }
 .btn-client-delete, .btn-node-delete {
@@ -721,6 +891,8 @@ select option {
     border-color: rgba(59, 130, 246, .72);
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
+.edit-modal-field .node-select { width: 100%; }
+.edit-modal-field:has(.node-select.open) { position: relative; z-index: 50; }
 .edit-modal-hint { font-size: .74rem; color: var(--text-secondary); margin-top: -6px; margin-bottom: 14px; }
 .edit-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 .btn-sm.btn-save { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
@@ -1211,14 +1383,97 @@ select option {
             <div class="app-header">
                 <div class="logo-area">
                     <span class="logo-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-color); display:block;">
-                            <circle cx="12" cy="12" r="2"/>
-                            <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                        <svg class="mailbox-svg mb-post-sway" width="52" height="52" viewBox="0 0 64 64" role="img" aria-label="Почтовый ящик">
+                            <defs>
+                                <linearGradient id="mbWhiteBody" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#ffffff"/>
+                                    <stop offset="30%" stop-color="#f8fafc"/>
+                                    <stop offset="70%" stop-color="#e2e8f0"/>
+                                    <stop offset="100%" stop-color="#cbd5e1"/>
+                                </linearGradient>
+                                <linearGradient id="mbWhiteDoor" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#ffffff"/>
+                                    <stop offset="45%" stop-color="#f1f5f9"/>
+                                    <stop offset="100%" stop-color="#cbd5e1"/>
+                                </linearGradient>
+                                <linearGradient id="mbInterior" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stop-color="#0f172a"/>
+                                    <stop offset="100%" stop-color="#1e293b"/>
+                                </linearGradient>
+                                <linearGradient id="mbPost" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stop-color="#92400e"/>
+                                    <stop offset="40%" stop-color="#b45309"/>
+                                    <stop offset="80%" stop-color="#78350f"/>
+                                    <stop offset="100%" stop-color="#451a03"/>
+                                </linearGradient>
+                                <linearGradient id="mbFlag" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stop-color="#f87171"/>
+                                    <stop offset="35%" stop-color="#ef4444"/>
+                                    <stop offset="100%" stop-color="#b91c1c"/>
+                                </linearGradient>
+                                <linearGradient id="mbNewsPaper" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#ffffff"/>
+                                    <stop offset="35%" stop-color="#f1f5f9"/>
+                                    <stop offset="70%" stop-color="#e2e8f0"/>
+                                    <stop offset="100%" stop-color="#94a3b8"/>
+                                </linearGradient>
+                                <linearGradient id="mbNewsFold" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stop-color="#e2e8f0"/>
+                                    <stop offset="50%" stop-color="#ffffff"/>
+                                    <stop offset="100%" stop-color="#cbd5e1"/>
+                                </linearGradient>
+                                <linearGradient id="mbRubberBand" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#f87171"/>
+                                    <stop offset="50%" stop-color="#dc2626"/>
+                                    <stop offset="100%" stop-color="#991b1b"/>
+                                </linearGradient>
+                            </defs>
+                            <g class="mb-speed-trail">
+                                <path d="M 58 6 L 47 16" stroke="#93c5fd" stroke-width="0.75" stroke-linecap="round" opacity="0.6"/>
+                                <path d="M 62 12 L 53 21" stroke="#60a5fa" stroke-width="0.85" stroke-linecap="round" opacity="0.8"/>
+                                <path d="M 55 3 L 49 9" stroke="#bfdbfe" stroke-width="0.6" stroke-linecap="round" opacity="0.5"/>
+                            </g>
+                            <g class="mb-post">
+                                <rect x="25" y="34" width="7" height="27" rx="1.5" fill="url(#mbPost)"/>
+                                <path d="M16 35 L40 35 C41 35 41.5 36 41.5 37 C41.5 38 41 39 40 39 L16 39 C15 39 14.5 38 14.5 37 C14.5 36 15 35 16 35 Z" fill="url(#mbPost)"/>
+                                <path d="M25 46 L18 39 L20 39 L25 44 Z" fill="#78350f"/>
+                                <path d="M32 46 L38 39 L36 39 L32 44 Z" fill="#451a03"/>
+                            </g>
+                            <g class="mb-body">
+                                <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 Z" fill="url(#mbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                                <path d="M 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 C 40.5 35, 38 33, 38 29.5 L 38 19 C 38 14.5, 40.5 11, 43 11 Z" fill="url(#mbInterior)"/>
+                                <g class="mb-newspaper">
+                                    <g transform="translate(36, 17)">
+                                        <path d="M -4 4 L 14 0 C 15.5 0, 16.5 2, 16.5 4.5 C 16.5 7, 15.5 8.8, 14 8.8 L -4 12.8 Z" fill="url(#mbNewsPaper)" stroke="#64748b" stroke-width="0.6"/>
+                                        <line x1="2" y1="3.2" x2="11" y2="1.8" stroke="#334155" stroke-width="0.9" stroke-linecap="round"/>
+                                        <line x1="2" y1="5.4" x2="12" y2="3.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                        <line x1="2" y1="7.2" x2="10" y2="5.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                        <path d="M 6.5 1.5 L 8.5 1.2 C 9 1.2, 9.3 2.5, 9.3 4.8 C 9.3 7, 9 8.2, 8.5 8.2 L 6.5 8.5 C 6 8.5, 5.7 7.2, 5.7 4.8 C 5.7 2.5, 6 1.5, 6.5 1.5 Z" fill="url(#mbRubberBand)" stroke="#7f1d1d" stroke-width="0.4"/>
+                                        <ellipse cx="14" cy="4.5" rx="2.2" ry="4.4" fill="url(#mbNewsFold)" stroke="#64748b" stroke-width="0.6"/>
+                                        <path d="M 14.5 2.5 C 15.2 3.2, 15.2 5.5, 14 6 C 13.2 6.3, 12.8 5.2, 13.3 4.2 C 13.7 3.5, 14.2 3.7, 14.2 4.2" fill="none" stroke="#475569" stroke-width="0.5" stroke-linecap="round"/>
+                                    </g>
+                                </g>
+                                <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 40.5 11, 38 14.5, 38 19 L 38 29.5 C 38 33, 40.5 35, 43 35 L 15 35 Z" fill="url(#mbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                                <path d="M 18 19 C 18 13.5, 23 12, 30 12 L 43 12" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.9"/>
+                                <g class="mb-door">
+                                    <path d="M 43 35 C 47.5 35, 51.5 34.5, 53 37 L 54 44 C 54 46, 51 47, 47 47 C 43 47, 41 45, 41 43 L 41 35.5 Z" fill="url(#mbWhiteDoor)" stroke="#94a3b8" stroke-width="0.75"/>
+                                    <rect x="49" y="44" width="3.5" height="1.5" rx="0.75" fill="#475569"/>
+                                    <circle cx="42" cy="35.5" r="1" fill="#64748b"/>
+                                </g>
+                            </g>
+                            <g class="mb-flag-arm">
+                                <path d="M 20 28 L 35 28 L 35 30 L 20 30 Z" fill="url(#mbFlag)"/>
+                                <path d="M 32 25 L 38 25 C 38.8 25, 39 25.4, 39 26 L 39 32 C 39 32.6, 38.8 33, 38 33 L 32 33 Z" fill="url(#mbFlag)"/>
+                                <line x1="33" y1="26.5" x2="37" y2="26.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.6" stroke-linecap="round"/>
+                                <circle cx="20" cy="29" r="2.2" fill="#64748b"/>
+                                <circle cx="20" cy="29" r="1.2" fill="#e2e8f0"/>
+                                <circle cx="20" cy="29" r="0.4" fill="#334155"/>
+                            </g>
                         </svg>
                     </span>
                     <div>
                         <h1>Сервер подписок</h1>
-                        <div class="subtitle">Карточки клиентов · <a href="__RAW_URL__">текстовый список</a></div>
+                        <div class="subtitle">Клиенты · <a href="__RAW_URL__">текстовый список</a></div>
                     </div>
                 </div>
                 <div class="header-actions">
@@ -1251,7 +1506,7 @@ __MANAGEMENT__
     <div class="section-header" role="button" tabindex="0" data-section="management-nodes">
         <span class="chevron closed"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span class="section-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-        <span>Подписочные ссылки нод</span>
+        <span>Ноды</span>
         <span class="line"></span>
     </div>
     <div class="cards-grid collapsed" data-section="management-nodes">
@@ -1965,22 +2220,39 @@ document.addEventListener('click', function (e) {
     if (editNode) {
         const node = (NODES_DATA || []).find(n => n.id === editNode.dataset.node);
         if (!node) return;
+        const curType = (node.type === 'freedom' || (!node.type && (node.id === 'freedom' || (node.name && node.name.toLowerCase().includes('freedom'))))) ? 'freedom' : 'proxy';
+        const typeLabel = curType === 'freedom' ? 'Freedom' : 'Proxy';
+        const typePicker = '<div class="node-select" id="edit-node-type-select" style="width:100%;">'
+            + '<input type="hidden" id="edit-node-type" value="' + curType + '">'
+            + '<button type="button" class="node-select-trigger"><span>' + typeLabel + '</span>'
+            + '<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
+            + '<div class="node-select-options">'
+            + '<div class="node-select-option' + (curType === 'proxy' ? ' selected' : '') + '" data-value="proxy">Proxy</div>'
+            + '<div class="node-select-option' + (curType === 'freedom' ? ' selected' : '') + '" data-value="freedom">Freedom</div>'
+            + '</div></div>';
         const body = ''
-            + '<div class="edit-modal-field"><label>Имя ноды</label><input id="edit-node-name" value="' + escAttr(node.name) + '"></div>'
-            + '<div class="edit-modal-field"><label>URL подписки</label><input id="edit-node-url" value="' + escAttr(node.url || '') + '"></div>'
+            + '<div class="edit-modal-field"><label>Тип ноды</label>' + typePicker + '</div>'
+            + '<div class="edit-modal-field"><label>Домен (имя ноды)</label><input id="edit-node-name" value="' + escAttr(node.name) + '" placeholder="node.example.com"></div>'
+            + '<div class="edit-modal-field"><label>URL подписки</label><input id="edit-node-url" value="' + escAttr(node.url || '') + '" placeholder="https://node.example.com/subs"></div>'
             + '<div class="edit-modal-hint">Схему (http:// или https://) можно не указывать — https:// добавится автоматически.</div>'
             + '<label class="custom-checkbox-wrapper" style="margin-top:16px;">'
             + '<input type="checkbox" id="edit-node-json" ' + (node.supports_json !== false ? 'checked' : '') + '>'
             + '<span>Поддерживает JSON подписки</span>'
             + '</label>';
         openEditModal('Редактировать ноду · ' + node.name, body, {
-            save: () => submitManagement('__API_NODE__', {
-                action: 'edit',
-                node: node.id,
-                name: document.getElementById('edit-node-name').value.trim(),
-                url: document.getElementById('edit-node-url').value.trim(),
-                supports_json: document.getElementById('edit-node-json').checked
-            })
+            save: () => {
+                let domain = document.getElementById('edit-node-name').value.trim();
+                domain = domain.replace(/^[a-zA-Z]+:\\/\\//, '').split('/')[0].split(':')[0];
+                return submitManagement('__API_NODE__', {
+                    action: 'edit',
+                    node: node.id,
+                    type: document.getElementById('edit-node-type').value,
+                    name: domain,
+                    domain: domain,
+                    url: document.getElementById('edit-node-url').value.trim(),
+                    supports_json: document.getElementById('edit-node-json').checked
+                });
+            }
         });
         return;
     }
@@ -1988,11 +2260,16 @@ document.addEventListener('click', function (e) {
     if (editClient) {
         const client = editClient.dataset.client;
         const curNode = (NODES_DATA || []).find(n => (n.clients || []).includes(client));
-        const opts = (NODES_DATA || []).map(n =>
-            '<div class="node-select-option' + (curNode && n.id === curNode.id ? ' selected' : '') + '" data-value="' + escAttr(n.id) + '">' + escAttr(n.name) + '</div>'
-        ).join('');
+        const opts = (NODES_DATA || []).map(n => {
+            const t = (n.type === 'freedom' || (!n.type && (n.id === 'freedom' || (n.name && n.name.toLowerCase().includes('freedom'))))) ? 'freedom' : 'proxy';
+            const tLabel = t === 'freedom' ? 'Freedom' : 'Proxy';
+            const disp = '[' + tLabel + '] ' + n.name;
+            return '<div class="node-select-option' + (curNode && n.id === curNode.id ? ' selected' : '') + '" data-value="' + escAttr(n.id) + '">' + escAttr(disp) + '</div>';
+        }).join('');
         const forceOpt = curNode ? '' : '<div class="node-select-option selected" data-value="">Кастом (force-subs)</div>';
-        const curName = curNode ? curNode.name : 'Кастом (force-subs)';
+        const curType = curNode ? ((curNode.type === 'freedom' || (!curNode.type && (curNode.id === 'freedom' || (curNode.name && curNode.name.toLowerCase().includes('freedom'))))) ? 'freedom' : 'proxy') : '';
+        const curTypeLabel = curType === 'freedom' ? 'Freedom' : 'Proxy';
+        const curName = curNode ? ('[' + curTypeLabel + '] ' + curNode.name) : 'Кастом (force-subs)';
         const curVal = curNode ? curNode.id : '';
         const nodePicker = '<div class="node-select" id="edit-node-select">'
             + '<input type="hidden" id="edit-client-node" value="' + escAttr(curVal) + '">'
@@ -2127,10 +2404,28 @@ document.getElementById('add-client-form')?.addEventListener('submit', function 
 });
 document.getElementById('add-node-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
+    const nodeType = document.getElementById('new-node-type')?.value || 'proxy';
+    let raw = (document.getElementById('new-node-url')?.value || '').trim();
+    if (!raw) return;
+
+    let url = raw.replace(/\\/+$/, '');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+    let domain = '';
+    try {
+        domain = new URL(url).hostname;
+    } catch (err) {
+        domain = url.replace(/^[a-zA-Z]+:\\/\\//, '').split('/')[0].split(':')[0];
+    }
+    if (!domain) domain = 'node';
+
     submitManagement('__API_NODE__', { 
         action: 'add', 
-        name: document.getElementById('new-node-name').value.trim(), 
-        url: document.getElementById('new-node-url').value.trim(),
+        type: nodeType,
+        domain: domain,
+        name: domain, 
+        url: url,
         supports_json: document.getElementById('new-node-json').checked
     }).then(() => location.reload()).catch(showManagementError);
 });
@@ -2248,14 +2543,87 @@ body {
     gap: 12px;
 }
 .brand-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+}
+.mailbox-svg {
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+.mb-post-sway {
+    transform-box: view-box;
+    transform-origin: 28.5px 61px;
+    animation: mb-post-sway-anim 4.2s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+}
+@keyframes mb-post-sway-anim {
+    0%, 25% { transform: rotate(0deg); }
+    28% { transform: rotate(-3.2deg); }
+    32% { transform: rotate(2.1deg); }
+    36% { transform: rotate(-1.2deg); }
+    40% { transform: rotate(0.6deg); }
+    44% { transform: rotate(-0.2deg); }
+    48%, 100% { transform: rotate(0deg); }
+}
+.mb-newspaper {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-newspaper-flight 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes mb-newspaper-flight {
+    0%, 12% { transform: translate(28px, -24px) rotate(-35deg) scale(0.7); opacity: 0; }
+    15% { opacity: 1; }
+    25% { transform: translate(4px, -3px) rotate(-8deg) scale(0.95); opacity: 1; }
+    28% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    30%, 75% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    82% { transform: translate(-5px, 2px) scale(0.85); opacity: 0; }
+    83%, 100% { opacity: 0; }
+}
+.mb-flag-arm {
+    transform-box: view-box;
+    transform-origin: 20px 29px;
+    animation: mb-flag-catch 4.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+@keyframes mb-flag-catch {
+    0%, 26% { transform: rotate(0deg); }
+    33% { transform: rotate(-98deg); }
+    37%, 74% { transform: rotate(-90deg); }
+    84%, 100% { transform: rotate(0deg); }
+}
+.mb-door {
+    transform-box: view-box;
+    transform-origin: 43px 35px;
+    animation: mb-door-catch 4.2s ease-in-out infinite;
+}
+@keyframes mb-door-catch {
+    0%, 25% { transform: rotate(0deg); }
+    27% { transform: rotate(10deg); }
+    32% { transform: rotate(2deg); }
+    36%, 75% { transform: rotate(5deg); }
+    85%, 100% { transform: rotate(0deg); }
+}
+.mb-speed-trail {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-trail-anim 4.2s ease-out infinite;
+}
+@keyframes mb-trail-anim {
+    0%, 14% { opacity: 0; transform: translate(12px, -12px); }
+    18%, 24% { opacity: 0.8; transform: translate(0, 0); }
+    27%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mb-post-sway, .mb-newspaper, .mb-flag-arm, .mb-door, .mb-speed-trail {
+        animation: none !important;
+    }
 }
 .brand-title {
     font-size: 1.15rem;
@@ -2364,9 +2732,92 @@ button:active { transform: translateY(1px); }
     <div class="login-head">
         <div class="brand">
             <div class="brand-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-color);">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                <svg class="mailbox-svg mb-post-sway" width="48" height="48" viewBox="0 0 64 64" role="img" aria-label="Почтовый ящик">
+                    <defs>
+                        <linearGradient id="loginMbWhiteBody" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="30%" stop-color="#f8fafc"/>
+                            <stop offset="70%" stop-color="#e2e8f0"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbWhiteDoor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="45%" stop-color="#f1f5f9"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbInterior" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#0f172a"/>
+                            <stop offset="100%" stop-color="#1e293b"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbPost" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#92400e"/>
+                            <stop offset="40%" stop-color="#b45309"/>
+                            <stop offset="80%" stop-color="#78350f"/>
+                            <stop offset="100%" stop-color="#451a03"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbFlag" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#f87171"/>
+                            <stop offset="35%" stop-color="#ef4444"/>
+                            <stop offset="100%" stop-color="#b91c1c"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbNewsPaper" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="35%" stop-color="#f1f5f9"/>
+                            <stop offset="70%" stop-color="#e2e8f0"/>
+                            <stop offset="100%" stop-color="#94a3b8"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbNewsFold" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#e2e8f0"/>
+                            <stop offset="50%" stop-color="#ffffff"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbRubberBand" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#f87171"/>
+                            <stop offset="50%" stop-color="#dc2626"/>
+                            <stop offset="100%" stop-color="#991b1b"/>
+                        </linearGradient>
+                    </defs>
+                    <g class="mb-speed-trail">
+                        <path d="M 58 6 L 47 16" stroke="#93c5fd" stroke-width="0.75" stroke-linecap="round" opacity="0.6"/>
+                        <path d="M 62 12 L 53 21" stroke="#60a5fa" stroke-width="0.85" stroke-linecap="round" opacity="0.8"/>
+                        <path d="M 55 3 L 49 9" stroke="#bfdbfe" stroke-width="0.6" stroke-linecap="round" opacity="0.5"/>
+                    </g>
+                    <g class="mb-post">
+                        <rect x="25" y="34" width="7" height="27" rx="1.5" fill="url(#loginMbPost)"/>
+                        <path d="M16 35 L40 35 C41 35 41.5 36 41.5 37 C41.5 38 41 39 40 39 L16 39 C15 39 14.5 38 14.5 37 C14.5 36 15 35 16 35 Z" fill="url(#loginMbPost)"/>
+                        <path d="M25 46 L18 39 L20 39 L25 44 Z" fill="#78350f"/>
+                        <path d="M32 46 L38 39 L36 39 L32 44 Z" fill="#451a03"/>
+                    </g>
+                    <g class="mb-body">
+                        <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 Z" fill="url(#loginMbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                        <path d="M 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 C 40.5 35, 38 33, 38 29.5 L 38 19 C 38 14.5, 40.5 11, 43 11 Z" fill="url(#loginMbInterior)"/>
+                        <g class="mb-newspaper">
+                            <g transform="translate(36, 17)">
+                                <path d="M -4 4 L 14 0 C 15.5 0, 16.5 2, 16.5 4.5 C 16.5 7, 15.5 8.8, 14 8.8 L -4 12.8 Z" fill="url(#loginMbNewsPaper)" stroke="#64748b" stroke-width="0.6"/>
+                                <line x1="2" y1="3.2" x2="11" y2="1.8" stroke="#334155" stroke-width="0.9" stroke-linecap="round"/>
+                                <line x1="2" y1="5.4" x2="12" y2="3.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                <line x1="2" y1="7.2" x2="10" y2="5.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                <path d="M 6.5 1.5 L 8.5 1.2 C 9 1.2, 9.3 2.5, 9.3 4.8 C 9.3 7, 9 8.2, 8.5 8.2 L 6.5 8.5 C 6 8.5, 5.7 7.2, 5.7 4.8 C 5.7 2.5, 6 1.5, 6.5 1.5 Z" fill="url(#loginMbRubberBand)" stroke="#7f1d1d" stroke-width="0.4"/>
+                                <ellipse cx="14" cy="4.5" rx="2.2" ry="4.4" fill="url(#loginMbNewsFold)" stroke="#64748b" stroke-width="0.6"/>
+                                <path d="M 14.5 2.5 C 15.2 3.2, 15.2 5.5, 14 6 C 13.2 6.3, 12.8 5.2, 13.3 4.2 C 13.7 3.5, 14.2 3.7, 14.2 4.2" fill="none" stroke="#475569" stroke-width="0.5" stroke-linecap="round"/>
+                            </g>
+                        </g>
+                        <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 40.5 11, 38 14.5, 38 19 L 38 29.5 C 38 33, 40.5 35, 43 35 L 15 35 Z" fill="url(#loginMbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                        <path d="M 18 19 C 18 13.5, 23 12, 30 12 L 43 12" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.9"/>
+                        <g class="mb-door">
+                            <path d="M 43 35 C 47.5 35, 51.5 34.5, 53 37 L 54 44 C 54 46, 51 47, 47 47 C 43 47, 41 45, 41 43 L 41 35.5 Z" fill="url(#loginMbWhiteDoor)" stroke="#94a3b8" stroke-width="0.75"/>
+                            <rect x="49" y="44" width="3.5" height="1.5" rx="0.75" fill="#475569"/>
+                            <circle cx="42" cy="35.5" r="1" fill="#64748b"/>
+                        </g>
+                    </g>
+                    <g class="mb-flag-arm">
+                        <path d="M 20 28 L 35 28 L 35 30 L 20 30 Z" fill="url(#loginMbFlag)"/>
+                        <path d="M 32 25 L 38 25 C 38.8 25, 39 25.4, 39 26 L 39 32 C 39 32.6, 38.8 33, 38 33 L 32 33 Z" fill="url(#loginMbFlag)"/>
+                        <line x1="33" y1="26.5" x2="37" y2="26.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.6" stroke-linecap="round"/>
+                        <circle cx="20" cy="29" r="2.2" fill="#64748b"/>
+                        <circle cx="20" cy="29" r="1.2" fill="#e2e8f0"/>
+                        <circle cx="20" cy="29" r="0.4" fill="#334155"/>
+                    </g>
                 </svg>
             </div>
             <div>
@@ -2554,15 +3005,32 @@ def load_subs(path):
 def default_nodes(legacy_subs=None):
     nodes = []
     legacy_subs = legacy_subs or {"proxy": [], "freedom": []}
-    for node_id, name, url, group in (
-        ("proxy", GROUP_LABELS["proxy"], RUSSIAN_SUB_URL, "proxy"),
-        ("freedom", GROUP_LABELS["freedom"], FOREIGN_SUB_URL, "freedom"),
+    ru_url = RUSSIAN_SUB_URL.rstrip("/")
+    if ru_url and not ru_url.startswith(("http://", "https://")):
+        ru_url = "https://" + ru_url
+    fr_url = FOREIGN_SUB_URL.rstrip("/")
+    if fr_url and not fr_url.startswith(("http://", "https://")):
+        fr_url = "https://" + fr_url
+
+    ru_domain = os.environ.get("PROXY_DOMAIN", "").strip() or extract_domain_from_url(ru_url) or "proxy"
+    fr_domain = os.environ.get("FREEDOM_DOMAIN", "").strip() or extract_domain_from_url(fr_url) or "freedom"
+
+    for node_id, node_type, name, url, group in (
+        ("proxy", "proxy", ru_domain, ru_url, "proxy"),
+        ("freedom", "freedom", fr_domain, fr_url, "freedom"),
     ):
         url = url.rstrip("/")
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
         if url or legacy_subs[group]:
-            nodes.append({"id": node_id, "name": name, "url": url, "clients": list(legacy_subs[group]), "supports_json": True})
+            nodes.append({
+                "id": node_id,
+                "type": node_type,
+                "name": name,
+                "url": url,
+                "clients": list(legacy_subs[group]),
+                "supports_json": True,
+            })
     return nodes
 
 
@@ -2590,12 +3058,22 @@ def load_nodes(path, legacy_subs=None):
         url = str(item["url"]).strip().rstrip("/")
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
+
+        node_type = get_node_type(item)
+        name = str(item["name"]).strip()
+        if (not name or name.lower() in ("proxy", "freedom", "proxy (рф)", "freedom (зарубежье)")) and url:
+            domain = extract_domain_from_url(url)
+            if domain:
+                name = domain
+
         result.append({
             "id": str(item["id"]),
-            "name": str(item["name"]).strip(),
+            "type": node_type,
+            "name": name,
             "url": url,
             "clients": [str(client).strip() for client in clients if str(client).strip()],
             "json_clients": [str(client).strip() for client in json_clients if str(client).strip()],
+            "supports_json": bool(item.get("supports_json", True)),
         })
     return result or default_nodes(legacy_subs)
 
@@ -3365,17 +3843,34 @@ class Handler(BaseHTTPRequestHandler):
             if path == f"{SECRET_SUB_PATH}/api/node":
                 action = (data.get("action") or "").strip()
                 if action == "add":
-                    name = (data.get("name") or "").strip()
+                    node_type = (data.get("type") or "").strip().lower()
+                    if node_type not in NODE_TYPE_LABELS:
+                        node_type = "proxy"
                     url = (data.get("url") or "").strip().rstrip("/")
-                    if url and not url.startswith(("http://", "https://")):
-                        url = "https://" + url
+                    name = (data.get("name") or data.get("domain") or "").strip()
+                    if not url and name:
+                        url = f"https://{name}"
+                    elif url and not url.startswith(("http://", "https://")):
+                        if name and not url.startswith(name):
+                            url = f"https://{name}/{url.lstrip('/')}"
+                        else:
+                            url = "https://" + url
+                    if not name:
+                        name = extract_domain_from_url(url)
                     if not name or not url.startswith(("http://", "https://")):
-                        self._send_json(400, {"ok": False, "error": "укажите имя и URL ноды (например: node.example.com/subs)"})
+                        self._send_json(400, {"ok": False, "error": "укажите корректный URL или домен ноды"})
                         return
                     if any(node["name"].casefold() == name.casefold() for node in NODES):
-                        self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                        self._send_json(400, {"ok": False, "error": f"нода с доменом {name} уже существует"})
                         return
-                    NODES.append({"id": uuid.uuid4().hex, "name": name, "url": url, "clients": [], "supports_json": bool(data.get("supports_json", True))})
+                    NODES.append({
+                        "id": uuid.uuid4().hex,
+                        "type": node_type,
+                        "name": name,
+                        "url": url,
+                        "clients": [],
+                        "supports_json": bool(data.get("supports_json", True)),
+                    })
                 elif action == "delete":
                     node_id = (data.get("node") or "").strip()
                     node = next((item for item in NODES if item["id"] == node_id), None)
@@ -3392,16 +3887,22 @@ class Handler(BaseHTTPRequestHandler):
                     if not node:
                         self._send_json(400, {"ok": False, "error": "нода не найдена"})
                         return
-                    name = (data.get("name") or "").strip()
+                    node_type = (data.get("type") or "").strip().lower()
+                    if node_type in NODE_TYPE_LABELS:
+                        node["type"] = node_type
+                    name = (data.get("name") or data.get("domain") or "").strip()
                     url = (data.get("url") or "").strip().rstrip("/")
                     if not name:
                         name = node["name"]
                     if not url:
                         url = node["url"]
                     elif not url.startswith(("http://", "https://")):
-                        url = "https://" + url
+                        if name and not url.startswith(name):
+                            url = f"https://{name}/{url.lstrip('/')}"
+                        else:
+                            url = "https://" + url
                     if not name:
-                        self._send_json(400, {"ok": False, "error": "укажите имя ноды"})
+                        self._send_json(400, {"ok": False, "error": "укажите домен (имя) ноды"})
                         return
                     if not url.startswith(("http://", "https://")):
                         self._send_json(400, {"ok": False, "error": "укажите URL ноды (например: node.example.com/subs)"})
@@ -3409,7 +3910,7 @@ class Handler(BaseHTTPRequestHandler):
                     if name != node["name"] and any(
                         item["name"].casefold() == name.casefold() and item["id"] != node_id for item in NODES
                     ):
-                        self._send_json(400, {"ok": False, "error": "нода с таким именем уже существует"})
+                        self._send_json(400, {"ok": False, "error": "нода с таким доменом/именем уже существует"})
                         return
                     node["name"] = name
                     node["url"] = url
@@ -3483,14 +3984,16 @@ class Handler(BaseHTTPRequestHandler):
             url = node["url"]
             if not url:
                 continue
-            p = [f'<div class="card" data-search="{esc(node["name"])}">']
+            node_type = get_node_type(node)
+            type_label = get_node_type_label(node)
+            p = [f'<div class="card" data-search="{esc(node["name"])} {esc(type_label)}">']
             p.append(
                 f'<div class="client-header">'
                 f'<span class="client-name-badge">'
                 f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
                 f'<span>{esc(node["name"])}</span></span>'
                 f'<span style="display:flex;gap:6px;align-items:center">'
-                f'<span class="group-badge">база подписки</span>'
+                f'<span class="node-type-badge {node_type}">{esc(type_label)}</span>'
                 f'<button type="button" class="btn-sm btn-node-edit" data-node="{esc(node["id"])}" title="Редактировать ноду" aria-label="Редактировать ноду">'
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>'
                 f'<button type="button" class="btn-sm btn-node-delete" data-node="{esc(node["id"])}" title="Удалить ноду" aria-label="Удалить ноду">'
@@ -3534,14 +4037,16 @@ class Handler(BaseHTTPRequestHandler):
                 seen.add(client)
                 idx += 1
             if cards:
-                sections.append(self._section_html(f'Карточки клиентов · {html.escape(node["name"])}', "\n".join(cards), f'node-{html.escape(node["id"])}'))
+                type_label = get_node_type_label(node)
+                sec_title = f'Клиенты · [{type_label}] {html.escape(node["name"])}'
+                sections.append(self._section_html(sec_title, "\n".join(cards), f'node-{html.escape(node["id"])}'))
         force_clients = [c for c in sorted(FORCE_SUBS) if c not in seen]
         if force_clients:
             cards = []
             for client in force_clients:
                 cards.append(self._card_html(client, None, base, idx))
                 idx += 1
-            sections.append(self._section_html("Карточки клиентов · Кастом (force-subs.yml)", "\n".join(cards), "force-subs"))
+            sections.append(self._section_html("Клиенты · Кастом (force-subs.yml)", "\n".join(cards), "force-subs"))
         return "\n".join(sections)
 
     def _section_html(self, title, cards, section_id=None):
@@ -3567,7 +4072,9 @@ class Handler(BaseHTTPRequestHandler):
         ) if force else ""
         qr_panel_id = f"qr-panel-{idx}"
 
-        search_text = f'{client} {node["name"]}' if node else client
+        node_type = get_node_type(node) if node else "force"
+        type_label = get_node_type_label(node) if node else GROUP_LABELS["force"]
+        search_text = f'{client} {node["name"]} {type_label}' if node else client
         p = [f'<div class="card" data-search="{esc(search_text)}">']
         p.append(
             f'<div class="client-header">'
@@ -3575,7 +4082,9 @@ class Handler(BaseHTTPRequestHandler):
             f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
             f'<span>{esc(client)}</span></span>'
             f'<span style="display:flex;gap:6px;align-items:center">'
-            f'<span class="group-badge">{esc(node["name"]) if node else GROUP_LABELS["force"]}</span>{force_tag}'
+            + (f'<span class="node-type-badge {node_type}">{esc(type_label)}</span>'
+               f'<span class="group-badge">{esc(node["name"])}</span>' if node else f'<span class="group-badge">{GROUP_LABELS["force"]}</span>')
+            + f'{force_tag}'
             + (f'<button type="button" class="btn-sm btn-client-edit" data-client="{esc(client)}" title="Редактировать клиента" aria-label="Редактировать клиента">'
                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>'
                + (f'<button type="button" class="btn-sm btn-client-delete" data-client="{esc(client)}" title="Удалить клиента" aria-label="Удалить клиента">'
@@ -3691,19 +4200,19 @@ class Handler(BaseHTTPRequestHandler):
             if additional_json_nodes:
                 for an in additional_json_nodes:
                     p.append(f'<div style="display:flex; justify-content: space-between; align-items:center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size:13px;">')
-                    p.append(f'<span>{esc(an["name"])}</span>')
+                    p.append(f'<span>[{esc(get_node_type_label(an))}] {esc(an["name"])}</span>')
                     p.append(f'<button type="button" class="btn-sm btn-json-node-delete" data-client="{esc(client)}" data-node="{esc(an["id"])}" style="color:var(--danger-color); padding:4px; border:none; background:transparent; cursor:pointer;" title="Удалить"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6m3 0V4h8v2"></path></svg></button>')
                     p.append('</div>')
 
             available_nodes = [n for n in NODES if n != node and client not in n.get("json_clients", [])]
             if available_nodes:
-                opts = "".join(f'<div class="node-select-option{" selected" if n["id"] == available_nodes[0]["id"] else ""}" data-value="{esc(n["id"])}">{esc(n["name"])}</div>' for n in available_nodes)
+                opts = "".join(f'<div class="node-select-option{" selected" if n["id"] == available_nodes[0]["id"] else ""}" data-value="{esc(n["id"])}">[{esc(get_node_type_label(n))}] {esc(n["name"])}</div>' for n in available_nodes)
                 first_node = available_nodes[0]
                 p.append(f'<div style="display:flex; gap: 8px; margin-top:8px; align-items:center;">')
                 p.append(f'<button type="button" class="btn btn-sm btn-json-node-add" data-client="{esc(client)}" data-select="add-json-{qr_panel_id}" style="height: 32px; padding: 0 12px; font-size:13px; font-weight:500;">Добавить</button>')
                 p.append(f'<div class="node-select" style="flex:1; min-width: 0;">'
                          f'<input type="hidden" id="add-json-{qr_panel_id}" value="{esc(first_node["id"])}">'
-                         f'<button type="button" class="node-select-trigger" style="height: 32px; min-height: 32px; padding: 0 12px; margin: 0;"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{esc(first_node["name"])}</span>'
+                         f'<button type="button" class="node-select-trigger" style="height: 32px; min-height: 32px; padding: 0 12px; margin: 0;"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">[{esc(get_node_type_label(first_node))}] {esc(first_node["name"])}</span>'
                          f'<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
                          f'<div class="node-select-options">{opts}</div>'
                          f'</div>')
@@ -3804,14 +4313,15 @@ class Handler(BaseHTTPRequestHandler):
         count_ever = sum(1 for c in all_c if get_client_sync_state(c) == "ever")
         count_never = sum(1 for c in all_c if get_client_sync_state(c) == "never")
         options = "".join(
-            f'<div class="node-select-option" data-value="{html.escape(node["id"], quote=True)}">{html.escape(node["name"])}</div>'
+            f'<div class="node-select-option" data-value="{html.escape(node["id"], quote=True)}">[{html.escape(get_node_type_label(node))}] {html.escape(node["name"])}</div>'
             for node in NODES
         )
         first_node = NODES[0] if NODES else None
+        first_label = f'[{get_node_type_label(first_node)}] {first_node["name"]}' if first_node else "Нет доступных нод"
         node_picker = (
             f'<div class="node-select" id="node-select">'
             f'<input type="hidden" id="client-node" value="{html.escape(first_node["id"], quote=True) if first_node else ""}">'
-            f'<button type="button" class="node-select-trigger"><span id="client-node-label">{html.escape(first_node["name"]) if first_node else "Нет доступных нод"}</span>'
+            f'<button type="button" class="node-select-trigger"><span id="client-node-label">{html.escape(first_label)}</span>'
             '<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
             f'<div class="node-select-options">{options}</div></div>'
         )
@@ -3832,7 +4342,16 @@ class Handler(BaseHTTPRequestHandler):
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>'
             '<span>Добавить ноду</span></div>'
             '<form id="add-node-form">'
-            '<div class="management-row"><input id="new-node-name" placeholder="Имя ноды" required><input id="new-node-url" placeholder="node.example/subs" required>'
+            '<div class="management-row">'
+            '<div class="node-select" id="new-node-type-select" style="min-width: 120px; flex: 0 0 120px;">'
+            '<input type="hidden" id="new-node-type" value="proxy">'
+            '<button type="button" class="node-select-trigger"><span>Proxy</span>'
+            '<span class="node-select-arrow"><svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>'
+            '<div class="node-select-options">'
+            '<div class="node-select-option selected" data-value="proxy">Proxy</div>'
+            '<div class="node-select-option" data-value="freedom">Freedom</div>'
+            '</div></div>'
+            '<input id="new-node-url" placeholder="https://node.example.com/subs" required>'
             '<button class="btn-sm btn-primary" type="submit">'
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>'
             '<span>Добавить</span></button></div>'

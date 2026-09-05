@@ -12,10 +12,13 @@ services:
       LOG_FILE: "/data/sub-server.log"
       RUSSIAN_SUB_URL: "{{RUSSIAN_SUB_URL}}"
       FOREIGN_SUB_URL: "{{FOREIGN_SUB_URL}}"
+      PROXY_DOMAIN: "{{PROXY_DOMAIN}}"
+      FREEDOM_DOMAIN: "{{FREEDOM_DOMAIN}}"
       ADMIN_USER: "{{ADMIN_USER}}"
       ADMIN_PASSWORD: "{{ADMIN_PASSWORD}}"
       PORT: "8000"
     volumes:
+      - ./sub-server/server.py:/app/server.py
       - ./sub-server/force-subs.yml:/data/force-subs.yml
       - ./sub-server/nodes.json:/data/nodes.json
       - ./sub-server/sub-server.log:/data/sub-server.log

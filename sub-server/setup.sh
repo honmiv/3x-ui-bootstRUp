@@ -106,6 +106,10 @@ load_existing_update_values() {
         [[ -n "${RUSSIAN_SUB_URL:-}" || -z "$value" ]] || RUSSIAN_SUB_URL="$value"
         value=$(sed -n 's/^      FOREIGN_SUB_URL: "\(.*\)"/\1/p' "$compose_file" | head -n1)
         [[ -n "${FOREIGN_SUB_URL:-}" || -z "$value" ]] || FOREIGN_SUB_URL="$value"
+        value=$(sed -n 's/^      PROXY_DOMAIN: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${PROXY_DOMAIN:-}" || -z "$value" ]] || PROXY_DOMAIN="$value"
+        value=$(sed -n 's/^      FREEDOM_DOMAIN: "\(.*\)"/\1/p' "$compose_file" | head -n1)
+        [[ -n "${FREEDOM_DOMAIN:-}" || -z "$value" ]] || FREEDOM_DOMAIN="$value"
         value=$(sed -n 's/^      ADMIN_USER: "\(.*\)"/\1/p' "$compose_file" | head -n1)
         [[ -n "${ADMIN_USER:-}" || -z "$value" ]] || ADMIN_USER="$value"
         value=$(sed -n 's/^      ADMIN_PASSWORD: "\(.*\)"/\1/p' "$compose_file" | head -n1)
@@ -189,8 +193,16 @@ create_nodes_json() {
     local entries=()
     local group_url group_clients items clients_json item client
 
+    extract_domain() {
+        local u="$1"
+        u="${u#*://}"
+        u="${u%%/*}"
+        u="${u%%:*}"
+        printf '%s' "$u"
+    }
+
     build_node() {
-        local node_id="$1" node_name="$2" node_url="$3" node_clients="$4"
+        local node_id="$1" node_type="$2" node_name="$3" node_url="$4" node_clients="${5:-}"
         if [[ -z "$node_url" ]]; then
             warn "No subscription URL for '${node_id}' node, skipping it."
             return
@@ -206,12 +218,20 @@ create_nodes_json() {
         else
             clients_json="[]"
         fi
-        entries+=("$(printf '{"id": "%s", "name": "%s", "url": "%s", "clients": %s}' \
-            "$(json_escape "$node_id")" "$(json_escape "$node_name")" "$(json_escape "$node_url")" "$clients_json")")
+        entries+=("$(printf '{"id": "%s", "type": "%s", "name": "%s", "url": "%s", "clients": %s, "supports_json": true}' \
+            "$(json_escape "$node_id")" "$(json_escape "$node_type")" "$(json_escape "$node_name")" "$(json_escape "$node_url")" "$clients_json")")
     }
 
-    build_node "proxy" "Proxy (РФ)" "${RUSSIAN_SUB_URL:-}" "${PROXY_CLIENTS:-}"
-    build_node "freedom" "Freedom (зарубежье)" "${FOREIGN_SUB_URL:-}" "${FREEDOM_CLIENTS:-}"
+    local ru_domain="${PROXY_DOMAIN:-${RUSSIAN_NODE_DOMAIN:-}}"
+    [[ -n "$ru_domain" ]] || ru_domain="$(extract_domain "${RUSSIAN_SUB_URL:-}")"
+    [[ -n "$ru_domain" ]] || ru_domain="proxy"
+
+    local fr_domain="${FREEDOM_DOMAIN:-${FREEDOM_NODE_DOMAIN:-}}"
+    [[ -n "$fr_domain" ]] || fr_domain="$(extract_domain "${FOREIGN_SUB_URL:-}")"
+    [[ -n "$fr_domain" ]] || fr_domain="freedom"
+
+    build_node "proxy" "proxy" "$ru_domain" "${RUSSIAN_SUB_URL:-}" "${PROXY_CLIENTS:-}"
+    build_node "freedom" "freedom" "$fr_domain" "${FOREIGN_SUB_URL:-}" "${FREEDOM_CLIENTS:-}"
 
     if [[ ${#entries[@]} -eq 0 ]]; then
         die "At least one node with a subscription URL is required."
@@ -249,11 +269,13 @@ sed_escape_replacement() {
 
 apply_template_values() {
     local target_path="$1"
-    local domain sub_path ru_url foreign_url admin_user admin_pass
+    local domain sub_path ru_url foreign_url proxy_domain freedom_domain admin_user admin_pass
     domain="$(sed_escape_replacement "${DOMAIN}")"
     sub_path="$(sed_escape_replacement "${SECRET_SUB_PATH}")"
     ru_url="$(sed_escape_replacement "${RUSSIAN_SUB_URL}")"
     foreign_url="$(sed_escape_replacement "${FOREIGN_SUB_URL}")"
+    proxy_domain="$(sed_escape_replacement "${PROXY_DOMAIN:-}")"
+    freedom_domain="$(sed_escape_replacement "${FREEDOM_DOMAIN:-}")"
     admin_user="$(sed_escape_replacement "${ADMIN_USER}")"
     admin_pass="$(sed_escape_replacement "${ADMIN_PASSWORD}")"
     sed -i \
@@ -261,6 +283,8 @@ apply_template_values() {
        -e "s|{{SECRET_SUB_PATH}}|${sub_path}|g" \
        -e "s|{{RUSSIAN_SUB_URL}}|${ru_url}|g" \
        -e "s|{{FOREIGN_SUB_URL}}|${foreign_url}|g" \
+       -e "s|{{PROXY_DOMAIN}}|${proxy_domain}|g" \
+       -e "s|{{FREEDOM_DOMAIN}}|${freedom_domain}|g" \
        -e "s|{{ADMIN_USER}}|${admin_user}|g" \
        -e "s|{{ADMIN_PASSWORD}}|${admin_pass}|g" \
        "$target_path"

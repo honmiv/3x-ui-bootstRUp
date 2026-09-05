@@ -726,9 +726,33 @@ start_container() {
     compose up -d "$service"
 }
 
+
+download_geodata() {
+    info "== Initializing GeoData =="
+    local geodata_dir="./working/geodata"
+    mkdir -p "$geodata_dir"
+
+    # Download custom Hydraponique geodata files
+    if [[ ! -f "$geodata_dir/geoip-hydraponique.dat" ]]; then
+        info "Downloading initial geoip-hydraponique.dat..."
+        curl -fsSL "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/geoip.dat" -o "$geodata_dir/geoip-hydraponique.dat" || warn "Failed to download geoip-hydraponique.dat"
+    fi
+    if [[ ! -f "$geodata_dir/geosite-hydraponique.dat" ]]; then
+        info "Downloading initial geosite-hydraponique.dat..."
+        curl -fsSL "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/geosite.dat" -o "$geodata_dir/geosite-hydraponique.dat" || warn "Failed to download geosite-hydraponique.dat"
+    fi
+}
+
 start_3xui() {
     section "$MSG_START_PANEL"
     start_container "$PANEL_CONTAINER"
+
+    if [[ -f "./working/geodata/geoip-hydraponique.dat" ]]; then
+        docker cp "./working/geodata/geoip-hydraponique.dat" 3xui:/app/bin/geoip-hydraponique.dat 2>/dev/null || true
+    fi
+    if [[ -f "./working/geodata/geosite-hydraponique.dat" ]]; then
+        docker cp "./working/geodata/geosite-hydraponique.dat" 3xui:/app/bin/geosite-hydraponique.dat 2>/dev/null || true
+    fi
 }
 
 start_caddy() {
@@ -956,6 +980,7 @@ main() {
     generate_reality_keys
     process_templates
     prompt_panel_credentials
+    download_geodata
     start_3xui
     wait_for_3xui_http "$PANEL_API_PORT"
     configure_panel_user

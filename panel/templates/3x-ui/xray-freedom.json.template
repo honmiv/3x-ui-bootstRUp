@@ -62,16 +62,57 @@
       {
         "type": "field",
         "enabled": true,
-        "ip": [
-          "geoip:ru"
+        "domain": [
+          "ext:geosite-hydraponique.dat:win-spy",
+          "ext:geosite-hydraponique.dat:torrent",
+          "ext:geosite-hydraponique.dat:category-ads",
+          "ext:geosite-hydraponique.dat:category-ru",
+          "geosite:category-ru"
+          "domain:trace-flow.ru",
+          "domain:api.ipify.org",
+          "domain:ifconfig.me",
+          "domain:ip.mail.ru",
+          "domain:ipv6-internet.yandex.net",
+          "domain:ipv4-internet.yandex.net",
+          "domain:internet.yandex.ru",
+          "domain:internet.yandex.com",
+          "domain:checkip.amazonaws.com",
+          "domain:ipinfo.io",
+          "domain:icanhazip.com",
+          "domain:ident.me",
+          "domain:ip-api.com",
+          "domain:whatismyip.com",
+          "domain:whatismyipaddress.com",
+          "domain:iplocation.net",
+          "domain:2ip.ru",
+          "domain:2ip.io",
+          "domain:whoer.net",
+          "domain:myip.com",
+          "domain:browserleaks.com",
+          "domain:dnsleaktest.com",
+          "domain:ipleak.net",
+          "domain:ip.sb",
+          "domain:myexternalip.com",
+          "domain:wtfismyip.com",
+          "domain:ipwho.is",
+          "domain:ipapi.co",
+          "domain:am.i.mullvad.net",
+          "domain:myip.ru",
+          "domain:ip.nic.ru",
+          "domain:whois-service.ru",
+          "domain:2whois.ru",
+          "domain:hidemy.name",
+          "domain:ip-ping.ru",
+          "domain:pr-cy.ru",
+          "domain:check-host.net"
         ],
         "outboundTag": "blocked"
       },
       {
         "type": "field",
         "enabled": true,
-        "domain": [
-          "geosite:category-ru"
+        "ip": [
+          "geoip:ru"
         ],
         "outboundTag": "blocked"
       }
@@ -112,5 +153,18 @@
     "listen": "127.0.0.1:11111",
     "tag": "metrics_out"
   },
-  "stats": {}
+  "stats": {},
+  "geodata": {
+    "assets": [
+      {
+        "url": "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/geoip.dat",
+        "file": "geoip-hydraponique.dat"
+      },
+      {
+        "url": "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/geosite.dat",
+        "file": "geosite-hydraponique.dat"
+      }
+    ],
+    "cron": "0 4 * * *"
+  }
 }

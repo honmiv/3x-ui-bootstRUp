@@ -105,6 +105,13 @@ def resolve_sub_server_urls(
     return proxy_sub_url, freedom_sub_url, {}
 
 
+def extract_domain_from_url(url: str) -> str:
+    if not url:
+        return ""
+    u = re.sub(r'^[a-zA-Z]+://', '', url.strip())
+    return u.split('/')[0].split(':')[0].strip()
+
+
 # Backups created by the pre-"panel/" repo layout reference the caddy build
 # context `./templates/docker-compose` (relative to --project-directory). The
 # current bundle keeps templates under panel/templates/, so as a LEGACY FALLBACK
@@ -1486,11 +1493,15 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         sub_admin_user = config.get("sub_admin_user", "").strip()
         sub_admin_password = config.get("sub_admin_password", "").strip()
         sub_proxy_url, sub_foreign_url, _ = resolve_sub_server_urls(sub_russian_url, sub_foreign_url)
+        ru_domain = config.get("proxy_domain") or config.get("proxy_host") or extract_domain_from_url(sub_proxy_url)
+        fr_domain = config.get("freedom_domain") or config.get("freedom_host") or extract_domain_from_url(sub_foreign_url)
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
             "RUSSIAN_SUB_URL": sub_proxy_url,
             "FOREIGN_SUB_URL": sub_foreign_url,
+            "PROXY_DOMAIN": ru_domain,
+            "FREEDOM_DOMAIN": fr_domain,
             "PROXY_CLIENTS": " ".join(proxy_clients),
             "FREEDOM_CLIENTS": " ".join(freedom_clients),
             "ADMIN_USER": sub_admin_user,
@@ -1509,13 +1520,13 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             sub_clients.append({
                 "name": c,
                 "sub_url": f"{base_sub_url}/{c}",
-                "group": "Proxy (Russian Node)"
+                "group": f"Proxy ({ru_domain})" if ru_domain else "Proxy"
             })
         for c in freedom_clients:
             sub_clients.append({
                 "name": c,
                 "sub_url": f"{base_sub_url}/{c}",
-                "group": "Freedom (Foreign Node)"
+                "group": f"Freedom ({fr_domain})" if fr_domain else "Freedom"
             })
 
         log("=========================================", "success")
@@ -1675,12 +1686,15 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         resolved_proxy, resolved_freedom, extra_sub_env = resolve_sub_server_urls(
             "", freedom_sub_base,
         )
+        fr_domain = target_domain or freedom_host or extract_domain_from_url(resolved_freedom)
 
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
             "RUSSIAN_SUB_URL": resolved_proxy,
             "FOREIGN_SUB_URL": resolved_freedom,
+            "PROXY_DOMAIN": "",
+            "FREEDOM_DOMAIN": fr_domain,
             "PROXY_CLIENTS": "",
             "FREEDOM_CLIENTS": " ".join(freedom_client_names),
             "ADMIN_USER": sub_admin_user,
@@ -1888,12 +1902,16 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         resolved_proxy, resolved_freedom, extra_sub_env = resolve_sub_server_urls(
             proxy_node_sub_base, freedom_node_sub_base,
         )
+        ru_domain = proxy_domain or proxy_host or extract_domain_from_url(resolved_proxy)
+        fr_domain = target_domain or freedom_host or extract_domain_from_url(resolved_freedom)
 
         sub_env = {
             "DOMAIN": sub_domain,
             "SECRET_SUB_PATH": sub_secret_path,
             "RUSSIAN_SUB_URL": resolved_proxy,
             "FOREIGN_SUB_URL": resolved_freedom,
+            "PROXY_DOMAIN": ru_domain,
+            "FREEDOM_DOMAIN": fr_domain,
             "PROXY_CLIENTS": " ".join(proxy_client_names),
             "FREEDOM_CLIENTS": " ".join(freedom_client_names),
             "ADMIN_USER": sub_admin_user,

@@ -1,0 +1,302 @@
+# Рефакторинг 3x-UI BootstRUp: большой план
+
+> Статус: в процессе. **Фаза A выполнена** (защитный слой unit-тестов и фиксация контрактов).
+> Порядок фаз — по убыванию ценности/безопасности.
+> Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
+
+---
+
+## 0. Суть проблемы
+
+Код рабочий, но четыре файла-монолита завязали логику на три разных «языка»:
+
+| Файл | Строк | Проблема |
+|------|-------|----------|
+| `panel/static/app.js` | 5428 | 1 глобал, 782 функции, нет модулей |
+| `sub-server/server.py` | 4563 | HTML/CSS/JS вшито в `"""` строки |
+| `ssh_deployer.py` | 2363 | bash/awk встроены в Python-строки, `run_deployment` ~1272 строк |
+| `main.py` | 1419 | самописный YAML, гигантские `do_GET`/`do_POST` |
+
+Три самостоятельные болезни:
+1. **Модульность** — нет границ, всё в общей области видимости.
+2. **Шаблонизация** — разметка/скрипты вшиты в код, не вынесены.
+3. **Разделение языков** — Python + HTML/CSS/JS + bash/awk смешаны в одном файле.
+
+Плюс системная проблема: **7 дублирующихся наборов SSH-полей** (`vps_*`, `freedom_*`, `proxy_*`, `sub_vps_*`, `backup_vps_*`, `recovery_vps_*`, `update_vps_*`).
+
+### Находки (обоснования, почему это болит)
+
+| # | Где | Проблема | Почему болит |
+|---|-----|----------|--------------|
+| F1 | `main.py` | HTTP + YAML + конфиг + апдейтер + лаунчер в одном файле | Изменение YAML рискует сломать маршруты; тест `save_backup_config` требует импорта всего HTTP-сервера |
+| F2 | `main.py` | Самописный YAML (~150 строк) | Самый хрупкий код в проекте: `_parse_yaml_scalar`/`_dump_yaml_simple`/`_load_yaml_simple` не умеют вложенные dict/якоря; крайний случай в `setup_backup.yml` = тихая потеря данных. Решение zero-dep оставляем, но покрываем тестами |
+| F3 | `ssh_deployer.py` | Транспорт + оркестрация + embedded bash в одном файле | `run_deployment` — ~1272 строк `if/elif`; bash-строки без подсветки/linting/shellcheck |
+| F4 | всё | Нет data model — всё `Dict[str, Any]`, 7 префикс-групп | Опечатка (`update_vps_hots`) молча резолвится в `None`; `save_backup_config` ведёт ручной список ~80 ключей; валидация SSH продублирована 7 раз |
+| F5 | `app.js` | 5428 строк глобальных функций, нет IIFE/модулей | Коллизии имён; невозможно тестировать один concern отдельно; WebCrypto переплетён с UI |
+| F7 | `ssh_deployer.py` | Embedded bash: `PANEL_DOMAIN_REWRITE_SCRIPT` (~140 строк), `LEGACY_COMPOSE_REWRITE_CMD` и др. | Нет shellcheck; хрупкий экранинг многострочных строк; правка скрипта = правка Python-файла |
+| F9 | `server.py` | ~2000 строк HTML/CSS/SVG внутри Python-строк | Нет подсветки HTML; правка CSS = правка Python-файла |
+| F10 | `ssh_deployer.py` | Захардкоженные пути/строки: `/opt/3x-ui-bootstRUp` (8+ раз), `PANEL_CONTAINER`, `PANEL_API_PORT` | Смена пути = 8+ правок; опечатка молча создаёт директорию или роняет runtime |
+
+**Отклонённые находки из предыдущего плана** (обоснование решений):
+- ~~F2→PyYAML~~ — zero-dep на Windows/macOS/Linux — осознанный дизайн (см. AGENTS.md TODO #1). Оставляем самописный парсер, закрываем тестами.
+- ~~F6 services/ слой~~ — overengineering: у `main.py` один entry point, HTTP-маршруты уже понятны. Сервисный слой оправдан при нескольких потребителях бизнес-логики, тут их нет.
+- ~~F8 MockTransport/RemoteTransport~~ — проект уже поднимает настоящие Docker-VPS-контейнеры (`tests/docker-compose.test.yml`, `Dockerfile.vps`) и гоняет реальный `SSHDeployer` через ssh. Это сильнее любого мока.
+
+---
+
+## Фаза A: Страховка (без изменения поведения) — [ВЫПОЛНЕНО]
+
+> **Статус**: ВЫПОЛНЕНО. Создана директория `tests/unit/` (без `__init__.py` для совместимости с namespace/runner), добавлены 40 тестов.
+> Запуск: `.python_env/bin/python3 -m unittest discover -s tests/unit` (выполняются за ~0.005с, все зелёные).
+> Тесты написаны по принципу black-box (по ожидаемому поведению и инвариантам безопасности, а не по внутренней реализации).
+
+### С чем уже работают тесты (НЕ трогаем, используют как основу)
+- Интеграция ядра `run_deployment`: `tests/deploy/test_deploy_*.py` (freedom/proxy/sub/
+  cascade/cascade_sub/freedom_sub) против Docker-VPS.
+- `validate_deployment_config`: `tests/test_validation_and_fallbacks.py`.
+- `get_bundle_bytes`: `tests/test_decoy_manager.py`.
+- `derive_sub_path`/`derive_sub_server_path`: `tests/test_validation_and_fallbacks.py:239`.
+- Порт-менеджмент `main`: `tests/test_server_port_management.py`.
+- UI E2E (playwright): `tests/ui/`.
+- Обновление/changelog: `tests/test_changelog_update.py`.
+
+### A1, A1.5, A1.6, A2. Что и как реализовано
+
+1. **`tests/unit/test_yaml_config_security.py`** (13 тестов):
+   - **`_parse_yaml_scalar`**: парсинг booleans (`true`/`false`/`yes`/`no`/`on`/`off`), nulls (`null`/`none`/`~`), чисел (`int`, `float`), экранированных строк (`\n`, `\t`, `\"`, `''`) и инлайн-комментариев.
+   - **`_dump_yaml_simple`**: проверка экранирования строк с двоеточиями, решётками, скобками, кавычками; корректная обработка пустых секций.
+   - **Roundtrip и идемпотентность**: `_load_yaml_simple(_dump_yaml_simple(data)) == data` для сложных конфигов; повторный дамп выдаёт байт-в-байт идентичный результат.
+   - **Security (критично)**: проверка, что пароли (`*password*`) и SSH-ключи (`*_key`) **никогда** не попадают в `setup_backup.yml` на диске. Проверена защита от инъекций sensitive-полей и очистка при чтении в `load_backup_config`.
+
+2. **`tests/unit/test_deployment_parsing.py`** (17 тестов):
+   - **`parse_deployment_results`**: извлечение URL панели и клиентов из маркеров `===RESULT_JSON_START===` ... `===RESULT_JSON_END===`.
+   - **Отказоустойчивость**: корректная обработка отсутствующих маркеров, перевёрнутых маркеров, нескольких маркеров (берётся первый блок), пустого вывода, битого JSON.
+   - **Fuzzing (A1.5)**: устойчивость к ANSI escape-кодам (`\x1b[32m`), неожиданным типам клиентов (`null`, `int`, `list`), гигантским строкам (>100Кб). Функция не падает с unhandled exception, а отдаёт безопасный дефолт `("", [])`.
+   - **`extract_domain_from_url`**: корректное извлечение хоста из схем `http`, `https`, `vless`, с портами, путями, IP-адресами.
+   - **`_sub_server_sync_cmd`**: проверка генерации bash-команды архивации/восстановления с флагами `preserve=True` (сохранение `nodes.json`/`force-subs.yml`) и `preserve=False`.
+
+3. **`tests/unit/test_core_signatures.py`** (10 тестов):
+   - Зафиксированы точные контракты и сигнатуры через `inspect.signature`:
+     * `ssh_deployer.run_deployment(config, log_callback, cancel_check=None)`
+     * `ssh_deployer.parse_deployment_results(output_text)`
+     * `ssh_deployer.derive_sub_path(secret)` / `derive_sub_server_path(secret)`
+     * `ssh_deployer.resolve_sub_server_urls(proxy_sub_url, freedom_sub_url)` (критично: monkey-patched в tests/overrides)
+     * `ssh_deployer.extract_domain_from_url(url)`
+     * `ssh_deployer._sub_server_sync_cmd(remote_dir, preserve)`
+     * `ssh_deployer.SSHDeployer` методы (`exec_command`, `download_file`, `test_connection`)
+     * `main.save_backup_config(data)` / `load_backup_config()`
+     * `main._dump_yaml_simple(data)` / `_load_yaml_simple(text)` / `_parse_yaml_scalar(val_str)`
+     * `main.fetch_xui_versions()` / `check_for_update(force=False)` / `list_backup_files(folder)`
+
+4. **Интеграционный baseline**:
+   - Запуск полного сьюта unit-тестов проекта (`.python_env/bin/python3 -m unittest discover -s tests -p "test_*.py"`) проходит без ошибок. Baseline зафиксирован.
+
+---
+
+## Фаза B: `sub-server/server.py` (шаблонизация) — быстрый выигрыш
+
+Цель: вынести HTML/CSS/JS из Python, `server.py` уменьшить ~4563 → ~фрагмент.
+
+### B1. Перенос разметки
+- Сначала выделить и покрыть тестом функцию загрузки/рендеринга шаблонов: она должна
+  выдавать те же HTTP-ответы и подстановки, что и текущие Python-строки.
+- `PAGE_TEMPLATE` (127–2479) и `LOGIN_TEMPLATE` (2481–2851) → отдельные файлы:
+  ```
+  sub-server/templates/web/dashboard.html
+  sub-server/templates/web/login.html
+  sub-server/templates/web/style.css
+  sub-server/templates/web/app.js
+  ```
+- В `server.py` оставить только `__VAR__`/`.replace()`-подстановку пар значений в загруженный шаблон.
+- Переносить сначала HTML/CSS, затем встроенный JavaScript. Не менять одновременно
+  маршрутизацию, авторизацию и формат API-ответов.
+- **Критичный нюанс Docker**: сейчас `Dockerfile-python` (`COPY server.py /app/server.py`) и `docker-compose.yml.template` (`- ./sub-server/server.py:/app/server.py`) монтируют только один файл. При выносе файлов разметки в `templates/web/` обязательно синхронно обновить `Dockerfile-python`, volume mounts в Compose и проверить, что `get_bundle_bytes()` передаёт эти шаблоны на VPS при обновлении sub-server.
+
+### B2. Скрипты наружу (опция, ниже приоритет)
+- Python-строки с JS-функциями внутри `Server`/`Handler` → `.js` файлы, `src="./static/..."`.
+- `Handler` (3346–4526) разбить: логика запросов отдельно от генерации HTML.
+
+### B3. Проверка
+- Прогнать существующие `tests/test_sub_server_*.py`.
+- Сравнить ответы dashboard/login и ключевые API-ответы до и после переноса.
+
+**Ожидаемый эффект**: `server.py` ставится читаемым для роутинга/прокси; разметка редактируется в HTML.
+
+---
+
+## Фаза C: SSH-транспорт и `ssh_deployer.py`
+
+### C1. Разбить orchestration по поведенческим срезам
+- Сначала вынести maintenance-операции (backup/recovery/restart/update), затем
+  sub-server операции, затем panel/cascade. После каждого среза запускать
+  соответствующий deploy-тест, не дожидаясь завершения всей фазы.
+- `run_deployment` должен сохранить публичную сигнатуру и маршрутизацию режимов.
+
+### C2. Вынести embedded bash/awk в файлы *(понижен приоритет)*
+- `PANEL_DOMAIN_REWRITE_SCRIPT` (149–291, ~140 строк bash) → `common/remote_scripts/panel_domain_rewrite.sh`.
+- `LEGACY_COMPOSE_REWRITE_CMD` (133) → `common/remote_scripts/legacy_compose_rewrite.sh`.
+- `LEGACY_TEMPLATES_SYMLINK_CMD` (120) → `common/remote_scripts/legacy_templates_symlink.sh`.
+- **Почему понижен**: встроенный bash работает; shellcheck можно запускать на строку (`bash -n`); динамические env vars (`${RECOVERY_OLD_DOMAIN}`) уже через shell env, не Python f-strings. Выносить только когда будет pain point (много embedded scripts, баги при правке).
+- Загружать в рантайме через `Path.read_text()` и стримить на удалённую сторону (логика `get_bundle_bytes` уже умеет включать файлы в bundle).
+- Проверить `get_bundle_bytes()`: remote_scripts должны попадать в tar-бандл (сейчас exclusion list не трогает `common/`).
+
+### C3. Разбить `run_deployment` на поведенческие модули
+- `deployers/panel_deployer.py` — single + cascade + `_deploy_node`.
+- `deployers/sub_deployer.py` — `_deploy_sub_server`, `_sub_server_sync_cmd`.
+- `deployers/maintenance.py` — backup/restart/update/recovery.
+- Каждый перенос — отдельный небольшой PR: maintenance → sub-server → panel/cascade.
+- После каждого PR запускать `tests/deploy/run_deploy_tests.sh` и профильные unit-тесты.
+
+### C4. Сократить сигнатуры
+- `_deploy_node`/`_deploy_sub_server` (~12 аргументов) → принять один `NodeConfig` dataclass или словарь соединения.
+- Делать это только после выделения модулей и тестов; сначала сохранить адаптеры со
+  старыми сигнатурами, затем удалить их отдельным шагом.
+
+### C5. Вынести `SSHDeployer` в модуль
+- `core/ssh_client.py` — низкоуровневый async SSH/SCP враппер (сейчас class `SSHDeployer`, строки 294+).
+- `ssh_deployer.py` оставляет оркестрацию, импортирует транспорт.
+- Переносить механически после стабилизации orchestration-срезов; публичный импорт
+  из `ssh_deployer` временно сохранить для обратной совместимости тестов и overrides.
+
+### C6. Константы наружу (F10)
+- `/opt/3x-ui-bootstRUp` (8+ вхождений), `PANEL_CONTAINER="3xui"`, `PANEL_API_PORT="2053"` → 
+  `constants.py` (Python) + `common/constants.sh` (Bash, source в setup-скриптах).
+- В `panel/setup.sh`/`sub-server/setup.sh` значения оставить до отдельного решения (remote IaC, см. «Что НЕ делать»).
+
+---
+
+## Фаза D: `main.py`
+
+### D1. Маршруты из гигантских `do_GET`/`do_POST`
+- `do_GET` (665–852) и `do_POST` (852–1109) → файл `routing.py` с диспетчером по path, либо таблица `url → handler`.
+- Каждый handler — отдельная функция, не вложенная.
+
+### D2. YAML через стандартную библиотеку (пересмотреть requirement)
+- `_dump_yaml_simple`/`_load_yaml_simple` (~150 строк) — самописный YAML ради zero-dependency.
+- **Оставлено по дизайну** (см. AGENTS.md TODO #1): гарантия zero-зависимостей на Windows/macOS/Linux.
+- **Действие**: если требование zero-dep остаётся — минимум покрыть парсер unit-тестами (A1); иначе — рассмотреть `PyYAML` и удалить самописный код.
+
+---
+
+## Фаза E: `panel/static/app.js` (модульность) — самая большая
+
+### E1. Split на ES-модули
+Так как файл — `<script>` без сборщика, перейти на `type="module"` или IIFE-модули. Целевая структура:
+```
+panel/static/modules/
+  crypto.js      # WebCrypto PBKDF2/AES-GCM, мастер-пароль, авто-миграция
+  servers.js     # drawer сохранённых VPS, lock, edit, quick-select
+  logs.js        # SSE-стрим, auto-scroll, статус-бейджи
+  forms.js       # переключение режимов, валидация, основная логика
+  topology.js    # SVG-диаграмма
+  md5.js         # вынести самописный md5 из app.js (177–288)
+  ui.js          # toast/dialog/alert (перезапись window.alert/confirm)
+  deploy.js      # управление деплоем, старт/стоп (без UI-части SSE)
+```
+- **Шаг**: сначала вынести `md5`/`derivePanelPaths`/`ui` — изолированные, безопасные, без зависимостей. Потом `crypto`, `topology`, `logs`, потом `forms`/`servers` (самая связанная часть).
+- `index.html` — подключить модули.
+- **Критичный нюанс ES Modules**: при `<script type="module">` функции не попадают в глобальный `window`. Перед переводом убедиться, что инлайновые атрибуты (вроде `onclick="..."`) заменены на `addEventListener`, либо нужные функции явно экспортированы в `window` ради совместимости с тестами Playwright (`tests/ui/`).
+
+### E2. Убрать глобальную подмену `window.alert`/`confirm`
+- Оставить подмену только если требуется явно (совместимость), иначе использовать `showToast`/`showConfirm` напрямую, не трогая window.
+
+---
+
+## Фаза F: единая модель сервера (сквозная проблема)
+
+### F1. Unified `ServerConnection`
+- Сейчас 7 наборов ключей (`vps_*`, `freedom_*`, `proxy_*`, `sub_vps_*`, `backup_vps_*`, `recovery_vps_*`, `update_vps_*`).
+- **Действие**: единая dataclass `ServerConnection` (host, port, user, auth_type, password, key) + маппинг старых ключей → модель на границе парсинга формы.
+- **Порядок**: не ломать сохранённый `setup_backup.yml` — маппить при чтении/записи; формат файла можно оставить (обратная совместимость) или мигрировать с запасным парсером.
+- **Побочный выигрыш**: `validate_deployment_config` — убрать 7-кратное дублирование `_check_ssh(key_prefix, ...)`, заменить одной `ServerConnection.validate()`; `save_backup_config` — заменить ручной список ~80 ключей сериализацией dataclass.
+- Выполнять после стабилизации C и D, но до крупного E: backend-модель должна стать
+  устойчивой границей до унификации frontend-полей.
+
+### F2. Переиспользуемый frontend-селектор сервера
+- Вынести повторяющиеся поля ввода SSH в один HTML-компонент/шаблон, вместо копипасты по секциям формы.
+- Делать после F1 и небольшими срезами по ролям, сохраняя старые имена полей на границе API.
+
+---
+
+## Фаза G: стратегический паттерн режимов (опция, самое дальнее)
+
+- Каскадные `if/elif` по `mode` в `app.js`, `main.py`, `ssh_deployer.py` — нарушение Open/Closed.
+- **Действие**: `DeploymentStrategy` реестр, каждый режим инкапсулирует schema валидации + pipeline + формат результата.
+- **Зависимость**: требует готовых фаз C, D, E (границы сначала, паттерн потом).
+
+---
+
+## Целевая структура файлов (после всех фаз)
+
+```
+3x-ui-bootstrup/
+├── main.py                        # HTTP-сервер + роутинг (~400 строк)
+├── routing.py                     # Диспетчер маршрутов (из do_GET/do_POST)
+├── constants.py                   # PANEL_CONTAINER, PANEL_API_PORT, remote_dir
+├── core/
+│   └── ssh_client.py              # SSHDeployer (из ssh_deployer.py)
+├── ssh_deployer.py                # Оркестрация деплоя (режимы, НЕ транспорт)
+├── deployers/
+│   ├── panel_deployer.py          # single + cascade + _deploy_node
+│   ├── sub_deployer.py            # _deploy_sub_server, _sub_server_sync_cmd
+│   └── maintenance.py             # backup/restart/update/recovery
+├── common/
+│   ├── constants.sh               # source в setup-скриптах
+│   ├── remote_scripts/            # *.sh, загружаются Path.read_text()
+│   │   ├── panel_domain_rewrite.sh
+│   │   ├── legacy_compose_rewrite.sh
+│   │   └── legacy_templates_symlink.sh
+│   └── setup.sh                   # (unchanged)
+├── models.py                      # ServerConnection, NodeConfig dataclass
+├── panel/
+│   ├── setup.sh                   # (unchanged)
+│   └── static/
+│       ├── index.html             # подключает ES-модули
+│       ├── style.css
+│       └── modules/
+│           ├── crypto.js  ui.js  servers.js  deploy.js
+│           ├── forms.js  topology.js  logs.js  md5.js
+├── sub-server/
+│   ├── server.py                  # Роутинг + прокси (~400 строк)
+│   ├── templates/
+│   │   ├── web/
+│   │   │   ├── dashboard.html  login.html  style.css  app.js
+│   │   ├── caddy/                 # (unchanged)
+│   │   └── docker-compose/        # (unchanged)
+│   └── setup.sh                   # (unchanged)
+└── tests/                         # tests/deploy/, tests/ui/, tests/vpn/ + tests/unit/
+    └── unit/                      # Чистые unit-тесты ядра (без __init__.py)
+        ├── test_yaml_config_security.py
+        ├── test_deployment_parsing.py
+        └── test_core_signatures.py
+```
+
+---
+
+## Порядок, риски и оценка
+
+| Приоритет | Фаза | Ценность | Риск | Статус |
+|-----------|------|----------|------|--------|
+| 1 | A (тесты) | основа | низкий | **ВЫПОЛНЕНО (40 тестов)** |
+| 2 | B (server.py) | высокая, быстрая | низкий | запланировано |
+| 3 | C1/C3 (orchestration-срезы) | высокая | средний | запланировано |
+| 4 | C5 (SSH-транспорт) | высокая | средний | запланировано |
+| 5 | D (main.py) | средняя | средний | запланировано |
+| 6 | F (модель сервера) | средняя | средний | запланировано |
+| 7 | E (app.js) | высокая | высокий | запланировано |
+| 8 | G (стратегии) | опция | высокий | запланировано |
+
+**Золотое правило**: каждый поведенческий срез = отдельный PR. Поведение не меняется,
+публичные импорты и сигнатуры временно сохраняются адаптерами, тесты зелёные до/после.
+Не объединять перенос шаблонов, маршрутизации и бизнес-логики в один PR.
+
+---
+
+## Что НЕ делать
+
+- Не переписывать `setup.sh`/`sub-server/setup.sh` как часть рефакторинга (это remote IaC, ломается легко). Константы в них — только через `common/constants.sh` source.
+- Не убирать zero-dependency YAML без явного решения стейкхолдера.
+- Не вводить сборщик фронта (webpack/vite) — проект без node-тулчейна; ES-модули достаточно.
+- Не вводить MockTransport/RemoteTransport — Docker-VPS-интеграция уже покрывает тестируемость транспорта.
+- Не вводить services/-слой между HTTP и бизнес-логикой — один entry point, нет нескольких потребителей.
+- Не мигрировать `subs.yml`→`nodes.json` тут (уже сделано в AGENTS.md TODO #2).

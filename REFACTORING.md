@@ -1,6 +1,6 @@
 # Рефакторинг 3x-UI BootstRUp: большой план
 
-> Статус: в процессе. **Фазы A и B + C1 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`).
+> Статус: в процессе. **Фазы A и B + C1 + C3 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`; C3 — deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py`).
 > Порядок фаз — по убыванию ценности/безопасности.
 > Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
 
@@ -14,7 +14,7 @@
 |------|-------|----------|
 | `panel/static/app.js` | 5428 | 1 глобал, 782 функции, нет модулей |
 | `sub-server/server.py` | ~~4563~~ → 1848 | HTML/CSS/JS вшито в `"""` строки (Фаза B: вынесено в `templates/web/`) |
-| `ssh_deployer.py` | ~~2363~~ → 1854 | bash/awk встроены в Python-строки; maintenance-ветки вынесены в `deployers/maintenance.py` (Фаза C1) |
+| `ssh_deployer.py` | ~~2363~~ → 1349 | bash/awk встроены в Python-строки; maintenance-ветки → `deployers/maintenance.py` (C1); deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py` (C3), остался диспетчер + хелперы |
 | `main.py` | 1419 | самописный YAML, гигантские `do_GET`/`do_POST` |
 
 Три самостоятельные болезни:
@@ -145,7 +145,9 @@
 ### C1. Разбить orchestration по поведенческим срезам — [ВЫПОЛНЕНО]
 - Maintenance-срез вынесен первым: `deployers/maintenance.py` (backup, recovery, update/update_3xui,
   restart_panel/restart_server, restart_sub/update_sub/backup_sub/rollback_sub).
-- Создан пакет `deployers/` (`__init__.py` + `maintenance.py`); `ssh_deployer.py` — 2483 → 1854 строк.
+- Создан пакет `deployers/` (namespace-пакет, PEP 420 — `__init__.py` удалён по решению
+  пользователя; `from deployers import maintenance` работает и тесты зелёные);
+  `ssh_deployer.py` — 2483 → 1854 строк.
 - `run_deployment` сохранил публичную сигнатуру и маршрутизацию режимов; ветки делегируют
   через отложенный `from deployers.maintenance import ...` (ломает циклический импорт: maintenance
   импортирует из ssh_deployer наверху).
@@ -155,7 +157,8 @@
 - Тела веток перенесены дословно (сверено диффом с HEAD: только сигнатуры/отступы).
 - Проверено: 40 unit + 22 validation/changelog зелёные; deploy-интеграции и UI E2E не затронуты
   (требуют docker/playwright — гонять в финальном прогоне перед мержем).
-- Осталось (C3): panel/cascade → `deployers/panel_deployer.py`, sub-deploy → `deployers/sub_deployer.py`.
+- Осталось после C1: panel/cascade → `deployers/panel_deployer.py`, sub-only → `deployers/sub_deployer.py`
+  (выполнено в C3 ниже).
 
 ### C2. Вынести embedded bash/awk в файлы *(понижен приоритет)*
 - `PANEL_DOMAIN_REWRITE_SCRIPT` (149–291, ~140 строк bash) → `common/remote_scripts/panel_domain_rewrite.sh`.
@@ -165,12 +168,22 @@
 - Загружать в рантайме через `Path.read_text()` и стримить на удалённую сторону (логика `get_bundle_bytes` уже умеет включать файлы в bundle).
 - Проверить `get_bundle_bytes()`: remote_scripts должны попадать в tar-бандл (сейчас exclusion list не трогает `common/`).
 
-### C3. Разбить `run_deployment` на поведенческие модули
-- `deployers/panel_deployer.py` — single + cascade + `_deploy_node`.
-- `deployers/sub_deployer.py` — `_deploy_sub_server`, `_sub_server_sync_cmd`.
-- `deployers/maintenance.py` — backup/restart/update/recovery.
-- Каждый перенос — отдельный небольшой PR: maintenance → sub-server → panel/cascade.
-- После каждого PR запускать `tests/deploy/run_deploy_tests.sh` и профильные unit-тесты.
+### C3. Разбить `run_deployment` на поведенческие модули — [ВЫПОЛНЕНО]
+- `deployers/panel_deployer.py` (551 строка) — `deploy_single` (single/proxy_only/freedom_only/
+  freedom_component), `deploy_freedom_sub` (freedom+sub-server, 2 стадии), `deploy_cascade`
+  (cascade/cascade_sub, 2-3 стадии). Тела веток перенесены дословно (сверено диффом строк:
+  только сигнатуры + перенос общих преамбульных деклараций внутрь функций).
+- `deployers/sub_deployer.py` (114 строк) — `deploy_sub_only`.
+- `ssh_deployer.py::run_deployment` — 2483 → 1854 (C1) → **1349 строк**: диспетчер из 9 делегирований.
+- **Отклонение от буквального плана**: `_deploy_node`, `_deploy_sub_server`, `_sub_server_sync_cmd`
+  **остаются в ssh_deployer.py** как shared-хелперы — они импортируют `SSHDeployer`/`get_bundle_bytes`
+  из ssh_deployer; перенос в deployers/ создал бы циклический импорт. По плану C5 они уедут в
+  `core/ssh_client.py`. Снапшоты тестов (`test_core_signatures`, `test_deployment_parsing`)
+  фиксируют `ssh_deployer._sub_server_sync_cmd` — сигнатура сохранена.
+- Другие импорты деплой-модулей из ssh_deployer: `_change_remote_ssh_port`, `derive_sub_path`,
+  `derive_sub_server_path`, `extract_domain_from_url`, `parse_deployment_results`, `resolve_sub_server_urls`.
+- Каждая verify: 40 unit + 22 validation/changelog зелёные (после всех правок); `py_compile` OK.
+  deploy-интеграции и UI E2E не гонялись (требуют docker/playwright — финальный прогон перед мержем).
 
 ### C4. Сократить сигнатуры
 - `_deploy_node`/`_deploy_sub_server` (~12 аргументов) → принять один `NodeConfig` dataclass или словарь соединения.
@@ -304,7 +317,7 @@ panel/static/modules/
 |-----------|------|----------|------|--------|
 | 1 | A (тесты) | основа | низкий | **ВЫПОЛНЕНО (40 тестов)** |
 | 2 | B (server.py) | высокая, быстрая | низкий | **ВЫПОЛНЕНО** (4563→1848; шаблоны + подвязка Docker/bundle; `test_ui_result_cards.py` как бонус) |
-| 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`); следующий шаг: C3 (panel/cascade, sub-deploy) |
+| 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1+C3 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`; panel/cascade → `deployers/panel_deployer.py`; sub-only → `deployers/sub_deployer.py`; `ssh_deployer.py` → 1349 строк). Следующий шаг: C5 (SSH-транспорт) |
 | 4 | C5 (SSH-транспорт) | высокая | средний | запланировано |
 | 5 | D (main.py) | средняя | средний | запланировано |
 | 6 | F (модель сервера) | средняя | средний | запланировано |

@@ -11,6 +11,7 @@ import re
 from typing import Callable, Dict, Any, Optional, Tuple
 
 from ssh_deployer import (
+    NodeConfig,
     REPO_ROOT,
     _change_remote_ssh_port,
     _deploy_sub_server,
@@ -67,7 +68,7 @@ async def deploy_sub_only(
     }
 
     sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
-    ok_sub, out_sub = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
+    ok_sub, out_sub = await _deploy_sub_server(NodeConfig(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files), log)
     if not ok_sub:
         log("[ERROR] Failed to deploy Subscription Server.", "error")
         return False, {}

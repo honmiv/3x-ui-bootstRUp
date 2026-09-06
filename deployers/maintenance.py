@@ -19,6 +19,7 @@ import tarfile
 from typing import Callable, Dict, Any, Optional, Tuple
 
 from ssh_deployer import (
+    NodeConfig,
     PANEL_DOMAIN_REWRITE_SCRIPT,
     REPO_ROOT,
     SSHDeployer,
@@ -586,10 +587,13 @@ async def deploy_sub_ops(
                 sub_env["UPDATE_SUB_DECOY"] = "1"
             log("Updating Subscription Server files and containers; client data will be preserved...", "info")
             ok_sub, out_sub = await _deploy_sub_server(
-                sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log,
-                cancel_check=cancel_check,
-                bundle_source_dir=config.get("bundle_source_dir"),
-                decoy_files=update_sub_decoy_files,
+                NodeConfig(
+                    sub_host, sub_port, sub_user, sub_password, sub_key, sub_env,
+                    cancel_check=cancel_check,
+                    bundle_source_dir=config.get("bundle_source_dir"),
+                    decoy_files=update_sub_decoy_files,
+                ),
+                log,
             )
             if not ok_sub:
                 log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")

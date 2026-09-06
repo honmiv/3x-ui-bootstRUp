@@ -15,6 +15,7 @@ import re
 from typing import Callable, Dict, Any, Optional, Tuple
 
 from ssh_deployer import (
+    NodeConfig,
     _change_remote_ssh_port,
     _deploy_node,
     _deploy_sub_server,
@@ -95,7 +96,7 @@ async def deploy_single(
     }
 
     single_decoy_files = prepare_decoy_files(single_decoy_tpl, single_label)
-    ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=single_decoy_files)
+    ok, out = await _deploy_node(NodeConfig(host, port, user, password, key_data, env_vars, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=single_decoy_files), log)
     parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
     
     if ok and change_ssh_port and new_ssh_port:
@@ -171,7 +172,7 @@ async def deploy_freedom_sub(
     }
 
     freedom_decoy_files = prepare_decoy_files(config.get("decoy_template") or config.get("freedom_decoy_template"), "Freedom Node")
-    ok1, out1 = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
+    ok1, out1 = await _deploy_node(NodeConfig(host, port, user, password, key_data, env_vars, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files), log)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy Freedom Node.", "error")
         return False, {}
@@ -240,7 +241,7 @@ async def deploy_freedom_sub(
     sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
     sub_target = sub_host
     effective_sub_port = updated_ssh_ports.get(sub_target, sub_port)
-    ok2, out2 = await _deploy_sub_server(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
+    ok2, out2 = await _deploy_sub_server(NodeConfig(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files), log)
     if not ok2:
         log("[ERROR] Stage 2 failed: Subscription Server deployment failed.", "error")
         return False, {}
@@ -366,7 +367,7 @@ async def deploy_cascade(
 
     freedom_decoy_files = prepare_decoy_files(config.get("freedom_decoy_template") or config.get("decoy_template"), "Freedom Node")
     fr_target = freedom_host_for_ssh or freedom_host
-    ok1, out1 = await _deploy_node(fr_target, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
+    ok1, out1 = await _deploy_node(NodeConfig(fr_target, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files), log)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
@@ -410,7 +411,7 @@ async def deploy_cascade(
     proxy_decoy_files = prepare_decoy_files(config.get("proxy_decoy_template") or config.get("decoy_template"), "Proxy Node")
     px_target = proxy_host_for_ssh or proxy_host
     effective_proxy_port = updated_ssh_ports.get(px_target, proxy_port)
-    ok2, out2 = await _deploy_node(px_target, effective_proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
+    ok2, out2 = await _deploy_node(NodeConfig(px_target, effective_proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files), log)
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
@@ -505,7 +506,7 @@ async def deploy_cascade(
         sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
         sub_target = sub_host
         effective_sub_port = updated_ssh_ports.get(sub_target, sub_port)
-        ok3, out3 = await _deploy_sub_server(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
+        ok3, out3 = await _deploy_sub_server(NodeConfig(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files), log)
         if not ok3:
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}

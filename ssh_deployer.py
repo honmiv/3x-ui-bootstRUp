@@ -9,6 +9,7 @@ import shlex
 import sys
 import tarfile
 import time
+from dataclasses import dataclass
 from typing import Callable, Dict, Any, Optional, List, Tuple
 
 import decoy_manager
@@ -16,6 +17,19 @@ import decoy_manager
 from core.ssh_client import SSHDeployer
 
 REPO_ROOT = os.path.dirname(os.path.abspath(globals()["__file__"])) if globals().get("__file__") else os.path.abspath(os.path.dirname(sys.argv[0]) if sys.argv and sys.argv[0] else os.getcwd())
+
+@dataclass
+class NodeConfig:
+    """Connection + deployment parameters for a remote node (Phase C4 of REFACTORING.md)."""
+    host: str
+    port: int
+    user: str
+    password: str
+    key_data: str
+    env_vars: Dict[str, str]
+    cancel_check: Optional[Callable[[], bool]] = None
+    bundle_source_dir: Optional[str] = None
+    decoy_files: Optional[Dict[str, bytes]] = None
 
 def get_bundle_bytes(source_dir: str | None = None, decoy_files: Dict[str, bytes] | None = None) -> bytes:
     buf = io.BytesIO()
@@ -378,9 +392,11 @@ async def _perform_remote_backup(
     return True, local_backup_path, file_size_mb
 
 
-async def _deploy_node(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None, decoy_files: Optional[Dict[str, bytes]] = None) -> tuple[bool, str]:
+async def _deploy_node(node: NodeConfig, log: Callable[[str, str], None]) -> tuple[bool, str]:
+    host = node.host
+    port = node.port
     remote_dir = "/opt/3x-ui-bootstRUp"
-    async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+    async with SSHDeployer(host, port, node.user, node.password, node.key_data, cancel_check=node.cancel_check) as deployer:
         log(f"Connecting to {host}:{port}...", "info")
         ok, msg = await deployer.test_connection()
         if not ok:
@@ -388,7 +404,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
             return False, ""
 
         log(f"Syncing local files to {host}...", "info")
-        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir, decoy_files=decoy_files)
+        bundle_bytes = get_bundle_bytes(source_dir=node.bundle_source_dir, decoy_files=node.decoy_files)
         sync_cmd = f"mkdir -p {remote_dir} && tar -xzf - -C {remote_dir}"
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
@@ -398,7 +414,7 @@ async def _deploy_node(host: str, port: int, user: str, password: str, key_data:
         log(f"Executing setup.sh script on {host}...", "info")
         
         env_str_parts = []
-        for k, v in env_vars.items():
+        for k, v in node.env_vars.items():
             if v is not None:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)
@@ -435,9 +451,11 @@ def _sub_server_sync_cmd(remote_dir: str, preserve: bool) -> str:
         f"{restore}"
     )
 
-async def _deploy_sub_server(host: str, port: int, user: str, password: str, key_data: str, env_vars: Dict[str, str], log: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None, bundle_source_dir: Optional[str] = None, decoy_files: Optional[Dict[str, bytes]] = None) -> tuple[bool, str]:
+async def _deploy_sub_server(node: NodeConfig, log: Callable[[str, str], None]) -> tuple[bool, str]:
+    host = node.host
+    port = node.port
     remote_dir = "/opt/3x-ui-bootstRUp"
-    async with SSHDeployer(host, port, user, password, key_data, cancel_check=cancel_check) as deployer:
+    async with SSHDeployer(host, port, node.user, node.password, node.key_data, cancel_check=node.cancel_check) as deployer:
         log(f"Connecting to Subscription Server on {host}:{port}...", "info")
         ok, msg = await deployer.test_connection()
         if not ok:
@@ -445,8 +463,8 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return False, ""
 
         log(f"Syncing local files to Subscription Server {host}...", "info")
-        bundle_bytes = get_bundle_bytes(source_dir=bundle_source_dir, decoy_files=decoy_files)
-        sync_cmd = _sub_server_sync_cmd(remote_dir, preserve=(env_vars.get("UPDATE_SUB_SERVER", "") == "1"))
+        bundle_bytes = get_bundle_bytes(source_dir=node.bundle_source_dir, decoy_files=node.decoy_files)
+        sync_cmd = _sub_server_sync_cmd(remote_dir, preserve=(node.env_vars.get("UPDATE_SUB_SERVER", "") == "1"))
         rc, sync_out = await deployer.exec_command(sync_cmd, lambda m: log(m, "info"), stdin_data=bundle_bytes)
         if rc != 0:
             log(f"[ERROR] Failed to transfer files to Subscription Server {host}: {sync_out}", "error")
@@ -454,7 +472,7 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
 
         log(f"Executing sub-server/setup.sh script on {host}...", "info")
         env_str_parts = []
-        for k, v in env_vars.items():
+        for k, v in node.env_vars.items():
             if v is not None:
                 env_str_parts.append(f"{k}={shlex.quote(str(v))}")
         env_str = " ".join(env_str_parts)

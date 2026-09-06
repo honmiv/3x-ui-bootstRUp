@@ -19,6 +19,7 @@ services:
       PORT: "8000"
     volumes:
       - ./sub-server/server.py:/app/server.py
+      - ./sub-server/templates/web:/app/templates/web
       - ./sub-server/force-subs.yml:/data/force-subs.yml
       - ./sub-server/nodes.json:/data/nodes.json
       - ./sub-server/sub-server.log:/data/sub-server.log

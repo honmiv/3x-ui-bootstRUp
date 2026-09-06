@@ -1,6 +1,6 @@
 # Рефакторинг 3x-UI BootstRUp: большой план
 
-> Статус: в процессе. **Фаза A выполнена** (защитный слой unit-тестов и фиксация контрактов).
+> Статус: в процессе. **Фазы A и B выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`).
 > Порядок фаз — по убыванию ценности/безопасности.
 > Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
 
@@ -13,7 +13,7 @@
 | Файл | Строк | Проблема |
 |------|-------|----------|
 | `panel/static/app.js` | 5428 | 1 глобал, 782 функции, нет модулей |
-| `sub-server/server.py` | 4563 | HTML/CSS/JS вшито в `"""` строки |
+| `sub-server/server.py` | ~~4563~~ → 1848 | HTML/CSS/JS вшито в `"""` строки (Фаза B: вынесено в `templates/web/`) |
 | `ssh_deployer.py` | 2363 | bash/awk встроены в Python-строки, `run_deployment` ~1272 строк |
 | `main.py` | 1419 | самописный YAML, гигантские `do_GET`/`do_POST` |
 
@@ -95,32 +95,48 @@
 
 ## Фаза B: `sub-server/server.py` (шаблонизация) — быстрый выигрыш
 
-Цель: вынести HTML/CSS/JS из Python, `server.py` уменьшить ~4563 → ~фрагмент.
+> **Статус**: ВЫПОЛНЕНО (B1 + B3). `server.py`: 4563 → 1848 строк. B2 (JS наружу) отложен как опция.
 
-### B1. Перенос разметки
-- Сначала выделить и покрыть тестом функцию загрузки/рендеринга шаблонов: она должна
-  выдавать те же HTTP-ответы и подстановки, что и текущие Python-строки.
-- `PAGE_TEMPLATE` (127–2479) и `LOGIN_TEMPLATE` (2481–2851) → отдельные файлы:
-  ```
-  sub-server/templates/web/dashboard.html
-  sub-server/templates/web/login.html
-  sub-server/templates/web/style.css
-  sub-server/templates/web/app.js
-  ```
-- В `server.py` оставить только `__VAR__`/`.replace()`-подстановку пар значений в загруженный шаблон.
-- Переносить сначала HTML/CSS, затем встроенный JavaScript. Не менять одновременно
-  маршрутизацию, авторизацию и формат API-ответов.
-- **Критичный нюанс Docker**: сейчас `Dockerfile-python` (`COPY server.py /app/server.py`) и `docker-compose.yml.template` (`- ./sub-server/server.py:/app/server.py`) монтируют только один файл. При выносе файлов разметки в `templates/web/` обязательно синхронно обновить `Dockerfile-python`, volume mounts в Compose и проверить, что `get_bundle_bytes()` передаёт эти шаблоны на VPS при обновлении sub-server.
+### Что сделано
 
-### B2. Скрипты наружу (опция, ниже приоритет)
-- Python-строки с JS-функциями внутри `Server`/`Handler` → `.js` файлы, `src="./static/..."`.
-- `Handler` (3346–4526) разбить: логика запросов отдельно от генерации HTML.
+- `PAGE_TEMPLATE` (бывшие строки 127–2479) → `sub-server/templates/web/dashboard.html` (99 373 байт).
+- `LOGIN_TEMPLATE` (2481–2851) → `sub-server/templates/web/login.html` (16 136 байт).
+- В `server.py` (~127–136) добавлены `WEB_TEMPLATE_DIR` и `_load_web_template(name)`: `PAGE_TEMPLATE = _load_web_template("dashboard.html")`, `LOGIN_TEMPLATE = _load_web_template("login.html")`.
+- Все `__VAR__`-плейсхолдеры и цепочка `.replace()` не тронуты — подстановка работает как раньше.
+- Docker-синхронизация (критичный нюанс из плана):
+  - `Dockerfile-python` → добавлено `COPY templates/web /app/templates/web`.
+  - `docker-compose.yml.template` → добавлен volume `- ./sub-server/templates/web:/app/templates/web`.
+  - `get_bundle_bytes()` проверен построением бандла: `sub-server/templates/web/{dashboard,login}.html` попадают в tar.gz (exclusion list не трогает `sub-server/templates/web/`).
 
-### B3. Проверка
-- Прогнать существующие `tests/test_sub_server_*.py`.
-- Сравнить ответы dashboard/login и ключевые API-ответы до и после переноса.
+### Как делалось (важный урок extraction)
 
-**Ожидаемый эффект**: `server.py` ставится читаемым для роутинга/прокси; разметка редактируется в HTML.
+- Извлекать **вычисленные** строки (импорт старой версии модуля из git HEAD и дамп их значений), а НЕ сырой исходник из `"""`-блока. Сырое извлечение ломает Python escape-обработку: `\\/` → `\/` в JS-регэкспах (5-байтовая разница, расхождение на позиции 88030).
+- После переизвлечения оба файла байт-в-байт идентичны оригинальным строкам (`identical=True`).
+
+### Проверка (B3)
+
+- `compileall` + `py_compile` — OK.
+- Тесты зелёные: 40 unit (`tests/unit`), sub-server integration (`test_sub_server_nodes`, `test_sub_server_https`, `test_deploy_sub_server`), decoy/validation (`test_decoy_manager`, `test_validation_and_fallbacks`).
+- Smoke-рендер: dashboard 200 (содержит `node-type-badge`, имена клиентов; нет `__SECTIONS__`/`__API_NODE__`), login 200 (содержит «Пароль»; нет `__ERROR_BLOCK__`/`__LOGIN_ACTION__`); запрос без cookie → 302 на login (корректно).
+- Реальный деплой пользователя: `update_sub` на VPS прошёл успешно (шаг `COPY templates/web` DONE, контейнеры подняты, SSL OK, «Subscription Server updated successfully; clients and nodes preserved!»).
+
+### Эксплуатационные последствия (важно!)
+
+- **`update_sub`** перегенерирует compose из шаблона → применяет изменения шаблонов на любом сервере (и старом, и новом).
+- **`restart_sub`** только пересоздаёт контейнер по существующему `working/docker-compose/docker-compose.yml` — НЕ перегенерирует. На сервере, деплоенном до Фазы B, контейнер упадёт с `RuntimeError: cannot load web template` (нет `/app/templates/web`). Лечение: сначала `update_sub`.
+
+### Побочная находка (исправлено вне плана B)
+
+- При верификации найден предсуществующий баг рендера карточек результата: голый `else` в `app.js` (~строка 3663) для ЛЮБОГО не-панельного режима рендерил фейковую карточку «Панель управления 3X-UI» с URL `https://Server/` (проявился после первого `update_sub`).
+- Фикс: `} else {` → `} else if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {`.
+- Причины, почему логи не ловили: логи = stdout бэкенда (SSE), карточка = фронт-рендер `app.js` после завершения; тестов на карточки не было вовсе.
+- Добавлен E2E `tests/ui/test_ui_result_cards.py` (Playwright): 10 проверок — 9 maintenance-режимов (`update_sub`, `restart_sub`, `backup_sub`, `rollback_sub`, `backup`, `recovery`, `restart_panel`, `restart_server`, `update_3xui`) без фейковой панельной карточки + позитивный контроль `freedom_only` (реальная панельная карточка рендерится). Доказано, что тест ловит регрессию: при откате фикса падает на `update_sub`. Приёмы: мок `/api/deploy` + `/api/status`; hidden selects бэкапов (`recovery_backup_file`, `rollback_sub_backup_file`) заполняются через `set_hidden_select()` (evaluate + change, валидация читает `select.value`); `/api/backups` мокнут.
+- Раннеры: `run_ui_parallel.py` автоподхватывает `test_ui_*.py` по glob — тест попадает в `all`/`parallel`.
+
+### Прочее / отложено
+
+- `style.css` и `app.js` (внешние) НЕ выносились — встроенная `.replace()`-подстановка в `server.py` работает, отдельные файлы появились бы без реального pain point. Переделка отложена (см. B2 ниже).
+- **B2 (опция, не делается)**: JS-функции внутри `Handler` → `.js` + `src="..."`; `Handler` разбить на «логику запросов» и «генерацию HTML». Отложено как низкоприоритетное.
 
 ---
 
@@ -278,8 +294,8 @@ panel/static/modules/
 | Приоритет | Фаза | Ценность | Риск | Статус |
 |-----------|------|----------|------|--------|
 | 1 | A (тесты) | основа | низкий | **ВЫПОЛНЕНО (40 тестов)** |
-| 2 | B (server.py) | высокая, быстрая | низкий | запланировано |
-| 3 | C1/C3 (orchestration-срезы) | высокая | средний | запланировано |
+| 2 | B (server.py) | высокая, быстрая | низкий | **ВЫПОЛНЕНО** (4563→1848; шаблоны + подвязка Docker/bundle; `test_ui_result_cards.py` как бонус) |
+| 3 | C1/C3 (orchestration-срезы) | высокая | средний | следующий шаг (C1: maintenance-срез) |
 | 4 | C5 (SSH-транспорт) | высокая | средний | запланировано |
 | 5 | D (main.py) | средняя | средний | запланировано |
 | 6 | F (модель сервера) | средняя | средний | запланировано |

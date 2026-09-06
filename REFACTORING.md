@@ -1,6 +1,6 @@
 # Рефакторинг 3x-UI BootstRUp: большой план
 
-> Статус: в процессе. **Фазы A и B выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`).
+> Статус: в процессе. **Фазы A и B + C1 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`).
 > Порядок фаз — по убыванию ценности/безопасности.
 > Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
 
@@ -14,7 +14,7 @@
 |------|-------|----------|
 | `panel/static/app.js` | 5428 | 1 глобал, 782 функции, нет модулей |
 | `sub-server/server.py` | ~~4563~~ → 1848 | HTML/CSS/JS вшито в `"""` строки (Фаза B: вынесено в `templates/web/`) |
-| `ssh_deployer.py` | 2363 | bash/awk встроены в Python-строки, `run_deployment` ~1272 строк |
+| `ssh_deployer.py` | ~~2363~~ → 1854 | bash/awk встроены в Python-строки; maintenance-ветки вынесены в `deployers/maintenance.py` (Фаза C1) |
 | `main.py` | 1419 | самописный YAML, гигантские `do_GET`/`do_POST` |
 
 Три самостоятельные болезни:
@@ -142,11 +142,20 @@
 
 ## Фаза C: SSH-транспорт и `ssh_deployer.py`
 
-### C1. Разбить orchestration по поведенческим срезам
-- Сначала вынести maintenance-операции (backup/recovery/restart/update), затем
-  sub-server операции, затем panel/cascade. После каждого среза запускать
-  соответствующий deploy-тест, не дожидаясь завершения всей фазы.
-- `run_deployment` должен сохранить публичную сигнатуру и маршрутизацию режимов.
+### C1. Разбить orchestration по поведенческим срезам — [ВЫПОЛНЕНО]
+- Maintenance-срез вынесен первым: `deployers/maintenance.py` (backup, recovery, update/update_3xui,
+  restart_panel/restart_server, restart_sub/update_sub/backup_sub/rollback_sub).
+- Создан пакет `deployers/` (`__init__.py` + `maintenance.py`); `ssh_deployer.py` — 2483 → 1854 строк.
+- `run_deployment` сохранил публичную сигнатуру и маршрутизацию режимов; ветки делегируют
+  через отложенный `from deployers.maintenance import ...` (ломает циклический импорт: maintenance
+  импортирует из ssh_deployer наверху).
+- В maintenance-функции переданы зависимости как параметры: `prepare_decoy_files` (замыкание
+  `run_deployment`, используется и deploy-ветками), `change_ssh_port`/`new_ssh_port`/`updated_ssh_ports`
+  (dict мутируется до return — поведение сохранено).
+- Тела веток перенесены дословно (сверено диффом с HEAD: только сигнатуры/отступы).
+- Проверено: 40 unit + 22 validation/changelog зелёные; deploy-интеграции и UI E2E не затронуты
+  (требуют docker/playwright — гонять в финальном прогоне перед мержем).
+- Осталось (C3): panel/cascade → `deployers/panel_deployer.py`, sub-deploy → `deployers/sub_deployer.py`.
 
 ### C2. Вынести embedded bash/awk в файлы *(понижен приоритет)*
 - `PANEL_DOMAIN_REWRITE_SCRIPT` (149–291, ~140 строк bash) → `common/remote_scripts/panel_domain_rewrite.sh`.
@@ -295,7 +304,7 @@ panel/static/modules/
 |-----------|------|----------|------|--------|
 | 1 | A (тесты) | основа | низкий | **ВЫПОЛНЕНО (40 тестов)** |
 | 2 | B (server.py) | высокая, быстрая | низкий | **ВЫПОЛНЕНО** (4563→1848; шаблоны + подвязка Docker/bundle; `test_ui_result_cards.py` как бонус) |
-| 3 | C1/C3 (orchestration-срезы) | высокая | средний | следующий шаг (C1: maintenance-срез) |
+| 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`); следующий шаг: C3 (panel/cascade, sub-deploy) |
 | 4 | C5 (SSH-транспорт) | высокая | средний | запланировано |
 | 5 | D (main.py) | средняя | средний | запланировано |
 | 6 | F (модель сервера) | средняя | средний | запланировано |

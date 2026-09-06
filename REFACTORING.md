@@ -1,6 +1,6 @@
 # Рефакторинг 3x-UI BootstRUp: большой план
 
-> Статус: в процессе. **Фазы A и B + C1 + C3 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`; C3 — deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py`).
+> Статус: в процессе. **Фазы A и B + C1 + C3 + C5 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`; C3 — deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py`; C5 — `SSHDeployer` → `core/ssh_client.py`).
 > Порядок фаз — по убыванию ценности/безопасности.
 > Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
 
@@ -14,7 +14,7 @@
 |------|-------|----------|
 | `panel/static/app.js` | 5428 | 1 глобал, 782 функции, нет модулей |
 | `sub-server/server.py` | ~~4563~~ → 1848 | HTML/CSS/JS вшито в `"""` строки (Фаза B: вынесено в `templates/web/`) |
-| `ssh_deployer.py` | ~~2363~~ → 1349 | bash/awk встроены в Python-строки; maintenance-ветки → `deployers/maintenance.py` (C1); deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py` (C3), остался диспетчер + хелперы |
+| `ssh_deployer.py` | ~~2363~~ → 1141 | bash/awk встроены в Python-строки; maintenance-ветки → `deployers/maintenance.py` (C1); deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py` (C3); `SSHDeployer` → `core/ssh_client.py` (C5). Остался диспетчер + оркестрация |
 | `main.py` | 1419 | самописный YAML, гигантские `do_GET`/`do_POST` |
 
 Три самостоятельные болезни:
@@ -190,11 +190,19 @@
 - Делать это только после выделения модулей и тестов; сначала сохранить адаптеры со
   старыми сигнатурами, затем удалить их отдельным шагом.
 
-### C5. Вынести `SSHDeployer` в модуль
-- `core/ssh_client.py` — низкоуровневый async SSH/SCP враппер (сейчас class `SSHDeployer`, строки 294+).
-- `ssh_deployer.py` оставляет оркестрацию, импортирует транспорт.
-- Переносить механически после стабилизации orchestration-срезов; публичный импорт
-  из `ssh_deployer` временно сохранить для обратной совместимости тестов и overrides.
+### C5. Вынести `SSHDeployer` в модуль — [ВЫПОЛНЕНО]
+- `core/ssh_client.py` (219 строк) — низкоуровневый async SSH/SCP враппер
+  (`SSHDeployer` + `ANSI_ESCAPE`/`strip_ansi`). Тело класса перенесено дословно
+  (сверено диффом: байт-в-байт идентично).
+- `ssh_deployer.py` — 1349 → 1141 строк: транспорт удалён, осталась оркестрация.
+  Публичный импорт `from core.ssh_client import SSHDeployer` сохраняет
+  `ssh_deployer.SSHDeployer` (проверено: тот же объект класса; main.py:19,
+  tests/overrides, deployers-модули работают без правок).
+- `import tempfile` удалён из `ssh_deployer.py` (стал мёртвым после выноса);
+  мёртвый `import base64` (был до C5) намеренно не тронут.
+- `get_bundle_bytes()`: `core/` добавлен в exclusion (локальный транспорт remote
+  не нужен, аналогично `deployers/`); проверено — 0 записей `core/` в бандле.
+- Проверено: 40 unit + 22 validation/changelog зелёные; `py_compile` OK.
 
 ### C6. Константы наружу (F10)
 - `/opt/3x-ui-bootstRUp` (8+ вхождений), `PANEL_CONTAINER="3xui"`, `PANEL_API_PORT="2053"` → 
@@ -317,8 +325,8 @@ panel/static/modules/
 |-----------|------|----------|------|--------|
 | 1 | A (тесты) | основа | низкий | **ВЫПОЛНЕНО (40 тестов)** |
 | 2 | B (server.py) | высокая, быстрая | низкий | **ВЫПОЛНЕНО** (4563→1848; шаблоны + подвязка Docker/bundle; `test_ui_result_cards.py` как бонус) |
-| 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1+C3 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`; panel/cascade → `deployers/panel_deployer.py`; sub-only → `deployers/sub_deployer.py`; `ssh_deployer.py` → 1349 строк). Следующий шаг: C5 (SSH-транспорт) |
-| 4 | C5 (SSH-транспорт) | высокая | средний | запланировано |
+| 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1+C3 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`; panel/cascade → `deployers/panel_deployer.py`; sub-only → `deployers/sub_deployer.py`; `ssh_deployer.py` → 1349 строк). |
+| 4 | C5 (SSH-транспорт) | высокая | средний | **ВЫПОЛНЕНО** (`SSHDeployer` → `core/ssh_client.py`; `ssh_deployer.py` → 1141 строк) |
 | 5 | D (main.py) | средняя | средний | запланировано |
 | 6 | F (модель сервера) | средняя | средний | запланировано |
 | 7 | E (app.js) | высокая | высокий | запланировано |

@@ -1,6 +1,6 @@
 # Рефакторинг 3x-UI BootstRUp: большой план
 
-> Статус: в процессе. **Фазы A и B + C1 + C3 + C4 + C5 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`; C3 — deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py`; C4 — сигнатуры `_deploy_node`/`_deploy_sub_server` → `NodeConfig`; C5 — `SSHDeployer` → `core/ssh_client.py`).
+> Статус: в процессе. **Фазы A и B + C1 + C3 + C4 + C5 + D1 выполнены** (A — защитный слой unit-тестов и фиксация контрактов; B — шаблонизация `sub-server/server.py`; C1 — maintenance-срез `ssh_deployer.py` → `deployers/maintenance.py`; C3 — deploy-ветки → `deployers/panel_deployer.py` + `deployers/sub_deployer.py`; C4 — сигнатуры `_deploy_node`/`_deploy_sub_server` → `NodeConfig`; C5 — `SSHDeployer` → `core/ssh_client.py`; D1 — маршруты `main.py` → `routing.py`).
 > Порядок фаз — по убыванию ценности/безопасности.
 > Принцип: каждый шаг рефакторинга — отдельный PR, без изменения поведения. Тесты до и после.
 
@@ -220,9 +220,20 @@
 
 ## Фаза D: `main.py`
 
-### D1. Маршруты из гигантских `do_GET`/`do_POST`
-- `do_GET` (665–852) и `do_POST` (852–1109) → файл `routing.py` с диспетчером по path, либо таблица `url → handler`.
-- Каждый handler — отдельная функция, не вложенная.
+### D1. Маршруты из гигантских `do_GET`/`do_POST` — [ВЫПОЛНЕНО]
+- Создан `routing.py` (542 строки): `handle_get`/`handle_post`/`handle_delete`
+  диспетчеры + отдельные функции-хендлеры (`_get_*`/`_post_*`), тела перенесены
+  дословно (менялись только `self.` → `handler.` и `global`-глобалы → `M.`).
+- `main.py` `WebUIHandler.do_GET/do_POST/do_DELETE` сведены к 3 ленивым импортам
+  (`import routing`), класс и сигнатуры сохранены — UI-тесты, которые поднимают
+  реальный `ThreadingHTTPServer(WebUIHandler)` и патчат `main`-атрибуты, работают.
+- **Антициклический трюк**: `routing.py` делает `import main as M` наверху и читает
+  всё глобальное состояние через `M.` (не `from main import ...`) — чтобы
+  переприсваивание модульных атрибутов во время тестов (`SERVERS_FILE`,
+  `is_deploying` и т.д.) было всегда видимо и не было циклического импорта.
+- `urllib.parse` импорт удалён из main.py (использовался только маршрутами).
+- Проверено: 62 unit/validation зелёные; live-HTTP smoke 15/15 маршрутов (GET/POST/DELETE,
+  отдача статики, SSE, 404, валидация); `py_compile` OK.
 
 ### D2. YAML через стандартную библиотеку (пересмотреть requirement)
 - `_dump_yaml_simple`/`_load_yaml_simple` (~150 строк) — самописный YAML ради zero-dependency.
@@ -335,7 +346,7 @@ panel/static/modules/
 | 3 | C1/C3 (orchestration-срезы) | высокая | средний | **C1+C3 ВЫПОЛНЕНО** (maintenance → `deployers/maintenance.py`; panel/cascade → `deployers/panel_deployer.py`; sub-only → `deployers/sub_deployer.py`; `ssh_deployer.py` → 1349 строк). |
 | 4 | C5 (SSH-транспорт) | высокая | средний | **ВЫПОЛНЕНО** (`SSHDeployer` → `core/ssh_client.py`; `ssh_deployer.py` → 1141 строк) |
 | 4a | C4 (сигнатуры `_deploy_node`/`_deploy_sub_server`) | средняя | низкий | **ВЫПОЛНЕНО** (`NodeConfig` dataclass; 10 аргументов → 2) |
-| 5 | D (main.py) | средняя | средний | запланировано |
+| 5 | D (main.py) | средняя | средний | **D1 ВЫПОЛНЕНО** (`routing.py`; маршруты из `do_GET/do_POST/do_DELETE`; `main.py` 1419 → 987 строк) |
 | 6 | F (модель сервера) | средняя | средний | запланировано |
 | 7 | E (app.js) | высокая | высокий | запланировано |
 | 8 | G (стратегии) | опция | высокий | запланировано |

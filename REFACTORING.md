@@ -258,6 +258,7 @@ panel/static/modules/
   deploy.js      # управление деплоем, старт/стоп (без UI-части SSE)
 ```
 - **Шаг**: сначала вынести `md5`/`derivePanelPaths`/`ui` — изолированные, безопасные, без зависимостей. Потом `crypto`, `topology`, `logs`, потом `forms`/`servers` (самая связанная часть).
+- [ВЫПОЛНЕНО, частично] `modules/ui.js` создан (ui + md5 + derive, verbatim-копия строк 1–303 app.js, подключён обычным `<script>` перед app.js — глобальные функции сохранены); app.js 5460 → 5157 строк. `modules/crypto.js` создан (deriveKeyV1/V2, vault cookie, getPayloadVersion, encryptData/decryptData — 8 чистых crypto-функций, window-экспорт для app.js); app.js 5157 → 5081 строк. Осталось: `topology`, `logs`, `forms`, `servers`, `deploy.js`.
 - `index.html` — подключить модули.
 - **Критичный нюанс ES Modules**: при `<script type="module">` функции не попадают в глобальный `window`. Перед переводом убедиться, что инлайновые атрибуты (вроде `onclick="..."`) заменены на `addEventListener`, либо нужные функции явно экспортированы в `window` ради совместимости с тестами Playwright (`tests/ui/`).
 

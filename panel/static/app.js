@@ -3582,48 +3582,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     const bName = result.backup_name || cfg.backup_name || '';
                     const bSize = result.file_size || '';
                     panelsContainer.appendChild(renderPanelBlock('Архив бэкапа успешно создан!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', `Локальный архив: ./backups_panel/${bName}`, bHost, bSize, 'Сервер', 'Размер архива', false));
-                    return;
-                }
-
-                if (mode === 'recovery') {
+                } else if (mode === 'recovery') {
                     const rHost = result.recovery_host || cfg.recovery_vps_host || '';
                     const bFile = result.backup_file || cfg.recovery_backup_file || '';
                     const xuiUrl = result.xui_url || `https://${rHost}/`;
                     panelsContainer.appendChild(renderPanelBlock('Сервер успешно восстановлен из бэкапа!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>', xuiUrl, rHost, bFile, 'Новый домен', 'Архив', false));
-                    return;
-                }
-
-                if (mode === 'restart_panel') {
-                    const clientsSectionEl = document.getElementById('clientsSection');
-                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                } else if (mode === 'restart_panel') {
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
                     done.innerHTML = '<div class="panel-info-header"><span class="panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span><span class="panel-title-text">Панель 3X-UI перезапущена, всё готово!</span></div>';
                     panelsContainer.appendChild(done);
-                    return;
-                }
-
-                if (mode === 'restart_server') {
-                    const clientsSectionEl = document.getElementById('clientsSection');
-                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                } else if (mode === 'restart_server') {
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
                     done.innerHTML = '<div class="panel-info-header"><span class="panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></span><span class="panel-title-text">Сервер перезагружается, всё готово!</span></div>';
                     panelsContainer.appendChild(done);
-                    return;
-                }
-
-                if (mode === 'update_3xui') {
+                } else if (mode === 'update_3xui') {
                     const uHost = result.update_host || cfg.update_vps_host || '';
                     const ver = result.xui_version || cfg.update_xui_version || latestFetchedXuiVersion;
                     const xuiUrl = result.xui_url || `https://${uHost}/`;
                     panelsContainer.appendChild(renderPanelBlock('Панель 3X-UI успешно обновлена!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>', xuiUrl, uHost, ver, 'Сервер', 'Версия 3X-UI', false));
-                    return;
-                }
-
-                if (mode === 'restart_sub' || mode === 'update_sub') {
-                    const clientsSectionEl = document.getElementById('clientsSection');
-                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                } else if (mode === 'restart_sub' || mode === 'update_sub') {
                     const done = document.createElement('div');
                     done.className = 'panel-info-block';
                     const backupInfo = mode === 'update_sub' && result.pre_update_backup
@@ -3631,27 +3610,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         : '';
                     done.innerHTML = `<div class="panel-info-header"><span class="panel-icon">${mode === 'update_sub' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>'}</span><span class="panel-title-text">${mode === 'update_sub' ? 'Сервер подписок обновлён, клиенты и ноды сохранены!' : 'Сервер подписок перезапущен, всё готово!'}</span></div>${backupInfo}`;
                     panelsContainer.appendChild(done);
-                    return;
-                }
-
-                if (mode === 'backup_sub') {
-                    const clientsSectionEl = document.getElementById('clientsSection');
-                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                } else if (mode === 'backup_sub') {
                     const bHost = result.sub_host || cfg.sub_vps_host || '';
                     const bName = result.backup_name || '';
                     const bSize = result.file_size || '';
                     panelsContainer.appendChild(renderPanelBlock('Бэкап Сервера подписок успешно создан!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', `Локальный архив: ./backups_sub_server/${bName}`, bHost, bSize, 'Сервер подписок', 'Размер архива', false, 'Локальный архив'));
-                    return;
-                }
-
-                if (mode === 'rollback_sub') {
-                    const clientsSectionEl = document.getElementById('clientsSection');
-                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                } else if (mode === 'rollback_sub') {
                     const rHost = result.sub_host || cfg.sub_vps_host || '';
                     const bFile = result.backup_file || cfg.rollback_sub_backup_file || '';
                     const subBaseUrl = result.sub_base_url || '';
                     panelsContainer.appendChild(renderPanelBlock('Сервер подписок восстановлен из бэкапа!', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>', subBaseUrl, rHost, bFile, 'Сервер подписок', 'Архив', false, 'Адрес подписок (URL)'));
-                    return;
                 }
 
                 if (mode === 'sub_only') {
@@ -3793,7 +3761,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (cfg.sub_vps_host) hostPortMap[cfg.sub_vps_host.toLowerCase()] = newPort;
                                 if (cfg.sub_domain) hostPortMap[cfg.sub_domain.toLowerCase()] = newPort;
                             }
-                        } else if (mode === 'sub_only') {
                         } else if (mode === 'sub_only' || mode === 'update_sub') {
                             if (cfg.sub_vps_host) hostPortMap[cfg.sub_vps_host.toLowerCase()] = newPort;
                             if (cfg.sub_domain) hostPortMap[cfg.sub_domain.toLowerCase()] = newPort;
@@ -3802,17 +3769,38 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else if (mode === 'update_3xui') {
                             if (cfg.update_vps_host) hostPortMap[cfg.update_vps_host.toLowerCase()] = newPort;
                             if (result.update_host) hostPortMap[result.update_host.toLowerCase()] = newPort;
+                            if (result.target_domain) hostPortMap[result.target_domain.toLowerCase()] = newPort;
                         }
                     }
 
+                    if (serversList.length === 0) {
+                        try {
+                            const srvRes = await fetch('/api/servers', { cache: 'no-store' });
+                            if (srvRes.ok) {
+                                const srvData = await srvRes.json();
+                                if (Array.isArray(srvData)) serversList = srvData;
+                            }
+                        } catch (e) {}
+                    }
+
+                    const getMatchVal = (rawHost, mapObj) => {
+                        if (!rawHost || !mapObj) return null;
+                        const lh = rawHost.trim().toLowerCase();
+                        if (mapObj[lh] !== undefined) return mapObj[lh];
+                        const clean = lh.replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
+                        if (clean && mapObj[clean] !== undefined) return mapObj[clean];
+                        return null;
+                    };
+
                     serversList.forEach(srv => {
-                        const srvHost = (srv.host || '').trim().toLowerCase();
-                        if (srvHost && hostUrlMap[srvHost] && srv.panel_url !== hostUrlMap[srvHost]) {
-                            srv.panel_url = hostUrlMap[srvHost];
+                        const targetUrl = getMatchVal(srv.host, hostUrlMap);
+                        if (targetUrl && srv.panel_url !== targetUrl) {
+                            srv.panel_url = targetUrl;
                             serversUpdated = true;
                         }
-                        if (srvHost && hostPortMap[srvHost] && String(srv.port) !== String(hostPortMap[srvHost])) {
-                            srv.port = parseInt(hostPortMap[srvHost], 10);
+                        const targetPort = getMatchVal(srv.host, hostPortMap);
+                        if (targetPort && String(srv.port) !== String(targetPort)) {
+                            srv.port = parseInt(targetPort, 10);
                             serversUpdated = true;
                         }
                     });
@@ -3823,28 +3811,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (result.new_ssh_port) {
                         const newPortStr = String(result.new_ssh_port);
-                        if (cfg.vps_host && hostPortMap[cfg.vps_host.toLowerCase()]) {
+                        if (cfg.vps_host && getMatchVal(cfg.vps_host, hostPortMap)) {
                             const el = document.getElementById('vps_port');
                             if (el) el.value = newPortStr;
                         }
-                        if (cfg.freedom_host && hostPortMap[cfg.freedom_host.toLowerCase()]) {
+                        if (cfg.freedom_host && getMatchVal(cfg.freedom_host, hostPortMap)) {
                             const el = document.getElementById('freedom_port');
                             if (el) el.value = newPortStr;
                         }
-                        if (cfg.proxy_host && hostPortMap[cfg.proxy_host.toLowerCase()]) {
+                        if (cfg.proxy_host && getMatchVal(cfg.proxy_host, hostPortMap)) {
                             const el = document.getElementById('proxy_port');
                             if (el) el.value = newPortStr;
                         }
-                        if (cfg.sub_vps_host && hostPortMap[cfg.sub_vps_host.toLowerCase()]) {
+                        if (cfg.sub_vps_host && getMatchVal(cfg.sub_vps_host, hostPortMap)) {
                             const el = document.getElementById('sub_vps_port');
                             if (el) el.value = newPortStr;
                         }
-                        if (cfg.update_vps_host && hostPortMap[cfg.update_vps_host.toLowerCase()]) {
+                        if (cfg.update_vps_host && getMatchVal(cfg.update_vps_host, hostPortMap)) {
                             const el = document.getElementById('update_vps_port');
                             if (el) el.value = newPortStr;
                         }
+
+                        ['opt_change_ssh_port', 'opt_update_change_ssh_port', 'opt_update_sub_change_ssh_port'].forEach(cbId => {
+                            const cb = document.getElementById(cbId);
+                            if (cb && cb.checked) {
+                                cb.checked = false;
+                                cb.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        });
+
                         saveCurrentConfig();
                     }
+                }
+
+                const isMaintenanceMode = ['backup', 'recovery', 'update_3xui', 'restart_panel', 'restart_server', 'restart_sub', 'update_sub', 'backup_sub', 'rollback_sub'].includes(mode);
+                if (isMaintenanceMode) {
+                    const clientsSectionEl = document.getElementById('clientsSection');
+                    if (clientsSectionEl) clientsSectionEl.classList.add('hidden');
+                    return;
                 }
 
                 const clientsContainer = document.getElementById('clientsContainer');

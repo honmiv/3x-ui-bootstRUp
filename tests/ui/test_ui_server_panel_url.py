@@ -167,6 +167,265 @@ async def run_test() -> bool:
             assert proxy_port_val == "22222", f"Expected #proxy_port to be 22222, got {proxy_port_val}"
             log("✅ [Form Port Verified] Form inputs #freedom_port and #proxy_port updated to 22222!", "success")
 
+            # 6. Test Update 3X-UI mode auto-updating server port in server card
+            log("6. Testing Update 3X-UI mode auto-updating server port in server card...", "info")
+            await page.fill("#sm_host", "update.example.com")
+            await page.fill("#sm_port", "22")
+            await page.fill("#sm_pass", "UpdateSecret123!")
+            await page.click("#btnSaveServer")
+            await page.wait_for_timeout(300)
+
+            cards = page.locator(".server-card")
+            assert await cards.count() == 3, "Should have 3 servers now"
+            update_card = cards.nth(2)
+            update_text_before = await update_card.inner_text()
+            assert ":22" in update_text_before or " 22" in update_text_before, f"Expected initial port 22 in update.example.com card, got:\n{update_text_before}"
+
+            # Step 1: select update_3xui mode
+            await page.click(".step[data-step='1']")
+            await page.click("input[name='deploy_mode'][value='update_3xui']")
+            await page.click("#btnNextStep1")
+            await page.wait_for_timeout(300)
+
+            # Step 2: fill update_vps_host
+            await page.fill("#update_vps_host", "update.example.com")
+            await page.fill("#update_vps_password", "UpdateSecret123!")
+            await page.click("#btnTestSSH")
+            await page.wait_for_selector("#btnNext1:not(.hidden)", state="attached", timeout=5000)
+            await page.click("#btnNext1")
+            await page.wait_for_timeout(300)
+
+            # Step 3: check opt_update_change_ssh_port
+            update_ssh_cb = page.locator("#opt_update_change_ssh_port")
+            assert await update_ssh_cb.count() == 1, "SSH port change checkbox should exist in Step 3 for update_3xui"
+            await page.click("label[for='opt_update_change_ssh_port']")
+            assert await update_ssh_cb.is_checked(), "SSH port change checkbox should be checked"
+            await page.fill("#custom_update_ssh_port", "22222")
+
+            # Step 3 -> Step 4
+            await page.click("#btnNextStep3")
+            await page.wait_for_timeout(300)
+
+            # Step 4: Deploy update_3xui
+            await page.route("**/api/status", lambda route: route.fulfill(
+                status=200,
+                json={
+                    "deploying": False,
+                    "status": "completed",
+                    "logs_count": 5,
+                    "result": {
+                        "deploy_mode": "update_3xui",
+                        "update_host": "update.example.com",
+                        "xui_version": "1.7.5",
+                        "xui_url": "https://update.example.com/secret_path/",
+                        "new_ssh_port": 22222,
+                        "updated_ssh_ports": {
+                            "update.example.com": 22222
+                        }
+                    }
+                }
+            ))
+            await page.click("#btnStartDeploy")
+            await page.wait_for_timeout(1000)
+
+            # Verify update_card now has port 22222
+            update_text_after = await update_card.inner_text()
+            assert "22222" in update_text_after, f"Expected port 22222 in update server card, got:\n{update_text_after}"
+            log("✅ [Update 3X-UI Auto-Port Verified] Server card for update_3xui automatically updated to 22222!", "success")
+
+            # 7. Test Sub-Server Only mode auto-updating server port
+            log("7. Testing Sub-Server Only mode auto-updating server port in server card...", "info")
+            await page.fill("#sm_host", "subonly.example.com")
+            await page.fill("#sm_port", "22")
+            await page.fill("#sm_pass", "SubOnlyPass123!")
+            await page.click("#btnSaveServer")
+            await page.wait_for_timeout(300)
+
+            cards = page.locator(".server-card")
+            subonly_card = cards.nth(3)
+            subonly_text_before = await subonly_card.inner_text()
+            assert "subonly.example.com" in subonly_text_before and ("22" in subonly_text_before)
+
+            # Select sub_only
+            await page.click(".step[data-step='1']")
+            await page.click("input[name='deploy_mode'][value='sub_only']")
+            await page.click("#btnNextStep1")
+            await page.wait_for_timeout(300)
+
+            # Step 2: fill sub_vps_host
+            await page.fill("#sub_vps_host", "subonly.example.com")
+            await page.fill("#sub_vps_password", "SubOnlyPass123!")
+            await page.click("#btnTestSSH")
+            await page.wait_for_selector("#btnNext1:not(.hidden)", state="attached", timeout=5000)
+            await page.click("#btnNext1")
+            await page.wait_for_timeout(300)
+
+            # Step 3: check opt_change_ssh_port
+            sub_ssh_cb = page.locator("#opt_change_ssh_port")
+            assert await sub_ssh_cb.count() == 1
+            await page.fill("#sub_russian_url", "https://proxy.example.com/subs/client1")
+            await page.fill("#sub_secret_path", "secret123")
+            await page.fill("#sub_admin_user", "admin")
+            await page.fill("#sub_admin_password", "AdminPass123!")
+            await page.click("label[for='opt_change_ssh_port']")
+            await page.fill("#custom_ssh_port", "22222")
+            await page.click("#btnNextStep3")
+            await page.wait_for_timeout(300)
+
+            # Step 4: Deploy
+            await page.route("**/api/status", lambda route: route.fulfill(
+                status=200,
+                json={
+                    "deploying": False,
+                    "status": "completed",
+                    "logs_count": 5,
+                    "result": {
+                        "deploy_mode": "sub_only",
+                        "sub_domain": "subonly.example.com",
+                        "sub_base_url": "https://subonly.example.com/subs",
+                        "new_ssh_port": 22222,
+                        "updated_ssh_ports": {
+                            "subonly.example.com": 22222
+                        }
+                    }
+                }
+            ))
+            await page.click("#btnStartDeploy")
+            await page.wait_for_timeout(1000)
+
+            subonly_text_after = await subonly_card.inner_text()
+            assert "22222" in subonly_text_after, f"Expected port 22222 in subonly card, got:\n{subonly_text_after}"
+            sub_port_val = await page.input_value("#sub_vps_port")
+            assert sub_port_val == "22222", f"Expected #sub_vps_port to be 22222, got {sub_port_val}"
+            log("✅ [Sub Only Auto-Port Verified] Server card and #sub_vps_port updated to 22222!", "success")
+
+            # 8. Test Update Sub-Server mode auto-updating server port
+            log("8. Testing Update Sub-Server mode auto-updating server port in server card...", "info")
+            await page.fill("#sm_host", "updatesub.example.com")
+            await page.fill("#sm_port", "22")
+            await page.fill("#sm_pass", "UpdateSubPass123!")
+            await page.click("#btnSaveServer")
+            await page.wait_for_timeout(300)
+
+            cards = page.locator(".server-card")
+            updatesub_card = cards.nth(4)
+            updatesub_text_before = await updatesub_card.inner_text()
+            assert "updatesub.example.com" in updatesub_text_before
+
+            # Select update_sub
+            await page.click(".step[data-step='1']")
+            await page.click("input[name='deploy_mode'][value='update_sub']")
+            await page.click("#btnNextStep1")
+            await page.wait_for_timeout(300)
+
+            # Step 2: fill sub_vps_host
+            await page.fill("#sub_vps_host", "updatesub.example.com")
+            await page.fill("#sub_vps_password", "UpdateSubPass123!")
+            await page.click("#btnTestSSH")
+            await page.wait_for_selector("#btnNext1:not(.hidden)", state="attached", timeout=5000)
+            await page.click("#btnNext1")
+            await page.wait_for_timeout(300)
+
+            # Step 3: check opt_update_sub_change_ssh_port
+            updatesub_ssh_cb = page.locator("#opt_update_sub_change_ssh_port")
+            assert await updatesub_ssh_cb.count() == 1
+            await page.click("label[for='opt_update_sub_change_ssh_port']")
+            await page.fill("#custom_update_sub_ssh_port", "22222")
+            await page.click("#btnNextStep3")
+            await page.wait_for_timeout(300)
+
+            # Step 4: Deploy
+            await page.route("**/api/status", lambda route: route.fulfill(
+                status=200,
+                json={
+                    "deploying": False,
+                    "status": "completed",
+                    "logs_count": 5,
+                    "result": {
+                        "deploy_mode": "update_sub",
+                        "sub_host": "updatesub.example.com",
+                        "new_ssh_port": 22222,
+                        "updated_ssh_ports": {
+                            "updatesub.example.com": 22222
+                        }
+                    }
+                }
+            ))
+            await page.click("#btnStartDeploy")
+            await page.wait_for_timeout(1000)
+
+            updatesub_text_after = await updatesub_card.inner_text()
+            assert "22222" in updatesub_text_after, f"Expected port 22222 in updatesub card, got:\n{updatesub_text_after}"
+            updatesub_port_val = await page.input_value("#sub_vps_port")
+            assert updatesub_port_val == "22222", f"Expected #sub_vps_port to be 22222, got {updatesub_port_val}"
+            log("✅ [Update Sub Auto-Port Verified] Server card and #sub_vps_port updated to 22222!", "success")
+
+            # 9. Test Single (Freedom Only) mode auto-updating server port
+            log("9. Testing Single Node mode auto-updating server port in server card...", "info")
+            await page.fill("#sm_host", "singlenode.example.com")
+            await page.fill("#sm_port", "22")
+            await page.fill("#sm_pass", "SingleSecret123!")
+            await page.click("#btnSaveServer")
+            await page.wait_for_timeout(300)
+
+            cards = page.locator(".server-card")
+            single_card = cards.nth(5)
+            single_text_before = await single_card.inner_text()
+            assert "singlenode.example.com" in single_text_before
+
+            # Select freedom_only mode
+            await page.click(".step[data-step='1']")
+            await page.click("input[name='deploy_mode'][value='freedom_only']")
+            await page.click("#btnNextStep1")
+            await page.wait_for_timeout(300)
+
+            # Step 2: fill vps_host
+            await page.fill("#vps_host", "singlenode.example.com")
+            await page.fill("#vps_password", "SingleSecret123!")
+            await page.click("#btnTestSSH")
+            await page.wait_for_selector("#btnNext1:not(.hidden)", state="attached", timeout=5000)
+            await page.click("#btnNext1")
+            await page.wait_for_timeout(300)
+
+            # Step 3: check opt_change_ssh_port
+            single_ssh_cb = page.locator("#opt_change_ssh_port")
+            assert await single_ssh_cb.count() == 1
+            await page.fill("#xui_username", "admin")
+            await page.fill("#xui_password", "AdminPass123!")
+            await page.fill("#sub_secret", "secret123")
+            await page.fill("#client_tcp_list", "client1")
+            await page.click("label[for='opt_change_ssh_port']")
+            await page.fill("#custom_ssh_port", "22222")
+            await page.click("#btnNextStep3")
+            await page.wait_for_timeout(300)
+
+            # Step 4: Deploy
+            await page.route("**/api/status", lambda route: route.fulfill(
+                status=200,
+                json={
+                    "deploying": False,
+                    "status": "completed",
+                    "logs_count": 5,
+                    "result": {
+                        "deploy_mode": "freedom_only",
+                        "domain": "singlenode.example.com",
+                        "xui_url": "https://singlenode.example.com/panel/",
+                        "new_ssh_port": 22222,
+                        "updated_ssh_ports": {
+                            "singlenode.example.com": 22222
+                        }
+                    }
+                }
+            ))
+            await page.click("#btnStartDeploy")
+            await page.wait_for_timeout(1000)
+
+            single_text_after = await single_card.inner_text()
+            assert "22222" in single_text_after, f"Expected port 22222 in single card, got:\n{single_text_after}"
+            vps_port_val = await page.input_value("#vps_port")
+            assert vps_port_val == "22222", f"Expected #vps_port to be 22222, got {vps_port_val}"
+            log("✅ [Single Node Auto-Port Verified] Server card and #vps_port updated to 22222!", "success")
+
             log("🎉 ALL TESTS PASSED!", "success")
             return True
         finally:

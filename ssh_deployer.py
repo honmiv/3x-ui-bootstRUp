@@ -1606,12 +1606,16 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     log("[WARN] Failed to update decoy site. Panel update itself succeeded.", "warn")
 
             web_base_path = ""
+            target_domain = ""
             caddy_cmd = "cat /opt/3x-ui-bootstRUp/working/caddy/Caddyfile 2>/dev/null || cat working/caddy/Caddyfile 2>/dev/null || true"
             rc_cad, cad_out = await deployer.exec_command(caddy_cmd)
             if rc_cad == 0 and cad_out:
                 m_path = re.search(r'@web_base_path\s+path\s+/([A-Za-z0-9_-]+)', cad_out)
                 if m_path:
                     web_base_path = m_path.group(1)
+                m_dom = re.search(r'email\s+[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+)', cad_out)
+                if m_dom:
+                    target_domain = m_dom.group(1).strip()
 
             xui_url = f"https://{host}/{web_base_path}/" if web_base_path else f"https://{host}/"
 
@@ -1628,10 +1632,13 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             if change_ssh_port and new_ssh_port:
                 if await _change_remote_ssh_port(host, port, new_ssh_port, user, password, key_data, log, cancel_check):
                     updated_ssh_ports[host] = new_ssh_port
+                    if target_domain and target_domain != host:
+                        updated_ssh_ports[target_domain] = new_ssh_port
 
             res_data = {
                 "deploy_mode": "update_3xui",
                 "update_host": host,
+                "target_domain": target_domain,
                 "xui_version": target_version,
                 "xui_url": xui_url,
                 "backup_name": backup_name,
@@ -1785,13 +1792,24 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")
                     return False, {}
                 log("✅ Subscription Server updated successfully; clients and nodes preserved!", "success")
+                sub_domain = (config.get("sub_domain") or "").strip()
+                caddy_cmd = "cat /opt/3x-ui-bootstRUp/working/caddy/Caddyfile 2>/dev/null || cat working/caddy/Caddyfile 2>/dev/null || true"
+                rc_cad, cad_out = await deployer.exec_command(caddy_cmd)
+                if rc_cad == 0 and cad_out:
+                    m_dom = re.search(r'email\s+[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+)', cad_out)
+                    if m_dom:
+                        sub_domain = m_dom.group(1).strip()
+
                 if change_ssh_port and new_ssh_port:
                     if await _change_remote_ssh_port(sub_host, sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
                         updated_ssh_ports[sub_host] = new_ssh_port
+                        if sub_domain and sub_domain != sub_host:
+                            updated_ssh_ports[sub_domain] = new_ssh_port
 
                 res_data = {
                     "deploy_mode": deploy_mode,
                     "sub_host": sub_host,
+                    "sub_domain": sub_domain,
                     "pre_update_backup": f"./backups_sub_server/{pre_backup_name}",
                 }
                 if updated_ssh_ports:
@@ -2171,13 +2189,15 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         }
 
         sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
-        ok2, out2 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
+        sub_target = sub_host
+        effective_sub_port = updated_ssh_ports.get(sub_target, sub_port)
+        ok2, out2 = await _deploy_sub_server(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         if not ok2:
             log("[ERROR] Stage 2 failed: Subscription Server deployment failed.", "error")
             return False, {}
 
         if change_ssh_port and new_ssh_port:
-            if await _change_remote_ssh_port(sub_host, sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
+            if await _change_remote_ssh_port(sub_target, effective_sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
                 updated_ssh_ports[sub_host] = new_ssh_port
                 if sub_domain and sub_domain != sub_host:
                     updated_ssh_ports[sub_domain] = new_ssh_port
@@ -2276,7 +2296,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     }
 
     freedom_decoy_files = prepare_decoy_files(config.get("freedom_decoy_template") or config.get("decoy_template"), "Freedom Node")
-    ok1, out1 = await _deploy_node(freedom_host_for_ssh, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
     fr_target = freedom_host_for_ssh or freedom_host
     ok1, out1 = await _deploy_node(fr_target, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
     if not ok1:
@@ -2320,7 +2339,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     }
 
     proxy_decoy_files = prepare_decoy_files(config.get("proxy_decoy_template") or config.get("decoy_template"), "Proxy Node")
-    ok2, out2 = await _deploy_node(proxy_host_for_ssh, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
     px_target = proxy_host_for_ssh or proxy_host
     effective_proxy_port = updated_ssh_ports.get(px_target, proxy_port)
     ok2, out2 = await _deploy_node(px_target, effective_proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
@@ -2416,7 +2434,6 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         }
 
         sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
-        ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         sub_target = sub_host
         effective_sub_port = updated_ssh_ports.get(sub_target, sub_port)
         ok3, out3 = await _deploy_sub_server(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)

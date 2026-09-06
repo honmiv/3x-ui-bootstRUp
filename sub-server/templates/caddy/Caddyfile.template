@@ -1,5 +1,8 @@
 {
     email subserver@{{DOMAIN}}
+    servers {
+        protocols h1 h2
+    }
     log {
         level {$LOG_LEVEL:INFO}
         format json

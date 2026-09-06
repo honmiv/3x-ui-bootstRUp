@@ -341,6 +341,7 @@ class SSHDeployer:
             "ssh",
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
             "-o", "ConnectTimeout=10",
             "-o", "NumberOfPasswordPrompts=1",
             "-p", self.port
@@ -430,6 +431,7 @@ class SSHDeployer:
             "-P", self.port,
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
             "-o", "ConnectTimeout=10",
             "-o", "NumberOfPasswordPrompts=1",
         ]
@@ -670,6 +672,408 @@ async def _deploy_sub_server(host: str, port: int, user: str, password: str, key
             return True, out
         return False, out
 
+async def _probe_remote_http_port(
+    host: str,
+    target_port: int,
+    current_port: int,
+    user: str,
+    password: str,
+    key_data: str,
+    log: Callable[[str, str], None],
+    cancel_check: Optional[Callable[[], bool]] = None
+) -> Tuple[bool, str]:
+    log(f"Запуск тестового HTTP-сервера на {host}:{target_port} для предварительной проверки доступности порта...", "info")
+
+    script = f"""set -e
+PORT="{target_port}"
+
+# 1. Firewalls & SELinux for target port
+if command -v ufw >/dev/null 2>&1; then
+    if ufw status 2>/dev/null | grep -qw "active"; then
+        ufw allow "$PORT"/tcp comment "Custom SSH Port" 2>/dev/null || true
+    fi
+fi
+if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
+    firewall-cmd --add-port="$PORT"/tcp --permanent 2>/dev/null || true
+    firewall-cmd --reload 2>/dev/null || true
+fi
+if command -v iptables >/dev/null 2>&1; then
+    if ! iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+        iptables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || true
+    fi
+fi
+if command -v ip6tables >/dev/null 2>&1; then
+    if ! ip6tables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+        ip6tables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || true
+    fi
+fi
+if command -v nft >/dev/null 2>&1 && systemctl is-active --quiet nftables 2>/dev/null; then
+    if nft list ruleset 2>/dev/null | grep -q "chain input"; then
+        nft add rule inet filter input tcp dport "$PORT" accept 2>/dev/null || true
+    fi
+fi
+if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" != "Disabled" ]; then
+    if command -v semanage >/dev/null 2>&1; then
+        semanage port -a -t ssh_port_t -p tcp "$PORT" 2>/dev/null || \\
+        semanage port -m -t ssh_port_t -p tcp "$PORT" 2>/dev/null || true
+    fi
+fi
+
+PY_BIN="$(command -v python3 || command -v python || true)"
+if [ -z "$PY_BIN" ]; then
+    echo "PROBE_HTTP_NO_PYTHON"
+    exit 1
+fi
+
+$PY_BIN -c "
+import http.server, socketserver, sys
+
+class ProbeHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = b'BOOTSTRUP_HTTP_OK\\n'
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
+    def log_message(self, format, *args):
+        pass
+
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+try:
+    with ReusableTCPServer(('0.0.0.0', $PORT), ProbeHandler) as httpd:
+        httpd.timeout = 15
+        print('PROBE_HTTP_LISTENING', flush=True)
+        httpd.handle_request()
+        print('PROBE_HTTP_DONE', flush=True)
+except Exception as e:
+    print(f'PROBE_HTTP_ERROR: {{e}}', flush=True)
+    sys.exit(1)
+"
+"""
+
+    ready_event = asyncio.Event()
+    probe_error: list[str] = []
+
+    def on_output(line: str):
+        line = line.strip()
+        if "PROBE_HTTP_LISTENING" in line:
+            ready_event.set()
+        elif "PROBE_HTTP_ERROR" in line or "PROBE_HTTP_NO_PYTHON" in line:
+            probe_error.append(line)
+
+    async with SSHDeployer(host, current_port, user, password, key_data, cancel_check=cancel_check) as deployer:
+        cmd_str = f"bash -c {shlex.quote(script)}"
+        server_task = asyncio.create_task(deployer.exec_command(cmd_str, on_output))
+
+        try:
+            await asyncio.wait_for(ready_event.wait(), timeout=12.0)
+        except asyncio.TimeoutError:
+            if server_task.done():
+                rc, out = server_task.result()
+                err = " ".join(probe_error) or out or "Не удалось запустить тестовый HTTP-сервер"
+                return False, f"Ошибка запуска тестового сервера: {err}"
+            server_task.cancel()
+            return False, "Таймаут ожидания запуска тестового HTTP-сервера на сервере"
+
+        log(f"Тестовый HTTP-сервер активен. Отправка запроса на http://{host}:{target_port}/...", "info")
+        http_ok = False
+        http_err = ""
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, target_port),
+                timeout=7.0
+            )
+            req = f"GET /probe HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n".encode("utf-8")
+            writer.write(req)
+            await writer.drain()
+            resp = b""
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(reader.read(1024), timeout=4.0)
+                except asyncio.TimeoutError:
+                    break
+                if not chunk:
+                    break
+                resp += chunk
+                if b"BOOTSTRUP_HTTP_OK" in resp:
+                    break
+            writer.close()
+            try:
+                await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
+            except Exception:
+                pass
+            if b"BOOTSTRUP_HTTP_OK" in resp:
+                http_ok = True
+            else:
+                http_err = f"Неожиданный ответ сервера: {resp[:100]!r}"
+        except ConnectionRefusedError:
+            http_err = "Соединение сброшено (Connection refused). Порт закрыт фаерволом ОС или хостинга"
+        except asyncio.TimeoutError:
+            http_err = "Превышено время ожидания ответа (Connection timed out). Пакеты блокируются фаерволом хостинга"
+        except Exception as e:
+            http_err = f"Сетевая ошибка: {str(e)}"
+
+        try:
+            await asyncio.wait_for(server_task, timeout=5.0)
+        except Exception:
+            if not server_task.done():
+                server_task.cancel()
+
+        if http_ok:
+            log(f"✅ Внешнее подключение к тестовому HTTP-серверу на порту {target_port} успешно! Порт открыт.", "success")
+            await asyncio.sleep(0.5)
+            return True, ""
+        else:
+            return False, http_err
+
+async def _change_remote_ssh_port(
+    host: str,
+    current_port: int,
+    new_port: int,
+    user: str,
+    password: str,
+    key_data: str,
+    log: Callable[[str, str], None],
+    cancel_check: Optional[Callable[[], bool]] = None
+) -> bool:
+    if not host:
+        return False
+
+    if current_port != new_port:
+        log(f"Начало настройки смены SSH-порта на {host}: {current_port} ➔ {new_port}...", "info")
+        probe_ok, probe_err = await _probe_remote_http_port(
+            host, new_port, current_port, user, password, key_data, log, cancel_check
+        )
+        if not probe_ok:
+            log(f"❌ Предварительная проверка не удалась: порт {new_port} на {host} недоступен извне!", "error")
+            log(f"   Причина: {probe_err}", "warning")
+            log(f"🛡️ Конфигурация SSH НЕ была изменена во избежание потери доступа. Сервер продолжает работать на порту {current_port}.", "warning")
+            log(f"💡 Проверьте настройки фаервола в панели управления вашего хостинга (раздел Firewall / Security Groups).", "info")
+            return False
+        log(f"Смена SSH-порта на {host}: {current_port} ➔ {new_port} (со скрытием баннеров)...", "info")
+    else:
+        log(f"Настройка SSH на {host}: порт {new_port} (применение скрытия баннеров и проверка безопасности)...", "info")
+
+    script = f"""export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+NEW_PORT="{new_port}"
+CURRENT_PORT="{current_port}"
+
+echo "[SSH-SETUP] Шаг 1: Проверка освобождения порта..."
+fuser -k -n tcp "$NEW_PORT" 2>/dev/null || true
+
+echo "[SSH-SETUP] Шаг 2: Создание drop-in конфигурации /etc/ssh/sshd_config.d/99-custom-ssh.conf..."
+mkdir -p /etc/ssh/sshd_config.d
+cat <<'EOF_SSH' > /etc/ssh/sshd_config.d/99-custom-ssh.conf
+Port {new_port}
+Banner none
+EOF_SSH
+
+echo "[SSH-SETUP] Шаг 3: Проверка поддержки DebianBanner..."
+SSHD_BIN="$(command -v sshd || echo "/usr/sbin/sshd")"
+if $SSHD_BIN -T 2>/dev/null | grep -qi "^debianbanner"; then
+    echo "DebianBanner no" >> /etc/ssh/sshd_config.d/99-custom-ssh.conf
+    echo "[SSH-SETUP] -> DebianBanner no добавлен."
+else
+    echo "[SSH-SETUP] -> DebianBanner не поддерживается или отключен."
+fi
+
+echo "[SSH-SETUP] Шаг 4: Обновление /etc/ssh/sshd_config..."
+if [ -f /etc/ssh/sshd_config ]; then
+    if grep -qE "^[# ]*Port " /etc/ssh/sshd_config; then
+        sed -i -E "s/^[# ]*Port .*/Port $NEW_PORT/" /etc/ssh/sshd_config
+        echo "[SSH-SETUP] -> Порт в /etc/ssh/sshd_config обновлен на $NEW_PORT"
+    else
+        echo "Port $NEW_PORT" >> /etc/ssh/sshd_config
+        echo "[SSH-SETUP] -> Добавлен Port $NEW_PORT в /etc/ssh/sshd_config"
+    fi
+fi
+
+echo "[SSH-SETUP] Шаг 5: Проверка и настройка systemd ssh.socket..."
+IS_SOCK=0
+if systemctl is-active --quiet ssh.socket 2>/dev/null || systemctl is-enabled --quiet ssh.socket 2>/dev/null; then
+    IS_SOCK=1
+    echo "[SSH-SETUP] -> Обнаружен активный/включенный ssh.socket, настраиваем listen.conf..."
+    mkdir -p /etc/systemd/system/ssh.socket.d
+    cat <<'EOF_SOCK' > /etc/systemd/system/ssh.socket.d/listen.conf
+[Socket]
+ListenStream=
+ListenStream=0.0.0.0:{new_port}
+EOF_SOCK
+    if [ -f /proc/net/if_inet6 ] && grep -qv "^#" /proc/net/if_inet6 2>/dev/null; then
+        if python3 -c "import socket; s=socket.socket(socket.AF_INET6, socket.SOCK_STREAM); s.close()" 2>/dev/null; then
+            cat <<'EOF_SOCK6' >> /etc/systemd/system/ssh.socket.d/listen.conf
+ListenStream=[::]:{new_port}
+BindIPv6Only=ipv6-only
+EOF_SOCK6
+            echo "[SSH-SETUP] -> Добавлен IPv6 ListenStream=[::]:{new_port}"
+        fi
+    fi
+else
+    echo "[SSH-SETUP] -> ssh.socket не используется (используется традиционная служба ssh/sshd)."
+    rm -rf /etc/systemd/system/ssh.socket.d 2>/dev/null || true
+fi
+
+echo "[SSH-SETUP] Шаг 6: Тестирование валидности конфигурации ($SSHD_BIN -t)..."
+if ! $SSHD_BIN -t 2>/tmp/sshd_t_err.txt; then
+    echo "[ERROR] Ошибка валидации конфигурации sshd -t:"
+    cat /tmp/sshd_t_err.txt 2>/dev/null || true
+    rm -f /tmp/sshd_t_err.txt
+    rm -f /etc/ssh/sshd_config.d/99-custom-ssh.conf
+    rm -rf /etc/systemd/system/ssh.socket.d
+    exit 1
+fi
+rm -f /tmp/sshd_t_err.txt
+echo "[SSH-SETUP] -> Конфигурация sshd валидна."
+
+echo "[SSH-SETUP] Шаг 7: Запуск сторожевого демона (Watchdog 20s) и перезапуск SSH..."
+rm -f /tmp/ssh_switch_confirmed
+cat <<'EOF_WD' > /tmp/.ssh_watchdog.sh
+#!/bin/bash
+NEW_P="$1"
+FALLBACK_P="$2"
+IS_SK="$3"
+TIMEOUT=20
+
+exec > /tmp/ssh_watchdog.log 2>&1
+echo "[WATCHDOG] Запущен: $(date). Порт: $NEW_P, откат: $FALLBACK_P, таймаут: ${{TIMEOUT}}с"
+
+sleep 1.5
+
+echo "[WATCHDOG] Выполнение systemctl daemon-reload..."
+systemctl daemon-reload 2>&1 || true
+
+if [ "$IS_SK" = "1" ]; then
+    echo "[WATCHDOG] Перезапуск ssh.socket..."
+    systemctl restart ssh.socket 2>&1 || true
+else
+    echo "[WATCHDOG] Перезапуск ssh service..."
+    systemctl restart ssh 2>&1 || systemctl restart sshd 2>&1 || service ssh restart 2>&1 || service sshd restart 2>&1 || true
+fi
+
+echo "[WATCHDOG] SSH перезапущен на порт $NEW_P. Ожидание файла подтверждения /tmp/ssh_switch_confirmed..."
+
+CONFIRMED=0
+for i in $(seq 1 $TIMEOUT); do
+    if [ -f /tmp/ssh_switch_confirmed ]; then
+        echo "[WATCHDOG] Подтверждение получено на ${{i}}-й секунде! Успешный переход на порт $NEW_P."
+        rm -f /tmp/ssh_switch_confirmed
+        CONFIRMED=1
+        break
+    fi
+    sleep 1
+done
+
+if [ "$CONFIRMED" -eq 0 ]; then
+    echo "[WATCHDOG] ⚠️ ВНИМАНИЕ: Таймаут ${{TIMEOUT}}с истёк без подтверждения! Запуск автономного отката на порт $FALLBACK_P..."
+    rm -f /etc/ssh/sshd_config.d/99-custom-ssh.conf
+    rm -rf /etc/systemd/system/ssh.socket.d
+    if [ -f /etc/ssh/sshd_config ]; then
+        sed -i -E "s/^[# ]*Port .*/Port $FALLBACK_P/" /etc/ssh/sshd_config 2>/dev/null || true
+    fi
+    systemctl daemon-reload 2>&1 || true
+    if [ "$IS_SK" = "1" ]; then
+        echo "[WATCHDOG] Откат: перезапуск ssh.socket..."
+        systemctl restart ssh.socket 2>&1 || true
+    else
+        echo "[WATCHDOG] Откат: перезапуск ssh service..."
+        systemctl restart ssh 2>&1 || systemctl restart sshd 2>&1 || service ssh restart 2>&1 || service sshd restart 2>&1 || true
+    fi
+    echo "[WATCHDOG] 🔄 Автономный откат на порт $FALLBACK_P успешно завершён в $(date)."
+fi
+EOF_WD
+chmod +x /tmp/.ssh_watchdog.sh
+
+if command -v systemd-run >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+    echo "[SSH-SETUP] -> Запуск сторожевого демона через systemd-run..."
+    systemctl stop ssh-port-watchdog 2>/dev/null || true
+    systemctl reset-failed ssh-port-watchdog 2>/dev/null || true
+    systemd-run --unit=ssh-port-watchdog /bin/bash /tmp/.ssh_watchdog.sh "$NEW_PORT" "$CURRENT_PORT" "$IS_SOCK" || \
+    nohup /bin/bash /tmp/.ssh_watchdog.sh "$NEW_PORT" "$CURRENT_PORT" "$IS_SOCK" </dev/null >/dev/null 2>&1 &
+else
+    echo "[SSH-SETUP] -> Запуск сторожевого демона через nohup..."
+    nohup /bin/bash /tmp/.ssh_watchdog.sh "$NEW_PORT" "$CURRENT_PORT" "$IS_SOCK" </dev/null >/dev/null 2>&1 &
+fi
+echo "[SSH-SETUP] -> Сторожевой демон активирован. Скрипт завершен успешно."
+"""
+
+    async with SSHDeployer(host, current_port, user, password, key_data, cancel_check=cancel_check) as deployer:
+        rc, out = await deployer.exec_command(f"bash -c {shlex.quote(script)}", lambda m: log(m, "info"))
+        if rc != 0:
+            err_details = out.strip() if out.strip() else f"Код ошибки {rc}"
+            log(f"⚠️ Ошибка при настройке SSH порта на {host}: {err_details}", "warning")
+            return False
+
+    # Wait for the watchdog to apply the restart
+    log(f"Ожидание перезапуска SSH-сервиса и активация сторожевого таймера (20 сек)...", "info")
+
+    # Verify by testing connection to the new port
+    log(f"Проверка подключения SSH к {host}:{new_port}...", "info")
+    verified = False
+    last_msg = ""
+    for attempt in range(1, 5):
+        if cancel_check and cancel_check():
+            break
+        await asyncio.sleep(2.0)
+        async with SSHDeployer(host, new_port, user, password, key_data, cancel_check=cancel_check) as verifier:
+            ok, msg = await verifier.test_connection()
+            if ok:
+                verified = True
+                # Confirm switch to the watchdog daemon!
+                await verifier.exec_command("touch /tmp/ssh_switch_confirmed")
+                log(f"✅ SSH успешно настроен на порту {new_port} и проверен! Автономный сторожевой таймер подтверждён.", "success")
+                return True
+            last_msg = msg
+            if attempt < 4:
+                log(f"   [Попытка {attempt}/4] Порт {new_port} пока не ответил ({msg}), ожидание...", "info")
+
+    # If verification failed: perform safe rollback
+    log(f"⚠️ Подключение к новому SSH-порту {new_port} не удалось ({last_msg}).", "warning")
+    if current_port != new_port:
+        log(f"⏳ На сервере {host} активен автономный сторожевой таймер (Watchdog).", "warning")
+        log(f"🔄 Выполняется автоматический откат настроек SSH на порт {current_port}...", "info")
+        rb_success = False
+        try:
+            async with SSHDeployer(host, current_port, user, password, key_data, cancel_check=cancel_check) as diag_deployer:
+                _, diag_out = await diag_deployer.exec_command("cat /tmp/ssh_watchdog.log 2>/dev/null || true")
+                if diag_out.strip():
+                    log(f"📋 Диагностический лог сторожевого таймера на сервере:\n{diag_out.strip()}", "info")
+                
+                rollback_script = f"""export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+touch /tmp/ssh_switch_confirmed
+systemctl stop ssh-port-watchdog 2>/dev/null || true
+rm -f /etc/ssh/sshd_config.d/99-custom-ssh.conf
+rm -rf /etc/systemd/system/ssh.socket.d
+if [ -f /etc/ssh/sshd_config ]; then
+    sed -i -E "s/^[# ]*Port .*/Port {current_port}/" /etc/ssh/sshd_config 2>/dev/null || true
+fi
+systemctl daemon-reload 2>/dev/null || true
+if systemctl is-active --quiet ssh.socket 2>/dev/null || systemctl is-enabled --quiet ssh.socket 2>/dev/null; then
+    systemctl restart ssh.socket 2>/dev/null || true
+else
+    systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || service ssh restart 2>/dev/null || true
+fi
+"""
+                rc, _ = await diag_deployer.exec_command(f"bash -c {shlex.quote(rollback_script)}")
+                if rc == 0:
+                    rb_test_ok, _ = await diag_deployer.test_connection()
+                    if rb_test_ok:
+                        rb_success = True
+        except Exception:
+            pass
+
+        if rb_success:
+            log(f"✅ Автоматический откат завершён: доступ к {host} на порту {current_port} сохранён.", "info")
+        else:
+            log(f"🛡️ Если связь через порт {current_port} прервалась, автономный сторожевой таймер на сервере автоматически восстановит порт {current_port} через 20 секунд.", "info")
+            log(f"💡 Подождите до 20 секунд перед повторным подключением к порту {current_port}.", "info")
+
+    return False
+
 def validate_deployment_config(config: Dict[str, Any]) -> Tuple[bool, str]:
     mode = config.get("deploy_mode", "").strip()
     if not mode:
@@ -804,6 +1208,19 @@ def validate_deployment_config(config: Dict[str, Any]) -> Tuple[bool, str]:
         if mode == "rollback_sub" and not str(config.get("rollback_sub_backup_file", "") or "").strip():
             return False, "Выберите архив бэкапа Сервера подписок"
 
+    if config.get("change_ssh_port"):
+        raw_port = config.get("new_ssh_port")
+        try:
+            p = int(raw_port)
+            if p in [80, 443, 2053]:
+                return False, f"Порт {p} зарезервирован для веб-сервера / панели"
+            if p < 1024 or p > 65535:
+                return False, "Новый SSH-порт должен быть числом от 1024 до 65535"
+            if p in [80, 443, 2053]:
+                return False, f"Порт {p} зарезервирован для веб-сервера / панели"
+        except (ValueError, TypeError):
+            return False, "Укажите корректный новый SSH-порт (число от 1024 до 65535)"
+
     return True, ""
 
 async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, str], None], cancel_check: Optional[Callable[[], bool]] = None) -> Tuple[bool, Dict[str, Any]]:
@@ -819,6 +1236,15 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
     deploy_mode = config.get("deploy_mode", "").strip()
     if not deploy_mode:
         deploy_mode = "cascade" if config.get("is_cascade", False) else "single"
+
+    change_ssh_port = bool(config.get("change_ssh_port"))
+    new_ssh_port = None
+    if change_ssh_port and config.get("new_ssh_port"):
+        try:
+            new_ssh_port = int(config.get("new_ssh_port"))
+        except (ValueError, TypeError):
+            new_ssh_port = None
+    updated_ssh_ports: Dict[str, int] = {}
 
     xui_username = config.get("xui_username", "").strip()
     xui_password = config.get("xui_password", "").strip()
@@ -1199,7 +1625,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log(f"Pre-update backup: ./backups_panel/{backup_name} ({file_size_mb} MB)", "success")
             log("=========================================", "success")
 
-            return True, {
+            if change_ssh_port and new_ssh_port:
+                if await _change_remote_ssh_port(host, port, new_ssh_port, user, password, key_data, log, cancel_check):
+                    updated_ssh_ports[host] = new_ssh_port
+
+            res_data = {
                 "deploy_mode": "update_3xui",
                 "update_host": host,
                 "xui_version": target_version,
@@ -1209,6 +1639,11 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                 "backup_size": f"{file_size_mb} MB",
                 "decoy_updated": decoy_updated,
             }
+            if updated_ssh_ports:
+                res_data["new_ssh_port"] = new_ssh_port
+                res_data["updated_ssh_ports"] = updated_ssh_ports
+
+            return True, res_data
 
     # Maintenance Modes: Restart Panel / Server
     if deploy_mode in ["restart_panel", "restart_server"]:
@@ -1350,11 +1785,20 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
                     log(f"[ERROR] Subscription Server update failed: {out_sub}", "error")
                     return False, {}
                 log("✅ Subscription Server updated successfully; clients and nodes preserved!", "success")
-                return True, {
+                if change_ssh_port and new_ssh_port:
+                    if await _change_remote_ssh_port(sub_host, sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
+                        updated_ssh_ports[sub_host] = new_ssh_port
+
+                res_data = {
                     "deploy_mode": deploy_mode,
                     "sub_host": sub_host,
                     "pre_update_backup": f"./backups_sub_server/{pre_backup_name}",
                 }
+                if updated_ssh_ports:
+                    res_data["new_ssh_port"] = new_ssh_port
+                    res_data["updated_ssh_ports"] = updated_ssh_ports
+
+                return True, res_data
 
             if deploy_mode == "backup_sub":
                 raw_backup_name = config.get("backup_name", "").strip()
@@ -1514,6 +1958,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Failed to deploy Subscription Server.", "error")
             return False, {}
 
+        if change_ssh_port and new_ssh_port:
+            if await _change_remote_ssh_port(sub_host, sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
+                updated_ssh_ports[sub_host] = new_ssh_port
+                if sub_domain and sub_domain != sub_host:
+                    updated_ssh_ports[sub_domain] = new_ssh_port
+
         base_sub_url = f"https://{sub_domain}/{sub_secret_path}"
         sub_clients = []
         for c in proxy_clients:
@@ -1544,6 +1994,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "sub_admin_password": sub_admin_password,
             "clients": sub_clients
         }
+        if updated_ssh_ports:
+            result_data["new_ssh_port"] = new_ssh_port
+            result_data["updated_ssh_ports"] = updated_ssh_ports
         return True, result_data
 
     tcp_raw = config.get("client_tcp_list", "").strip()
@@ -1602,6 +2055,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         ok, out = await _deploy_node(host, port, user, password, key_data, env_vars, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=single_decoy_files)
         parsed_xui_url, parsed_clients = parse_deployment_results(out) if ok else ("", [])
         
+        if ok and change_ssh_port and new_ssh_port:
+            if await _change_remote_ssh_port(host, port, new_ssh_port, user, password, key_data, log, cancel_check):
+                updated_ssh_ports[host] = new_ssh_port
+                if target_domain and target_domain != host:
+                    updated_ssh_ports[target_domain] = new_ssh_port
+
         final_xui_url = parsed_xui_url or f"https://{target_domain}/{web_base_path}/"
         result_data = {
             "deploy_mode": deploy_mode,
@@ -1612,6 +2071,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             "domain": target_domain,
             "clients": parsed_clients
         }
+        if updated_ssh_ports:
+            result_data["new_ssh_port"] = new_ssh_port
+            result_data["updated_ssh_ports"] = updated_ssh_ports
         return ok, result_data
 
     if deploy_mode == "freedom_sub":
@@ -1649,6 +2111,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log("", "success")
         log("✅ [STAGE 1 COMPLETE] Freedom Node deployed successfully!", "success")
         log("", "success")
+
+        if change_ssh_port and new_ssh_port:
+            if await _change_remote_ssh_port(host, port, new_ssh_port, user, password, key_data, log, cancel_check):
+                updated_ssh_ports[host] = new_ssh_port
+                if target_domain and target_domain != host:
+                    updated_ssh_ports[target_domain] = new_ssh_port
 
         parsed_xui_url, parsed_clients = parse_deployment_results(out1) if ok1 else ("", [])
         final_xui_url = parsed_xui_url or f"https://{target_domain}/{web_base_path}/"
@@ -1708,6 +2176,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
             log("[ERROR] Stage 2 failed: Subscription Server deployment failed.", "error")
             return False, {}
 
+        if change_ssh_port and new_ssh_port:
+            if await _change_remote_ssh_port(sub_host, sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
+                updated_ssh_ports[sub_host] = new_ssh_port
+                if sub_domain and sub_domain != sub_host:
+                    updated_ssh_ports[sub_domain] = new_ssh_port
+
         log("", "success")
         log("✅ [STAGE 2 COMPLETE] Subscription Server deployed successfully!", "success")
         log("", "success")
@@ -1735,6 +2209,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
         for cl in parsed_clients:
             cl["sub_server_url"] = f"{base_sub_url}/{cl['name']}"
+
+        if updated_ssh_ports:
+            result_data["new_ssh_port"] = new_ssh_port
+            result_data["updated_ssh_ports"] = updated_ssh_ports
 
         log("╔════════════════════════════════════════════╗", "success")
         log("║         🎉 ALL STAGES COMPLETED! 🎉         ║", "success")
@@ -1799,12 +2277,21 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     freedom_decoy_files = prepare_decoy_files(config.get("freedom_decoy_template") or config.get("decoy_template"), "Freedom Node")
     ok1, out1 = await _deploy_node(freedom_host_for_ssh, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
+    fr_target = freedom_host_for_ssh or freedom_host
+    ok1, out1 = await _deploy_node(fr_target, freedom_port, freedom_user, freedom_password, freedom_key, freedom_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=freedom_decoy_files)
     if not ok1:
         log("[ERROR] Stage 1 failed: Could not deploy foreign server.", "error")
         return False, {}
     log("", "success")
     log("✅ [STAGE 1 COMPLETE] Freedom Node deployed successfully!", "success")
     log("", "success")
+
+    if change_ssh_port and new_ssh_port:
+        if await _change_remote_ssh_port(fr_target, freedom_port, new_ssh_port, freedom_user, freedom_password, freedom_key, log, cancel_check):
+            updated_ssh_ports[freedom_host] = new_ssh_port
+            if freedom_host_for_ssh:
+                updated_ssh_ports[freedom_host_for_ssh] = new_ssh_port
+
     freedom_xui_url, freedom_clients = parse_deployment_results(out1)
 
     freedom_sub_url = ""
@@ -1834,12 +2321,21 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
     proxy_decoy_files = prepare_decoy_files(config.get("proxy_decoy_template") or config.get("decoy_template"), "Proxy Node")
     ok2, out2 = await _deploy_node(proxy_host_for_ssh, proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
+    px_target = proxy_host_for_ssh or proxy_host
+    effective_proxy_port = updated_ssh_ports.get(px_target, proxy_port)
+    ok2, out2 = await _deploy_node(px_target, effective_proxy_port, proxy_user, proxy_password, proxy_key, proxy_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=proxy_decoy_files)
     if not ok2:
         log("[ERROR] Stage 2 failed: Could not deploy local server.", "error")
         return False, {}
     log("", "success")
     log("✅ [STAGE 2 COMPLETE] Proxy Node deployed successfully!", "success")
     log("", "success")
+
+    if change_ssh_port and new_ssh_port:
+        if await _change_remote_ssh_port(px_target, effective_proxy_port, new_ssh_port, proxy_user, proxy_password, proxy_key, log, cancel_check):
+            updated_ssh_ports[proxy_host] = new_ssh_port
+            if proxy_host_for_ssh:
+                updated_ssh_ports[proxy_host_for_ssh] = new_ssh_port
     parsed_xui_url, parsed_clients = parse_deployment_results(out2) if ok2 else ("", [])
     proxy_web_path = hashlib.md5(f"{proxy_secret}-panel".encode('utf-8')).hexdigest()[:16]
     final_xui_url = parsed_xui_url or f"https://{proxy_host}/{proxy_web_path}/"
@@ -1921,6 +2417,9 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
 
         sub_decoy_files = prepare_decoy_files(config.get("sub_decoy_template") or config.get("decoy_template"), "Subscription Server")
         ok3, out3 = await _deploy_sub_server(sub_host, sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
+        sub_target = sub_host
+        effective_sub_port = updated_ssh_ports.get(sub_target, sub_port)
+        ok3, out3 = await _deploy_sub_server(sub_target, effective_sub_port, sub_user, sub_password, sub_key, sub_env, log, cancel_check=cancel_check, bundle_source_dir=bundle_dir, decoy_files=sub_decoy_files)
         if not ok3:
             log("[ERROR] Stage 3 failed: Subscription Server deployment failed.", "error")
             return False, {}
@@ -1928,6 +2427,12 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         log("", "success")
         log("✅ [STAGE 3 COMPLETE] Subscription Server deployed successfully!", "success")
         log("", "success")
+
+        if change_ssh_port and new_ssh_port:
+            if await _change_remote_ssh_port(sub_target, effective_sub_port, new_ssh_port, sub_user, sub_password, sub_key, log, cancel_check):
+                updated_ssh_ports[sub_host] = new_ssh_port
+                if sub_domain and sub_domain != sub_host:
+                    updated_ssh_ports[sub_domain] = new_ssh_port
 
         base_sub_url = f"https://{sub_domain}/{sub_secret_path}"
         result_data["sub_domain"] = sub_domain
@@ -1939,6 +2444,10 @@ async def run_deployment(config: Dict[str, Any], log_callback: Callable[[str, st
         # Attach sub_url to client objects if available
         for cl in parsed_clients:
             cl["sub_server_url"] = f"{base_sub_url}/{cl['name']}"
+
+    if updated_ssh_ports:
+        result_data["new_ssh_port"] = new_ssh_port
+        result_data["updated_ssh_ports"] = updated_ssh_ports
 
     log("╔════════════════════════════════════════════╗", "success")
     log("║         🎉 ALL STAGES COMPLETED! 🎉         ║", "success")

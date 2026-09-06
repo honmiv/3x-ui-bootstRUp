@@ -418,6 +418,16 @@ textarea {
     transition: all 0.3s ease;
     backdrop-filter: blur(8px);
 }
+/* Hide number input spinners/stepper arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
 input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary-color);

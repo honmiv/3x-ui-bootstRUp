@@ -88,7 +88,12 @@ async def run_test() -> bool:
                         "domain": "proxy.example.com",
                         "xui_url": "https://proxy.example.com/new_secret_panel/",
                         "xui_username": "admin",
-                        "xui_password": "pass"
+                        "xui_password": "pass",
+                        "new_ssh_port": 22222,
+                        "updated_ssh_ports": {
+                            "freedom.example.com": 22222,
+                            "proxy.example.com": 22222
+                        }
                     }
                 }
             ))
@@ -117,6 +122,16 @@ async def run_test() -> bool:
             await page.fill("#proxy_xui_password", "proxy_pass")
             await page.fill("#proxy_sub_secret", "proxy_secret")
 
+            # Verify SSH port change option in Step 3
+            change_ssh_cb = page.locator("#opt_change_ssh_port")
+            assert await change_ssh_cb.count() == 1, "SSH port change checkbox should exist in Step 3"
+            await page.click("label[for='opt_change_ssh_port']")
+            assert await change_ssh_cb.is_checked(), "SSH port change checkbox should be checked"
+            ssh_row = page.locator("#sshPortConfigRow")
+            await ssh_row.wait_for(state="visible", timeout=3000)
+            custom_port_val = await page.input_value("#custom_ssh_port")
+            assert custom_port_val == "22222", f"Default custom SSH port should be 22222, got {custom_port_val}"
+
             # Step 3 -> Step 4
             await page.click("#btnNextStep3")
             await page.wait_for_timeout(300)
@@ -136,6 +151,21 @@ async def run_test() -> bool:
             updated_href = await proxy_panel_btn_after.get_attribute("href")
             assert updated_href == "https://proxy.example.com/new_secret_panel/", f"Expected updated href https://proxy.example.com/new_secret_panel/, got {updated_href}"
             log("✅ [Auto-Save Verified] Server card automatically updated with new panel URL after deployment!", "success")
+
+            # Check that server cards now have the updated SSH port
+            log("5. Checking server card SSH ports after deploy...", "info")
+            freedom_text = await card.inner_text()
+            assert "22222" in freedom_text, f"Expected port 22222 in freedom server card, got:\n{freedom_text}"
+            proxy_text = await proxy_card.inner_text()
+            assert "22222" in proxy_text, f"Expected port 22222 in proxy server card, got:\n{proxy_text}"
+            log("✅ [Auto-Port Verified] Server cards automatically updated with new SSH port 22222!", "success")
+
+            # Check that form inputs are updated with new SSH port
+            freedom_port_val = await page.input_value("#freedom_port")
+            proxy_port_val = await page.input_value("#proxy_port")
+            assert freedom_port_val == "22222", f"Expected #freedom_port to be 22222, got {freedom_port_val}"
+            assert proxy_port_val == "22222", f"Expected #proxy_port to be 22222, got {proxy_port_val}"
+            log("✅ [Form Port Verified] Form inputs #freedom_port and #proxy_port updated to 22222!", "success")
 
             log("🎉 ALL TESTS PASSED!", "success")
             return True

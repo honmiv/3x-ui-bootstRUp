@@ -556,6 +556,14 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
 
         payload = {
             "common": pick("deploy_mode", "is_cascade"),
+            "common": pick("deploy_mode", "is_cascade", "opt_change_ssh_port", "custom_ssh_port", "change_ssh_port", "new_ssh_port"),
+            "common": pick(
+                "deploy_mode", "is_cascade",
+                "opt_change_ssh_port", "custom_ssh_port",
+                "opt_update_change_ssh_port", "custom_update_ssh_port",
+                "opt_update_sub_change_ssh_port", "custom_update_sub_ssh_port",
+                "change_ssh_port", "new_ssh_port"
+            ),
             "freedom_node": pick(
                 "freedom_host", "freedom_host_for_ssh", "freedom_port", "freedom_user", "freedom_password",
                 "freedom_key", "freedom_auth_type", "freedom_xui_username",

@@ -1086,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
             desc = 'Учетные данные Freedom 3X-UI панели, список клиентов и параметры Сервера подписок.';
         } else if (mode === 'sub_only') {
             title = '3. Настройки Сервера подписок';
-            desc = 'Параметры Сервера подписок: путь подписки, ссылки на ноды и админ-доступ.';
+            desc = 'Параметры Сервера подписок: путь подписки, безопасность SSH и админ-доступ.';
         } else if (mode === 'backup') {
             title = '3. Параметры создания бэкапа';
             desc = 'Задайте имя файла бэкапа (опционально).';
@@ -1158,9 +1158,37 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStep3Header(mode);
 
         const isPanelMode = ['single', 'proxy_only', 'freedom_only', 'freedom_component', 'cascade', 'cascade_sub', 'freedom_sub'].includes(mode);
+        const isDeployMode = isPanelMode || mode === 'sub_only';
         const generalSettingsCard = document.getElementById('generalSettingsCard');
         if (generalSettingsCard) {
-            generalSettingsCard.classList[isPanelMode ? 'remove' : 'add']('hidden');
+            generalSettingsCard.classList[isDeployMode ? 'remove' : 'add']('hidden');
+        }
+        const generalSettingsTitle = document.getElementById('generalSettingsTitle');
+        const generalSettingsBadge = document.getElementById('generalSettingsBadge');
+        const sshSecurityBlock = document.getElementById('sshSecurityBlock');
+        if (generalSettingsTitle && generalSettingsBadge) {
+            if (mode === 'sub_only') {
+                generalSettingsTitle.textContent = 'Общие параметры безопасности (SSH)';
+                generalSettingsBadge.textContent = 'Security';
+                generalSettingsBadge.className = 'config-card-badge badge-warning';
+                if (sshSecurityBlock) {
+                    sshSecurityBlock.style.borderTop = 'none';
+                    sshSecurityBlock.style.marginTop = '0';
+                    sshSecurityBlock.style.paddingTop = '0';
+                }
+            } else {
+                generalSettingsTitle.textContent = 'Общие настройки (3X-UI и безопасность)';
+                generalSettingsBadge.textContent = '3X-UI & Security';
+                generalSettingsBadge.className = 'config-card-badge badge-primary';
+                if (sshSecurityBlock) {
+                    sshSecurityBlock.style.borderTop = '1px solid var(--border-color)';
+                    sshSecurityBlock.style.marginTop = '15px';
+                    sshSecurityBlock.style.paddingTop = '15px';
+                }
+            }
+        }
+        if (xuiVersionBlock) {
+            xuiVersionBlock.classList[isPanelMode ? 'remove' : 'add']('hidden');
         }
         const happRoutingBlock = document.getElementById('happRoutingBlock');
         if (happRoutingBlock) {
@@ -2002,6 +2030,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 sub_decoy_template: document.getElementById('sub_decoy_template') ? document.getElementById('sub_decoy_template').value : 'builtin',
                 update_decoy_template: document.getElementById('update_decoy_template') ? document.getElementById('update_decoy_template').value : '',
                 update_sub_decoy_template: document.getElementById('update_sub_decoy_template') ? document.getElementById('update_sub_decoy_template').value : '',
+                opt_change_ssh_port: document.getElementById('opt_change_ssh_port') ? document.getElementById('opt_change_ssh_port').checked : false,
+                custom_ssh_port: document.getElementById('custom_ssh_port') ? document.getElementById('custom_ssh_port').value : '22222',
+                opt_update_change_ssh_port: document.getElementById('opt_update_change_ssh_port') ? document.getElementById('opt_update_change_ssh_port').checked : false,
+                custom_update_ssh_port: document.getElementById('custom_update_ssh_port') ? document.getElementById('custom_update_ssh_port').value : '22222',
+                opt_update_sub_change_ssh_port: document.getElementById('opt_update_sub_change_ssh_port') ? document.getElementById('opt_update_sub_change_ssh_port').checked : false,
+                custom_update_sub_ssh_port: document.getElementById('custom_update_sub_ssh_port') ? document.getElementById('custom_update_sub_ssh_port').value : '22222',
                 client_tcp_list: document.getElementById('client_tcp_list').value.trim(),
                 client_xhttp_list: document.getElementById('client_xhttp_list').value.trim(),
                 ui_open_categories: ['category-full', 'category-single', 'category-maintenance']
@@ -2165,6 +2199,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (has('client_tcp_list')) setValue('client_tcp_list', cfg.client_tcp_list);
                 if (has('client_xhttp_list')) setValue('client_xhttp_list', cfg.client_xhttp_list);
                 if (has('foreign_sub_url')) setValue('foreign_sub_url', cfg.foreign_sub_url);
+                if (has('opt_change_ssh_port') && document.getElementById('opt_change_ssh_port')) {
+                    const isChecked = !!cfg.opt_change_ssh_port;
+                    document.getElementById('opt_change_ssh_port').checked = isChecked;
+                    const row = document.getElementById('sshPortConfigRow');
+                    if (row) row.classList[isChecked ? 'remove' : 'add']('hidden');
+                }
+                if (has('custom_ssh_port') && document.getElementById('custom_ssh_port')) {
+                    document.getElementById('custom_ssh_port').value = cfg.custom_ssh_port;
+                }
+                if (has('opt_update_change_ssh_port') && document.getElementById('opt_update_change_ssh_port')) {
+                    const isChecked = !!cfg.opt_update_change_ssh_port;
+                    document.getElementById('opt_update_change_ssh_port').checked = isChecked;
+                    const row = document.getElementById('sshPortConfigRowUpdate');
+                    if (row) row.classList[isChecked ? 'remove' : 'add']('hidden');
+                }
+                if (has('custom_update_ssh_port') && document.getElementById('custom_update_ssh_port')) {
+                    document.getElementById('custom_update_ssh_port').value = cfg.custom_update_ssh_port;
+                }
+                if (has('opt_update_sub_change_ssh_port') && document.getElementById('opt_update_sub_change_ssh_port')) {
+                    const isChecked = !!cfg.opt_update_sub_change_ssh_port;
+                    document.getElementById('opt_update_sub_change_ssh_port').checked = isChecked;
+                    const row = document.getElementById('sshPortConfigRowUpdateSub');
+                    if (row) row.classList[isChecked ? 'remove' : 'add']('hidden');
+                }
+                if (has('custom_update_sub_ssh_port') && document.getElementById('custom_update_sub_ssh_port')) {
+                    document.getElementById('custom_update_sub_ssh_port').value = cfg.custom_update_sub_ssh_port;
+                }
 
                 const subBkNameEl = document.getElementById('sub_backup_name');
                 if (subBkNameEl && !subBkNameEl.value.trim()) updateSubBackupName();
@@ -2182,6 +2243,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     loadBackupConfig();
+
+    const optChangeSshPort = document.getElementById('opt_change_ssh_port');
+    const sshPortConfigRow = document.getElementById('sshPortConfigRow');
+    const customSshPort = document.getElementById('custom_ssh_port');
+    if (optChangeSshPort) {
+        optChangeSshPort.addEventListener('change', () => {
+            if (sshPortConfigRow) {
+                sshPortConfigRow.classList[optChangeSshPort.checked ? 'remove' : 'add']('hidden');
+            }
+            saveCurrentConfig();
+        });
+    }
+    if (customSshPort) {
+        customSshPort.addEventListener('input', saveCurrentConfig);
+        customSshPort.addEventListener('change', saveCurrentConfig);
+    }
+    [
+        { cb: 'opt_change_ssh_port', row: 'sshPortConfigRow', inp: 'custom_ssh_port' },
+        { cb: 'opt_update_change_ssh_port', row: 'sshPortConfigRowUpdate', inp: 'custom_update_ssh_port' },
+        { cb: 'opt_update_sub_change_ssh_port', row: 'sshPortConfigRowUpdateSub', inp: 'custom_update_sub_ssh_port' }
+    ].forEach(({ cb: cbId, row: rowId, inp: inpId }) => {
+        const cb = document.getElementById(cbId);
+        const row = document.getElementById(rowId);
+        const inp = document.getElementById(inpId);
+        if (cb) {
+            cb.addEventListener('change', () => {
+                if (row) {
+                    row.classList[cb.checked ? 'remove' : 'add']('hidden');
+                }
+                saveCurrentConfig();
+            });
+        }
+        if (inp) {
+            inp.addEventListener('input', saveCurrentConfig);
+            inp.addEventListener('change', saveCurrentConfig);
+        }
+    });
 
     ['sub_secret', 'freedom_sub_secret', 'proxy_sub_secret', 'sub_secret_path'].forEach(id => {
         const el = document.getElementById(id);
@@ -3107,6 +3205,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const freedomDecoyTemplate = document.getElementById('freedom_decoy_template') ? document.getElementById('freedom_decoy_template').value.trim() || 'builtin' : 'builtin';
         const proxyDecoyTemplate = document.getElementById('proxy_decoy_template') ? document.getElementById('proxy_decoy_template').value.trim() || 'builtin' : 'builtin';
         const subDecoyTemplate = document.getElementById('sub_decoy_template') ? document.getElementById('sub_decoy_template').value.trim() || 'builtin' : 'builtin';
+        let changeSshPort = false;
+        let newSshPort = 22222;
+        if (mode === 'update_3xui') {
+            const cb = document.getElementById('opt_update_change_ssh_port');
+            const inp = document.getElementById('custom_update_ssh_port');
+            if (cb && cb.checked) {
+                changeSshPort = true;
+                if (inp && inp.value) newSshPort = parseInt(inp.value, 10) || 22222;
+            }
+        } else if (mode === 'update_sub') {
+            const cb = document.getElementById('opt_update_sub_change_ssh_port');
+            const inp = document.getElementById('custom_update_sub_ssh_port');
+            if (cb && cb.checked) {
+                changeSshPort = true;
+                if (inp && inp.value) newSshPort = parseInt(inp.value, 10) || 22222;
+            }
+        } else {
+            const cb = document.getElementById('opt_change_ssh_port');
+            const inp = document.getElementById('custom_ssh_port');
+            if (cb && cb.checked) {
+                changeSshPort = true;
+                if (inp && inp.value) newSshPort = parseInt(inp.value, 10) || 22222;
+            }
+        }
 
         let payload = {
             deploy_mode: mode,
@@ -3115,7 +3237,9 @@ document.addEventListener('DOMContentLoaded', () => {
             decoy_template: decoyTemplate,
             freedom_decoy_template: freedomDecoyTemplate,
             proxy_decoy_template: proxyDecoyTemplate,
-            sub_decoy_template: subDecoyTemplate
+            sub_decoy_template: subDecoyTemplate,
+            change_ssh_port: changeSshPort,
+            new_ssh_port: newSshPort
         };
 
         if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
@@ -3643,16 +3767,83 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (cfg.vps_host && xuiUrl) hostUrlMap[cfg.vps_host.toLowerCase()] = xuiUrl;
                     }
 
+                    const hostPortMap = {};
+                    if (result.new_ssh_port) {
+                        const newPort = parseInt(result.new_ssh_port, 10);
+                        if (result.updated_ssh_ports && typeof result.updated_ssh_ports === 'object') {
+                            for (const [h, p] of Object.entries(result.updated_ssh_ports)) {
+                                if (h) hostPortMap[h.toLowerCase()] = p;
+                            }
+                        }
+                        if (mode === 'single' || mode === 'proxy_only' || mode === 'freedom_only' || mode === 'freedom_component') {
+                            if (cfg.vps_host) hostPortMap[cfg.vps_host.toLowerCase()] = newPort;
+                            if (result.domain) hostPortMap[result.domain.toLowerCase()] = newPort;
+                        } else if (mode === 'freedom_sub') {
+                            if (cfg.vps_host) hostPortMap[cfg.vps_host.toLowerCase()] = newPort;
+                            if (result.freedom_domain) hostPortMap[result.freedom_domain.toLowerCase()] = newPort;
+                            if (result.domain) hostPortMap[result.domain.toLowerCase()] = newPort;
+                            if (cfg.sub_vps_host) hostPortMap[cfg.sub_vps_host.toLowerCase()] = newPort;
+                            if (cfg.sub_domain) hostPortMap[cfg.sub_domain.toLowerCase()] = newPort;
+                        } else if (mode === 'cascade' || mode === 'cascade_sub') {
+                            if (cfg.freedom_host) hostPortMap[cfg.freedom_host.toLowerCase()] = newPort;
+                            if (result.freedom_domain) hostPortMap[result.freedom_domain.toLowerCase()] = newPort;
+                            if (cfg.proxy_host) hostPortMap[cfg.proxy_host.toLowerCase()] = newPort;
+                            if (result.domain) hostPortMap[result.domain.toLowerCase()] = newPort;
+                            if (mode === 'cascade_sub') {
+                                if (cfg.sub_vps_host) hostPortMap[cfg.sub_vps_host.toLowerCase()] = newPort;
+                                if (cfg.sub_domain) hostPortMap[cfg.sub_domain.toLowerCase()] = newPort;
+                            }
+                        } else if (mode === 'sub_only') {
+                        } else if (mode === 'sub_only' || mode === 'update_sub') {
+                            if (cfg.sub_vps_host) hostPortMap[cfg.sub_vps_host.toLowerCase()] = newPort;
+                            if (cfg.sub_domain) hostPortMap[cfg.sub_domain.toLowerCase()] = newPort;
+                            if (result.sub_domain) hostPortMap[result.sub_domain.toLowerCase()] = newPort;
+                            if (result.sub_host) hostPortMap[result.sub_host.toLowerCase()] = newPort;
+                        } else if (mode === 'update_3xui') {
+                            if (cfg.update_vps_host) hostPortMap[cfg.update_vps_host.toLowerCase()] = newPort;
+                            if (result.update_host) hostPortMap[result.update_host.toLowerCase()] = newPort;
+                        }
+                    }
+
                     serversList.forEach(srv => {
                         const srvHost = (srv.host || '').trim().toLowerCase();
                         if (srvHost && hostUrlMap[srvHost] && srv.panel_url !== hostUrlMap[srvHost]) {
                             srv.panel_url = hostUrlMap[srvHost];
                             serversUpdated = true;
                         }
+                        if (srvHost && hostPortMap[srvHost] && String(srv.port) !== String(hostPortMap[srvHost])) {
+                            srv.port = parseInt(hostPortMap[srvHost], 10);
+                            serversUpdated = true;
+                        }
                     });
 
                     if (serversUpdated) {
                         saveServersToBackend().then(() => renderSavedServers());
+                    }
+
+                    if (result.new_ssh_port) {
+                        const newPortStr = String(result.new_ssh_port);
+                        if (cfg.vps_host && hostPortMap[cfg.vps_host.toLowerCase()]) {
+                            const el = document.getElementById('vps_port');
+                            if (el) el.value = newPortStr;
+                        }
+                        if (cfg.freedom_host && hostPortMap[cfg.freedom_host.toLowerCase()]) {
+                            const el = document.getElementById('freedom_port');
+                            if (el) el.value = newPortStr;
+                        }
+                        if (cfg.proxy_host && hostPortMap[cfg.proxy_host.toLowerCase()]) {
+                            const el = document.getElementById('proxy_port');
+                            if (el) el.value = newPortStr;
+                        }
+                        if (cfg.sub_vps_host && hostPortMap[cfg.sub_vps_host.toLowerCase()]) {
+                            const el = document.getElementById('sub_vps_port');
+                            if (el) el.value = newPortStr;
+                        }
+                        if (cfg.update_vps_host && hostPortMap[cfg.update_vps_host.toLowerCase()]) {
+                            const el = document.getElementById('update_vps_port');
+                            if (el) el.value = newPortStr;
+                        }
+                        saveCurrentConfig();
                     }
                 }
 

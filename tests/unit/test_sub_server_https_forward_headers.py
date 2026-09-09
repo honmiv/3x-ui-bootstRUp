@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Unit test: Sub-server forwards routing and profile headers."""
+
+import http.client
+import importlib.util
+import json
+import os
+import sys
+import shutil
+import tempfile
+import threading
+import unittest
+from http.server import ThreadingHTTPServer
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+
+class TestSubServerHttpsForwardHeaders(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp(prefix="test_sub_https_")
+        self.nodes_file = os.path.join(self.temp_dir, "nodes.json")
+        self.force_file = os.path.join(self.temp_dir, "force-subs.yml")
+        self.log_file = os.path.join(self.temp_dir, "sub-server.log")
+
+        os.environ["NODES_FILE"] = self.nodes_file
+        os.environ["FORCE_FILE"] = self.force_file
+        os.environ["LOG_FILE"] = self.log_file
+        os.environ["SECRET_SUB_PATH"] = "subs"
+        os.environ["ADMIN_USER"] = "admin"
+        os.environ["ADMIN_PASSWORD"] = "pass123"
+
+        with open(self.nodes_file, "w", encoding="utf-8") as f:
+            json.dump([
+                {"id": "proxy", "name": "Proxy", "url": "https://example.com/subs", "clients": ["alice"]}
+            ], f)
+
+        spec = importlib.util.spec_from_file_location(
+            "sub_server_mod", os.path.join(REPO_ROOT, "sub-server", "server.py")
+        )
+        self.sub_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.sub_mod)
+        self.sub_mod.NODES = self.sub_mod.load_nodes(self.nodes_file)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.sub_mod.Handler)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2.0)
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_subscription_forwards_routing_and_profile_headers(self):
+        import email.message
+        fake_headers = email.message.EmailMessage()
+        fake_headers["Routing"] = "happ://routing/onadd/test12345"
+        fake_headers["Routing-Enable"] = "true"
+        fake_headers["Profile-Update-Interval"] = "12"
+        fake_headers["Profile-Web-Page-Url"] = "https://example.com/subs/alice"
+        fake_headers["Subscription-Userinfo"] = "upload=100; download=200; total=0; expire=0"
+        fake_headers["Content-Type"] = "text/plain; charset=utf-8"
+        fake_headers["Server"] = "upstream-caddy"
+        fake_headers["Connection"] = "keep-alive"
+
+        captured_args = {}
+
+        def mock_fetch(url, user_agent=None, extra_headers=None):
+            captured_args["url"] = url
+            captured_args["user_agent"] = user_agent
+            captured_args["extra_headers"] = extra_headers
+            return b"vless://fake-config\n", fake_headers
+
+        orig_fetch = self.sub_mod.fetch_subscription
+        self.sub_mod.fetch_subscription = mock_fetch
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", self.port)
+            conn.request(
+                "GET",
+                "/subs/alice",
+                headers={
+                    "Host": "sub.example.com",
+                    "X-Forwarded-Proto": "https",
+                    "User-Agent": "Happ/3.0.0",
+                    "Accept": "*/*",
+                },
+            )
+            resp = conn.getresponse()
+            body = resp.read()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(body, b"vless://fake-config\n")
+            self.assertEqual(resp.getheader("Routing"), "happ://routing/onadd/test12345")
+            self.assertEqual(resp.getheader("Routing-Enable"), "true")
+            self.assertEqual(resp.getheader("Profile-Update-Interval"), "12")
+            self.assertEqual(resp.getheader("Profile-Web-Page-Url"), "https://example.com/subs/alice")
+            self.assertEqual(resp.getheader("Subscription-Userinfo"), "upload=100; download=200; total=0; expire=0")
+            self.assertEqual(resp.getheader("Content-Length"), str(len(b"vless://fake-config\n")))
+            self.assertNotEqual(resp.getheader("Server"), "upstream-caddy")
+
+            self.assertEqual(captured_args["url"], "https://example.com/subs/alice")
+            self.assertEqual(captured_args["user_agent"], "Happ/3.0.0")
+            self.assertEqual(captured_args["extra_headers"].get("Accept"), "*/*")
+            conn.close()
+        finally:
+            self.sub_mod.fetch_subscription = orig_fetch
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -81,10 +81,10 @@ ensure_python_with_pip() {
 }
 
 ensure_python_with_pip
-echo -e "${CYAN}[1/4] Using Python:${NC} $($PYTHON_BIN --version) ($PYTHON_BIN)"
+echo -e "${CYAN}[1/6] Using Python:${NC} $($PYTHON_BIN --version) ($PYTHON_BIN)"
 
 # 2. Check Docker
-echo -e "${CYAN}[2/4] Checking Docker status...${NC}"
+echo -e "${CYAN}[2/6] Checking Docker status...${NC}"
 if docker info >/dev/null 2>&1; then
     echo -e "${GREEN}[OK] Docker daemon is running and accessible.${NC}"
 else
@@ -138,8 +138,9 @@ echo -e "\n${GREEN}${BOLD}======================================================
 echo -e "${GREEN}${BOLD}✔ Test environment setup completed successfully!${NC}"
 echo -e "${GREEN}${BOLD}==================================================================${NC}"
 echo -e "You can now run tests with:"
-echo -e "  ${BOLD}./tests/run_all_tests.sh${NC}          (All test suites)"
-echo -e "  ${BOLD}./tests/ui/run_ui_tests.sh all${NC}    (UI E2E tests only)"
-echo -e "  ${BOLD}./tests/deploy/run_deploy_tests.sh${NC} (Deploy tests only)"
-echo -e "  ${BOLD}./tests/vpn/run_vpn_tests.sh${NC}       (VPN tests only)"
+echo -e "  ${BOLD}./tests/run_all_tests.sh${NC}                  (All test suites)"
+echo -e "  ${BOLD}./tests/ui/run_ui_tests.sh all${NC}            (UI E2E tests only)"
+echo -e "  ${BOLD}./tests/deploy/run_deploy_tests.sh${NC}        (Deploy tests only)"
+echo -e "  ${BOLD}./tests/vpn/run_vpn_tests.sh${NC}               (VPN tests only)"
+echo -e "  ${BOLD}./tests/maintenance/run_maintenance_tests.sh${NC} (Maintenance tests only)"
 echo ""

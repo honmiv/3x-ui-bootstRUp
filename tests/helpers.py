@@ -32,6 +32,9 @@ SERVICE_PORTS = {
     "vps-cascadesub-sub": 2243,
     "vps-freedomsub-freedom": 2251,
     "vps-freedomsub-sub": 2252,
+    "vps-maint-panel": 2261,
+    "vps-maint-recovery": 2262,
+    "vps-maint-sub": 2263,
 }
 
 # Host-side TLS ports (container :443 → host :PORT) for --resolve testing
@@ -39,6 +42,8 @@ TLS_HOST_PORTS = {
     "vps-freedom-only": 8441,
     "vps-proxy-only": 8442,
     "vps-sub-only": 8555,
+    "vps-proxy-foreign": 8445,
+    "vps-sub-foreign": 8446,
     "vps-cascade-freedom": 8451,
     "vps-cascade-proxy": 8452,
     "vps-cascadesub-freedom": 8461,
@@ -46,6 +51,9 @@ TLS_HOST_PORTS = {
     "vps-cascadesub-sub": 8463,
     "vps-freedomsub-freedom": 8471,
     "vps-freedomsub-sub": 8472,
+    "vps-maint-panel": 8481,
+    "vps-maint-recovery": 8482,
+    "vps-maint-sub": 8483,
 }
 
 
@@ -141,6 +149,7 @@ def ensure_test_containers_running(*service_names: str):
 
     if not service_names:
         service_names = ("vps-freedom",)
+        service_names = ("vps-freedom-only",)
 
     log(f"Ensuring test containers are running: {', '.join(service_names)}...", "info")
     cmd = ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--build"] + list(service_names)
@@ -474,7 +483,7 @@ def stop_xray_test_client(container_name: str = "vps-test-client"):
 
 
 def query_echo_server_via_vpn(
-    runner_container: str = "vps-freedom",
+    runner_container: str = "vps-freedom-only",
     proxy_client_name: str = "vps-test-client",
     socks_port: int = 10808,
     target_url: str = "http://echo.test/ip",
@@ -554,4 +563,17 @@ def prepare_test_repo(*overlay_components: str) -> str:
         if os.path.isdir(override_src):
             shutil.copytree(override_src, override_dst, dirs_exist_ok=True)
     
+    # For DinD testnet, patch temporary copy of panel/setup.sh so outbound-subs
+    # can connect to private container IPs (172.18.0.x) with local self-signed certs.
+    panel_setup_path = os.path.join(merged, "panel", "setup.sh")
+    if os.path.isfile(panel_setup_path):
+        with open(panel_setup_path, "r", encoding="utf-8") as f:
+            setup_content = f.read()
+        setup_content = setup_content.replace(
+            "allowPrivate=false&allowInsecure=false",
+            "allowPrivate=true&allowInsecure=true",
+        )
+        with open(panel_setup_path, "w", encoding="utf-8") as f:
+            f.write(setup_content)
+
     return merged

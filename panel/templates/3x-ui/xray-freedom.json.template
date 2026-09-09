@@ -67,7 +67,7 @@
           "ext:geosite-hydraponique.dat:torrent",
           "ext:geosite-hydraponique.dat:category-ads",
           "ext:geosite-hydraponique.dat:category-ru",
-          "geosite:category-ru"
+          "geosite:category-ru",
           "domain:trace-flow.ru",
           "domain:api.ipify.org",
           "domain:ifconfig.me",

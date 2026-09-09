@@ -48,16 +48,28 @@ async def run_test() -> bool:
                 if (termSection) termSection.classList.remove('hidden');
             }""")
 
-            # 3. Stream ANSI colored logs
-            backend_main.active_logs.append("\x1b[32m[OK]\x1b[0m Deployment step 1 completed successfully.")
-            backend_main.active_logs.append("\x1b[36m[INFO]\x1b[0m Checking Docker container status...")
+            # 3. Stream logs — must match the Dict[str, str] schema that _get_deploy_logs serialises
+            backend_main.active_logs.append({"message": "Deployment step 1 completed successfully.", "level": "success"})
+            backend_main.active_logs.append({"message": "Checking Docker container status...", "level": "info"})
 
-            await page.wait_for_timeout(1000)
+            # 4. Open SSE connection from browser side (normally triggered by deploy button click)
+            await page.evaluate("() => { if (window.startDeployLogStream) window.startDeployLogStream(() => {}); }")
 
-            # 4. Assert rendered in terminal
+            # 5. Wait until terminal actually receives and renders the log messages
+            await page.wait_for_function(
+                """() => {
+                    const el = document.getElementById('terminalLogs');
+                    const text = el ? el.textContent : '';
+                    return text.includes('Deployment step 1 completed') || text.includes('Checking Docker');
+                }""",
+                timeout=10000,
+            )
+
+            # 6. Assert rendered in terminal
             term_text = await page.locator("#terminalLogs").text_content()
             log(f"Terminal rendered output:\n{term_text}", "info")
-            assert "Deployment step 1 completed" in term_text or "Checking Docker" in term_text or len(term_text) > 0
+            assert "Deployment step 1 completed" in term_text or "Checking Docker" in term_text, \
+                f"Expected deployment log content in terminal, got: {repr(term_text[:200])}"
             log("✅ [SSE Stream Verified] Logs rendered live in DOM.", "success")
 
             log("🎉 TEST PASSED!", "success")

@@ -4,9 +4,10 @@
 # Executes all test suites (Deployment tests + VPN E2E traffic tests)
 #
 # Usage:
-#   ./tests/run_all_tests.sh              # Run ALL test suites (Deploy + VPN)
+#   ./tests/run_all_tests.sh              # Run ALL test suites (Unit + UI + Deploy + VPN + Maintenance)
 #   ./tests/run_all_tests.sh deploy       # Run only Deploy test suite
 #   ./tests/run_all_tests.sh vpn          # Run only VPN test suite
+#   ./tests/run_all_tests.sh maintenance  # Run only Maintenance test suite
 #   ./tests/run_all_tests.sh --down       # Tear down and clean up test environment
 # ==============================================================================
 
@@ -21,9 +22,11 @@ else
     REPO_ROOT="$SCRIPT_DIR"
 fi
 
+UNIT_RUNNER="$TESTS_DIR/unit/run_unit_tests.sh"
 DEPLOY_RUNNER="$TESTS_DIR/deploy/run_deploy_tests.sh"
 VPN_RUNNER="$TESTS_DIR/vpn/run_vpn_tests.sh"
 UI_RUNNER="$TESTS_DIR/ui/run_ui_tests.sh"
+MAINT_RUNNER="$TESTS_DIR/maintenance/run_maintenance_tests.sh"
 COMPOSE_FILE="$TESTS_DIR/docker-compose.test.yml"
 
 # Colors
@@ -49,26 +52,89 @@ check_docker() {
     fi
 }
 
-TARGET="${1:-all}"
+PYTHON_BIN="python3"
+if [ -x "$REPO_ROOT/.python_env/bin/python3" ]; then
+    PYTHON_BIN="$REPO_ROOT/.python_env/bin/python3"
+fi
+
+# Query default workers from downstream runners (source of truth)
+DEF_UNIT_WORKERS=$("$PYTHON_BIN" "$TESTS_DIR/unit/run_unit_parallel.py" --default-workers 2>/dev/null || echo 16)
+DEF_UI_WORKERS=$("$PYTHON_BIN" "$TESTS_DIR/ui/run_ui_parallel.py" --default-workers 2>/dev/null || echo 16)
+DEF_DEPLOY_WORKERS=$("$PYTHON_BIN" "$TESTS_DIR/deploy/run_deploy_parallel.py" --default-workers 2>/dev/null || echo 6)
+DEF_VPN_WORKERS=$("$PYTHON_BIN" "$TESTS_DIR/vpn/run_vpn_parallel.py" --default-workers 2>/dev/null || echo 16)
+DEF_MAINT_WORKERS=$("$PYTHON_BIN" "$TESTS_DIR/maintenance/run_maintenance_parallel.py" --default-workers 2>/dev/null || echo 1)
+
+UNIT_WORKERS=""
+UI_WORKERS=""
+DEPLOY_WORKERS=""
+VPN_WORKERS=""
+MAINT_WORKERS=""
+TARGET=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --unit-workers=*)
+            UNIT_WORKERS="${arg#*=}"
+            ;;
+        --ui-workers=*)
+            UI_WORKERS="${arg#*=}"
+            ;;
+        --deploy-workers=*)
+            DEPLOY_WORKERS="${arg#*=}"
+            ;;
+        --vpn-workers=*)
+            VPN_WORKERS="${arg#*=}"
+            ;;
+        --maint-workers=*)
+            MAINT_WORKERS="${arg#*=}"
+            ;;
+        *)
+            if [ -z "$TARGET" ]; then
+                TARGET="$arg"
+            fi
+            ;;
+    esac
+done
+
+[ -z "$TARGET" ] && TARGET="all"
+
+ACTUAL_UNIT_WORKERS="${UNIT_WORKERS:-$DEF_UNIT_WORKERS}"
+ACTUAL_UI_WORKERS="${UI_WORKERS:-$DEF_UI_WORKERS}"
+ACTUAL_DEPLOY_WORKERS="${DEPLOY_WORKERS:-$DEF_DEPLOY_WORKERS}"
+ACTUAL_VPN_WORKERS="${VPN_WORKERS:-$DEF_VPN_WORKERS}"
+ACTUAL_MAINT_WORKERS="${MAINT_WORKERS:-$DEF_MAINT_WORKERS}"
 
 if [[ "$TARGET" == "--down" || "$TARGET" == "down" || "$TARGET" == "clean" ]]; then
     echo -e "${YELLOW}[..] Tearing down all test containers and networks...${NC}"
     docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
     echo -e "${GREEN}[OK] All test containers stopped and removed.${NC}"
+    echo -e "${YELLOW}[..] Cleaning up tests/working/ temp directories...${NC}"
+    find "$TESTS_DIR/working" -maxdepth 1 -name "3xui-test-*" -type d -exec rm -rf {} + 2>/dev/null || true
+    echo -e "${GREEN}[OK] tests/working/ cleaned.${NC}"
     exit 0
 fi
 
 if [[ "$TARGET" == "-h" || "$TARGET" == "--help" || "$TARGET" == "help" ]]; then
     banner
-    echo "Usage: ./tests/run_all_tests.sh [target]"
+    echo "Usage: ./tests/run_all_tests.sh [target] [options]"
     echo ""
     echo "Targets:"
-    echo "  all (default)  Run all test suites (UI E2E + Deploy Integration + VPN E2E)"
+    echo "  all (default)  Run all test suites (Unit + UI E2E + Deploy Integration + VPN E2E + Maintenance)"
+    echo "  unit           Run fast Python unit tests (tests/unit)"
     echo "  ui             Run only UI & Browser E2E tests"
     echo "  deploy         Run only Deploy Integration tests"
     echo "  vpn            Run only VPN E2E traffic tests"
+    echo "  maintenance    Run Maintenance E2E tests (backup, recovery, update, restart, sub)"
+    echo "  sequential     Run all test suites sequentially (1 worker per suite)"
     echo "  setup          Setup local dependencies (Playwright, browsers)"
     echo "  --down         Tear down test containers and volumes"
+    echo ""
+    echo "Parallelism Options (defaults queried from downstream runners):"
+    echo "  --unit-workers=N    Concurrency for unit tests (default: $DEF_UNIT_WORKERS)"
+    echo "  --ui-workers=N      Concurrency for UI tests (default: $DEF_UI_WORKERS)"
+    echo "  --deploy-workers=N  Concurrency for deploy tests (default: $DEF_DEPLOY_WORKERS)"
+    echo "  --vpn-workers=N     Concurrency for VPN tests (default: $DEF_VPN_WORKERS)"
+    echo "  --maint-workers=N   Concurrency for maintenance tests (default: $DEF_MAINT_WORKERS)"
     echo ""
     exit 0
 fi
@@ -78,6 +144,14 @@ if [[ "$TARGET" == "setup" || "$TARGET" == "--setup" ]]; then
 fi
 
 banner
+
+if [ -z "$UNIT_WORKERS" ] && [ -z "$UI_WORKERS" ] && [ -z "$DEPLOY_WORKERS" ] && [ -z "$VPN_WORKERS" ] && [ -z "$MAINT_WORKERS" ]; then
+    echo -e "${YELLOW}Running with default parallelism: --unit-workers=${DEF_UNIT_WORKERS} --ui-workers=${DEF_UI_WORKERS} --deploy-workers=${DEF_DEPLOY_WORKERS} --vpn-workers=${DEF_VPN_WORKERS} --maint-workers=${DEF_MAINT_WORKERS}${NC}"
+    echo -e "${YELLOW}You can override any with the arguments listed above (e.g. $0 --unit-workers=4)${NC}\n"
+else
+    echo -e "${CYAN}Running with parallelism: --unit-workers=${ACTUAL_UNIT_WORKERS} --ui-workers=${ACTUAL_UI_WORKERS} --deploy-workers=${ACTUAL_DEPLOY_WORKERS} --vpn-workers=${ACTUAL_VPN_WORKERS} --maint-workers=${ACTUAL_MAINT_WORKERS}${NC}"
+    echo -e "${CYAN}You can override any with: --unit-workers=N --ui-workers=N --deploy-workers=N --vpn-workers=N --maint-workers=N${NC}\n"
+fi
 
 ensure_environment() {
     local python_bin="python3"
@@ -103,44 +177,58 @@ ensure_environment() {
     fi
 }
 
-ensure_environment
-
-echo -e "${YELLOW}[..] Ensuring clean slate: tearing down any leftover test containers...${NC}"
-docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+if [[ "$TARGET" != "unit" && "$TARGET" != "unit_tests" ]]; then
+    ensure_environment
+    echo -e "${YELLOW}[..] Ensuring clean slate: tearing down any leftover test containers...${NC}"
+    docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+    echo -e "${YELLOW}[..] Cleaning up stale tests/working/ temp directories...${NC}"
+    find "$TESTS_DIR/working" -maxdepth 1 -name "3xui-test-*" -type d -exec rm -rf {} + 2>/dev/null || true
+fi
 
 declare -a SUITES_TO_RUN=()
 
 case "$TARGET" in
+    unit|unit_tests)
+        SUITES_TO_RUN=("$UNIT_RUNNER all --unit-workers=$ACTUAL_UNIT_WORKERS:Fast Python Unit Tests")
+        ;;
     ui|ui_tests)
-        SUITES_TO_RUN=("$UI_RUNNER parallel:Frontend & UI E2E Tests (Parallel)")
+        SUITES_TO_RUN=("$UI_RUNNER parallel --ui-workers=$ACTUAL_UI_WORKERS:Frontend & UI E2E Tests (Parallel)")
         ;;
     deploy|deploy_tests)
         check_docker
-        SUITES_TO_RUN=("$DEPLOY_RUNNER parallel:Deployment Integration Tests (Parallel)")
+        SUITES_TO_RUN=("$DEPLOY_RUNNER parallel --deploy-workers=$ACTUAL_DEPLOY_WORKERS:Deployment Integration Tests (Parallel)")
         ;;
     vpn|vpn_tests)
         check_docker
-        SUITES_TO_RUN=("$VPN_RUNNER parallel:VPN E2E Traffic Tests (Parallel)")
+        SUITES_TO_RUN=("$VPN_RUNNER parallel --vpn-workers=$ACTUAL_VPN_WORKERS:VPN E2E Traffic Tests (Parallel)")
+        ;;
+    maintenance|maint|maintenance_tests)
+        check_docker
+        SUITES_TO_RUN=("$MAINT_RUNNER all --maint-workers=$ACTUAL_MAINT_WORKERS:Maintenance E2E Tests")
         ;;
     all|--all|parallel|--parallel)
         check_docker
         SUITES_TO_RUN=(
-            "$UI_RUNNER parallel:Frontend & UI E2E Tests (Parallel)"
-            "$DEPLOY_RUNNER parallel:Deployment Integration Tests (Parallel)"
-            "$VPN_RUNNER parallel:VPN E2E Traffic Tests (Parallel)"
+            "$UNIT_RUNNER all --unit-workers=$ACTUAL_UNIT_WORKERS:Fast Python Unit Tests"
+            "$UI_RUNNER parallel --ui-workers=$ACTUAL_UI_WORKERS:Frontend & UI E2E Tests (Parallel)"
+            "$DEPLOY_RUNNER parallel --deploy-workers=$ACTUAL_DEPLOY_WORKERS:Deployment Integration Tests (Parallel)"
+            "$VPN_RUNNER parallel --vpn-workers=$ACTUAL_VPN_WORKERS:VPN E2E Traffic Tests (Parallel)"
+            "$MAINT_RUNNER all --maint-workers=$ACTUAL_MAINT_WORKERS:Maintenance E2E Tests"
         )
         ;;
     sequential)
         check_docker
         SUITES_TO_RUN=(
+            "$UNIT_RUNNER all --unit-workers=1:Fast Python Unit Tests (Sequential)"
             "$UI_RUNNER sequential:Frontend & UI E2E Tests (Sequential)"
             "$DEPLOY_RUNNER sequential:Deployment Integration Tests (Sequential)"
             "$VPN_RUNNER sequential:VPN E2E Traffic Tests (Sequential)"
+            "$MAINT_RUNNER all --maint-workers=1:Maintenance E2E Tests (Sequential)"
         )
         ;;
     *)
         echo -e "${RED}[ERROR] Unknown test suite target: '$TARGET'${NC}"
-        echo "Valid options: all, ui, deploy, vpn, parallel, sequential, --down, --help"
+        echo "Valid options: all, unit, ui, deploy, vpn, maintenance, parallel, sequential, --down, --help"
         exit 1
         ;;
 esac
@@ -156,9 +244,10 @@ for item in "${SUITES_TO_RUN[@]}"; do
     runner_full="${item%%:*}"
     title="${item#*:}"
 
-    cmd=$(echo "$runner_full" | awk '{print $1}')
-    arg=$(echo "$runner_full" | awk '{print $2}')
-    [ -z "$arg" ] && arg="all"
+    read -r -a cmd_parts <<< "$runner_full"
+    cmd="${cmd_parts[0]}"
+    args=("${cmd_parts[@]:1}")
+    [ ${#args[@]} -eq 0 ] && args=("all")
 
     if [ ! -x "$cmd" ]; then
         chmod +x "$cmd" 2>/dev/null || true
@@ -170,7 +259,7 @@ for item in "${SUITES_TO_RUN[@]}"; do
 
     SUITE_START=$(date +%s)
     
-    if "$cmd" "$arg"; then
+    if "$cmd" "${args[@]}"; then
         SUITE_END=$(date +%s)
         SUITE_DUR=$((SUITE_END - SUITE_START))
         PASSED_SUITES=$((PASSED_SUITES + 1))

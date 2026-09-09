@@ -1696,13 +1696,23 @@ details.mode-category:not([open]) .category-header::after {
     white-space: nowrap;
 }
 .topology-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     font-size: 0.65rem;
     font-weight: 600;
-    padding: 2px 5px;
+    padding: 2px 6px;
     border-radius: 4px;
     margin-top: 2px;
     white-space: nowrap;
+}
+.topology-badge svg {
+    display: inline-block;
+    vertical-align: middle;
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
 }
 .topology-badge-ru {
     background: rgba(59, 130, 246, 0.15);
@@ -1713,6 +1723,16 @@ details.mode-category:not([open]) .category-header::after {
     background: rgba(16, 185, 129, 0.15);
     color: #34d399;
     border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.topology-badge-local {
+    background: rgba(167, 139, 250, 0.15);
+    color: #c4b5fd;
+    border: 1px solid rgba(167, 139, 250, 0.3);
+}
+.topology-badge-configurable {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
 }
 .topology-node.configurable {
     background: rgba(245, 158, 11, 0.12);
@@ -1729,10 +1749,25 @@ details.mode-category:not([open]) .category-header::after {
 .topology-node.configurable .node-desc {
     color: #fde68a;
 }
-.topology-badge-configurable {
-    background: rgba(245, 158, 11, 0.2);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.4);
+.topology-node.node-role-client:not(.configurable):hover {
+    border-color: #60a5fa;
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.25);
+}
+.topology-node.node-role-proxy:not(.configurable):hover {
+    border-color: #34d399;
+    box-shadow: 0 6px 18px rgba(52, 211, 153, 0.25);
+}
+.topology-node.node-role-freedom:not(.configurable):hover {
+    border-color: #38bdf8;
+    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.25);
+}
+.topology-node.node-role-sub:not(.configurable):hover {
+    border-color: #a78bfa;
+    box-shadow: 0 6px 18px rgba(167, 139, 250, 0.25);
+}
+.topology-node.node-role-local:not(.configurable):hover {
+    border-color: #94a3b8;
+    box-shadow: 0 6px 18px rgba(148, 163, 184, 0.25);
 }
 .warning-banner {
     background: rgba(239, 68, 68, 0.12);

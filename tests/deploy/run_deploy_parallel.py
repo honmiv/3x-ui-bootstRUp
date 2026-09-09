@@ -41,17 +41,46 @@ def run_single_test(test_path: str):
     }
 
 
+try:
+    DEFAULT_WORKERS = int(os.environ.get("DEPLOY_TEST_WORKERS", "6"))
+except ValueError:
+    DEFAULT_WORKERS = 6
+
+
+def parse_args():
+    if "--default-workers" in sys.argv:
+        print(DEFAULT_WORKERS)
+        sys.exit(0)
+
+    workers = DEFAULT_WORKERS
+    target = "all"
+
+    for arg in sys.argv[1:]:
+        if arg.startswith("--deploy-workers="):
+            try:
+                workers = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
+        elif arg.startswith("--workers="):
+            try:
+                workers = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
+        elif not arg.startswith("-") and target == "all":
+            target = arg
+
+    return target, workers
+
+
 def main():
+    target, req_workers = parse_args()
+
     tests_to_run = sorted(glob.glob(os.path.join(DEPLOY_DIR, "test_*.py")))
     # Each test runs a Docker daemon inside a privileged VPS container and
     # starts 3x-ui, XRay, Caddy and nginx.  Starting all five stacks at once
     # overwhelms Docker-in-Docker (XRay may report started but fail to bind
     # its inbound). Keep useful parallelism while avoiding that contention.
-    try:
-        requested_workers = int(os.environ.get("DEPLOY_TEST_WORKERS", "6"))
-    except ValueError:
-        requested_workers = 6
-    max_workers = max(1, min(len(tests_to_run), requested_workers, os.cpu_count() or 6))
+    max_workers = max(1, min(len(tests_to_run), req_workers))
 
     print("\033[0;36m\033[1m==================================================================")
     print("      3x-UI BootstRUp - PARALLEL Deploy Test Runner              ")

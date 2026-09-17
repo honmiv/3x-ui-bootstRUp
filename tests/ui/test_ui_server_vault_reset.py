@@ -65,6 +65,8 @@ async def run_test() -> bool:
             # 3. Assert cleared
             list_text = await page.locator("#savedServersList").text_content()
             assert "Нет сохраненных серверов" in list_text or "Загрузка" in list_text
+            assert "Нет сохраненных серверов" in list_text, \
+                f"Expected empty vault message, got: {repr(list_text[:200])}"
 
             await asyncio.sleep(0.5)
             assert not os.path.exists(servers_file), "servers.json was not deleted after reset!"

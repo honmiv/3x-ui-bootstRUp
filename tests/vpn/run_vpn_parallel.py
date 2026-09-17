@@ -41,9 +41,39 @@ def run_single_test(test_path: str):
     }
 
 
+DEFAULT_WORKERS = os.cpu_count() or 5
+
+
+def parse_args():
+    if "--default-workers" in sys.argv:
+        print(DEFAULT_WORKERS)
+        sys.exit(0)
+
+    workers = DEFAULT_WORKERS
+    target = "all"
+
+    for arg in sys.argv[1:]:
+        if arg.startswith("--vpn-workers="):
+            try:
+                workers = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
+        elif arg.startswith("--workers="):
+            try:
+                workers = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
+        elif not arg.startswith("-") and target == "all":
+            target = arg
+
+    return target, workers
+
+
 def main():
+    target, req_workers = parse_args()
+
     tests_to_run = sorted(glob.glob(os.path.join(VPN_DIR, "test_*.py")))
-    max_workers = min(len(tests_to_run), os.cpu_count() or 5)
+    max_workers = max(1, min(len(tests_to_run), req_workers))
 
     print("\033[0;36m\033[1m==================================================================")
     print("      3x-UI BootstRUp - PARALLEL VPN Connectivity Test Runner     ")

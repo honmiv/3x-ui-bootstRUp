@@ -53,7 +53,7 @@
       {
         "type": "field",
         "domain": [
-          "regexp:.*\\.test$"
+          "domain:ru.test"
         ],
         "outboundTag": "direct"
       },

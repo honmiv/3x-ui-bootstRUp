@@ -59,10 +59,18 @@ check_docker() {
 
 cleanup_containers() {
     echo -e "${CYAN}[..] Cleaning up test containers...${NC}"
-    docker rm -f vps-test-client-tcp vps-test-client-xhttp vps-test-client >/dev/null 2>&1 || true
+    docker rm -f vps-test-client-tcp vps-test-client-xhttp vps-test-client \
+        vps-test-client-freedom vps-test-client-freedomsub vps-test-client-cascade \
+        vps-test-client-cascadesub vps-test-client-proxy vps-test-client-sub >/dev/null 2>&1 || true
     docker compose -f "$COMPOSE_FILE" down --remove-orphans >/dev/null 2>&1 || true
     echo -e "${GREEN}[OK] Test containers stopped and removed.${NC}"
 }
+
+for arg in "$@"; do
+    if [[ "$arg" == "--default-workers" ]]; then
+        exec "$PYTHON_BIN" "$VPN_DIR/run_vpn_parallel.py" --default-workers
+    fi
+done
 
 if [[ "${1:-}" == "--down" || "${1:-}" == "down" || "${1:-}" == "clean" || "${1:-}" == "--clean" ]]; then
     cleanup_containers
@@ -73,7 +81,18 @@ banner
 check_docker
 
 # Determine which test(s) to run
-TARGET="${1:-all}"
+TARGET=""
+WORKER_ARGS=()
+
+for arg in "$@"; do
+    if [[ "$arg" == --vpn-workers=* || "$arg" == --workers=* ]]; then
+        WORKER_ARGS+=("$arg")
+    elif [[ -z "$TARGET" ]]; then
+        TARGET="$arg"
+    fi
+done
+
+[ -z "$TARGET" ] && TARGET="all"
 declare -a TESTS_TO_RUN=()
 
 case "$TARGET" in
@@ -99,7 +118,7 @@ case "$TARGET" in
         TESTS_TO_RUN=("$VPN_DIR"/test_*.py)
         ;;
     all|--all|vpn|vpn_all|parallel|--parallel|-p)
-        "$PYTHON_BIN" "$VPN_DIR/run_vpn_parallel.py"
+        "$PYTHON_BIN" "$VPN_DIR/run_vpn_parallel.py" "${WORKER_ARGS[@]}"
         exit $?
         ;;
     *)

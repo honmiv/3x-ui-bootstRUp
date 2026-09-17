@@ -246,6 +246,66 @@ services:
       - ./.cache:/var/cache/docker-preload:ro
       - vps-freedomsub-sub-docker:/var/lib/docker
 
+  # ============================================================================
+  # STACK 7: Maintenance (Panel & Sub-Server Maintenance Operations)
+  # ============================================================================
+  vps-maint-panel:
+    image: test-vps:latest
+    container_name: vps-maint-panel
+    hostname: maint-panel.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - maint-panel.test
+    ports:
+      - "2261:22"
+      - "8061:80"
+      - "8481:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-maint-panel-docker:/var/lib/docker
+
+  vps-maint-recovery:
+    image: test-vps:latest
+    container_name: vps-maint-recovery
+    hostname: maint-recovery.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - maint-recovery.test
+    ports:
+      - "2262:22"
+      - "8062:80"
+      - "8482:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-maint-recovery-docker:/var/lib/docker
+
+  vps-maint-sub:
+    image: test-vps:latest
+    container_name: vps-maint-sub
+    hostname: maint-sub.test
+    privileged: true
+    networks:
+      testnet:
+        aliases:
+          - maint-sub.test
+    ports:
+      - "2263:22"
+      - "8063:80"
+      - "8483:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.cache:/var/cache/docker-preload:ro
+      - vps-maint-sub-docker:/var/lib/docker
+
 volumes:
   vps-freedom-only-docker:
   vps-proxy-foreign-docker:
@@ -259,6 +319,9 @@ volumes:
   vps-cascadesub-sub-docker:
   vps-freedomsub-freedom-docker:
   vps-freedomsub-sub-docker:
+  vps-maint-panel-docker:
+  vps-maint-recovery-docker:
+  vps-maint-sub-docker:
 
 networks:
   testnet:

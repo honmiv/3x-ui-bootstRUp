@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Вход · Сервер подписок</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-dark: #0f172a;
+    --bg-card: rgba(30, 41, 59, 0.85);
+    --bg-input: rgba(15, 23, 42, 0.85);
+    --border-color: rgba(255, 255, 255, 0.12);
+    --border-focus: #3b82f6;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-glow: rgba(59, 130, 246, 0.25);
+    --danger-bg: rgba(239, 68, 68, 0.22);
+    --danger-border: rgba(239, 68, 68, 0.5);
+    --glow: 0 24px 50px rgba(2, 6, 23, 0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    background-color: var(--bg-dark);
+    background-image:
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.25) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.8) 0px, rgba(15, 23, 42, 1) 100%);
+    padding: 20px;
+}
+.login-shell {
+    width: min(460px, 100%);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: var(--glow);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+.login-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.brand-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+}
+.mailbox-svg {
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+.mb-post-sway {
+    transform-box: view-box;
+    transform-origin: 28.5px 61px;
+    animation: mb-post-sway-anim 4.2s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+}
+@keyframes mb-post-sway-anim {
+    0%, 25% { transform: rotate(0deg); }
+    28% { transform: rotate(-3.2deg); }
+    32% { transform: rotate(2.1deg); }
+    36% { transform: rotate(-1.2deg); }
+    40% { transform: rotate(0.6deg); }
+    44% { transform: rotate(-0.2deg); }
+    48%, 100% { transform: rotate(0deg); }
+}
+.mb-newspaper {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-newspaper-flight 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes mb-newspaper-flight {
+    0%, 12% { transform: translate(28px, -24px) rotate(-35deg) scale(0.7); opacity: 0; }
+    15% { opacity: 1; }
+    25% { transform: translate(4px, -3px) rotate(-8deg) scale(0.95); opacity: 1; }
+    28% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    30%, 75% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+    82% { transform: translate(-5px, 2px) scale(0.85); opacity: 0; }
+    83%, 100% { opacity: 0; }
+}
+.mb-flag-arm {
+    transform-box: view-box;
+    transform-origin: 20px 29px;
+    animation: mb-flag-catch 4.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+@keyframes mb-flag-catch {
+    0%, 26% { transform: rotate(0deg); }
+    33% { transform: rotate(-98deg); }
+    37%, 74% { transform: rotate(-90deg); }
+    84%, 100% { transform: rotate(0deg); }
+}
+.mb-door {
+    transform-box: view-box;
+    transform-origin: 43px 35px;
+    animation: mb-door-catch 4.2s ease-in-out infinite;
+}
+@keyframes mb-door-catch {
+    0%, 25% { transform: rotate(0deg); }
+    27% { transform: rotate(10deg); }
+    32% { transform: rotate(2deg); }
+    36%, 75% { transform: rotate(5deg); }
+    85%, 100% { transform: rotate(0deg); }
+}
+.mb-speed-trail {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: mb-trail-anim 4.2s ease-out infinite;
+}
+@keyframes mb-trail-anim {
+    0%, 14% { opacity: 0; transform: translate(12px, -12px); }
+    18%, 24% { opacity: 0.8; transform: translate(0, 0); }
+    27%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mb-post-sway, .mb-newspaper, .mb-flag-arm, .mb-door, .mb-speed-trail {
+        animation: none !important;
+    }
+}
+.brand-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+.brand-subtitle {
+    margin-top: 2px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+.secure-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: 999px;
+    padding: 5px 11px;
+}
+h1 {
+    margin: 6px 0 8px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+.desc {
+    margin-bottom: 18px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    font-size: 0.9rem;
+}
+label {
+    display: block;
+    margin: 14px 0 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+input {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+button {
+    margin-top: 20px;
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 11px 14px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.18s ease, transform 0.08s ease, box-shadow 0.18s ease;
+}
+button:hover { background: var(--accent-hover); box-shadow: 0 0 14px var(--accent-glow); }
+button:active { transform: translateY(1px); }
+.error {
+    margin: 0 0 14px;
+    color: #fecaca;
+    border: 1px solid var(--danger-border);
+    background: var(--danger-bg);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.85rem;
+}
+.hint {
+    margin-top: 14px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.42;
+}
+@media (max-width: 560px) {
+    .login-shell {
+        padding: 20px;
+        border-radius: 14px;
+    }
+    .login-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+</head>
+<body>
+<div class="login-shell">
+    <div class="login-head">
+        <div class="brand">
+            <div class="brand-icon">
+                <svg class="mailbox-svg mb-post-sway" width="48" height="48" viewBox="0 0 64 64" role="img" aria-label="Почтовый ящик">
+                    <defs>
+                        <linearGradient id="loginMbWhiteBody" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="30%" stop-color="#f8fafc"/>
+                            <stop offset="70%" stop-color="#e2e8f0"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbWhiteDoor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="45%" stop-color="#f1f5f9"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbInterior" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#0f172a"/>
+                            <stop offset="100%" stop-color="#1e293b"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbPost" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#92400e"/>
+                            <stop offset="40%" stop-color="#b45309"/>
+                            <stop offset="80%" stop-color="#78350f"/>
+                            <stop offset="100%" stop-color="#451a03"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbFlag" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#f87171"/>
+                            <stop offset="35%" stop-color="#ef4444"/>
+                            <stop offset="100%" stop-color="#b91c1c"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbNewsPaper" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="35%" stop-color="#f1f5f9"/>
+                            <stop offset="70%" stop-color="#e2e8f0"/>
+                            <stop offset="100%" stop-color="#94a3b8"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbNewsFold" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#e2e8f0"/>
+                            <stop offset="50%" stop-color="#ffffff"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </linearGradient>
+                        <linearGradient id="loginMbRubberBand" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#f87171"/>
+                            <stop offset="50%" stop-color="#dc2626"/>
+                            <stop offset="100%" stop-color="#991b1b"/>
+                        </linearGradient>
+                    </defs>
+                    <g class="mb-speed-trail">
+                        <path d="M 58 6 L 47 16" stroke="#93c5fd" stroke-width="0.75" stroke-linecap="round" opacity="0.6"/>
+                        <path d="M 62 12 L 53 21" stroke="#60a5fa" stroke-width="0.85" stroke-linecap="round" opacity="0.8"/>
+                        <path d="M 55 3 L 49 9" stroke="#bfdbfe" stroke-width="0.6" stroke-linecap="round" opacity="0.5"/>
+                    </g>
+                    <g class="mb-post">
+                        <rect x="25" y="34" width="7" height="27" rx="1.5" fill="url(#loginMbPost)"/>
+                        <path d="M16 35 L40 35 C41 35 41.5 36 41.5 37 C41.5 38 41 39 40 39 L16 39 C15 39 14.5 38 14.5 37 C14.5 36 15 35 16 35 Z" fill="url(#loginMbPost)"/>
+                        <path d="M25 46 L18 39 L20 39 L25 44 Z" fill="#78350f"/>
+                        <path d="M32 46 L38 39 L36 39 L32 44 Z" fill="#451a03"/>
+                    </g>
+                    <g class="mb-body">
+                        <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 Z" fill="url(#loginMbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                        <path d="M 43 11 C 47.5 11, 51 14.5, 51 19 L 51 30 C 51 33.5, 47.5 35, 43 35 C 40.5 35, 38 33, 38 29.5 L 38 19 C 38 14.5, 40.5 11, 43 11 Z" fill="url(#loginMbInterior)"/>
+                        <g class="mb-newspaper">
+                            <g transform="translate(36, 17)">
+                                <path d="M -4 4 L 14 0 C 15.5 0, 16.5 2, 16.5 4.5 C 16.5 7, 15.5 8.8, 14 8.8 L -4 12.8 Z" fill="url(#loginMbNewsPaper)" stroke="#64748b" stroke-width="0.6"/>
+                                <line x1="2" y1="3.2" x2="11" y2="1.8" stroke="#334155" stroke-width="0.9" stroke-linecap="round"/>
+                                <line x1="2" y1="5.4" x2="12" y2="3.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                <line x1="2" y1="7.2" x2="10" y2="5.8" stroke="#64748b" stroke-width="0.6" stroke-linecap="round"/>
+                                <path d="M 6.5 1.5 L 8.5 1.2 C 9 1.2, 9.3 2.5, 9.3 4.8 C 9.3 7, 9 8.2, 8.5 8.2 L 6.5 8.5 C 6 8.5, 5.7 7.2, 5.7 4.8 C 5.7 2.5, 6 1.5, 6.5 1.5 Z" fill="url(#loginMbRubberBand)" stroke="#7f1d1d" stroke-width="0.4"/>
+                                <ellipse cx="14" cy="4.5" rx="2.2" ry="4.4" fill="url(#loginMbNewsFold)" stroke="#64748b" stroke-width="0.6"/>
+                                <path d="M 14.5 2.5 C 15.2 3.2, 15.2 5.5, 14 6 C 13.2 6.3, 12.8 5.2, 13.3 4.2 C 13.7 3.5, 14.2 3.7, 14.2 4.2" fill="none" stroke="#475569" stroke-width="0.5" stroke-linecap="round"/>
+                            </g>
+                        </g>
+                        <path d="M 15 35 L 15 23 C 15 15.5, 21 11, 29 11 L 43 11 C 40.5 11, 38 14.5, 38 19 L 38 29.5 C 38 33, 40.5 35, 43 35 L 15 35 Z" fill="url(#loginMbWhiteBody)" stroke="#94a3b8" stroke-width="0.8"/>
+                        <path d="M 18 19 C 18 13.5, 23 12, 30 12 L 43 12" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.9"/>
+                        <g class="mb-door">
+                            <path d="M 43 35 C 47.5 35, 51.5 34.5, 53 37 L 54 44 C 54 46, 51 47, 47 47 C 43 47, 41 45, 41 43 L 41 35.5 Z" fill="url(#loginMbWhiteDoor)" stroke="#94a3b8" stroke-width="0.75"/>
+                            <rect x="49" y="44" width="3.5" height="1.5" rx="0.75" fill="#475569"/>
+                            <circle cx="42" cy="35.5" r="1" fill="#64748b"/>
+                        </g>
+                    </g>
+                    <g class="mb-flag-arm">
+                        <path d="M 20 28 L 35 28 L 35 30 L 20 30 Z" fill="url(#loginMbFlag)"/>
+                        <path d="M 32 25 L 38 25 C 38.8 25, 39 25.4, 39 26 L 39 32 C 39 32.6, 38.8 33, 38 33 L 32 33 Z" fill="url(#loginMbFlag)"/>
+                        <line x1="33" y1="26.5" x2="37" y2="26.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.6" stroke-linecap="round"/>
+                        <circle cx="20" cy="29" r="2.2" fill="#64748b"/>
+                        <circle cx="20" cy="29" r="1.2" fill="#e2e8f0"/>
+                        <circle cx="20" cy="29" r="0.4" fill="#334155"/>
+                    </g>
+                </svg>
+            </div>
+            <div>
+                <div class="brand-title">Сервер подписок</div>
+                <div class="brand-subtitle">Административный доступ</div>
+            </div>
+        </div>
+        <div class="secure-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Secure Login</span>
+        </div>
+    </div>
+    <h1>Вход в панель</h1>
+    <p class="desc">Введите учетные данные администратора, чтобы открыть управление подписками и клиентскими ссылками.</p>
+    __ERROR_BLOCK__
+    <form method="post" action="__LOGIN_ACTION__">
+        <input type="hidden" name="next" value="__NEXT__">
+        <label for="user">Логин</label>
+        <input id="user" name="user" autocomplete="username" required autofocus>
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            <span>Войти</span>
+        </button>
+    </form>
+    <div class="hint">Сессия сохраняется в браузере через защищенный cookie на 12 часов (или до перезапуска контейнера).</div>
+</div>
+</body>
+</html>

@@ -9,7 +9,6 @@ import subprocess
 import sys
 import threading
 import time
-import urllib.parse
 import urllib.request
 import webbrowser
 from socketserver import ThreadingMixIn
@@ -50,31 +49,37 @@ def fetch_xui_versions() -> List[str]:
         if XUI_CACHE["data"] is not None and now - XUI_CACHE["ts"] < 300:
             return list(XUI_CACHE["data"])
 
-    req = urllib.request.Request(XUI_TOKEN_URL, headers={"User-Agent": XUI_UA})
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        token = json.loads(resp.read().decode("utf-8")).get("token", "")
+    try:
+        req = urllib.request.Request(XUI_TOKEN_URL, headers={"User-Agent": XUI_UA})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            token = json.loads(resp.read().decode("utf-8")).get("token", "")
 
-    headers = {"Authorization": f"Bearer {token}", "User-Agent": XUI_UA}
-    req = urllib.request.Request(XUI_TAGS_URL, headers=headers)
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+        headers = {"Authorization": f"Bearer {token}", "User-Agent": XUI_UA}
+        req = urllib.request.Request(XUI_TAGS_URL, headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
 
-    tags = data.get("tags") or []
-    seen: Dict[str, str] = {}
-    for t in tags:
-        base = t[1:] if t.startswith("v") else t
-        if base not in seen or seen[base].startswith("v"):
-            seen[base] = t
+        tags = data.get("tags") or []
+        seen: Dict[str, str] = {}
+        for t in tags:
+            base = t[1:] if t.startswith("v") else t
+            if base not in seen or seen[base].startswith("v"):
+                seen[base] = t
 
-    versions = sorted(seen.keys(), key=_xui_ver_key, reverse=True)
-    if "latest" in versions:
-        versions.remove("latest")
-        versions.insert(0, "latest")
+        versions = sorted(seen.keys(), key=_xui_ver_key, reverse=True)
+        if "latest" in versions:
+            versions.remove("latest")
+            versions.insert(0, "latest")
 
-    with CACHE_LOCK:
-        XUI_CACHE["data"] = versions
-        XUI_CACHE["ts"] = now
-    return versions
+        with CACHE_LOCK:
+            XUI_CACHE["data"] = versions
+            XUI_CACHE["ts"] = now
+        return versions
+    except Exception:
+        with CACHE_LOCK:
+            if XUI_CACHE["data"] is not None:
+                return list(XUI_CACHE["data"])
+            return ["latest"]
 
 UPDATE_CHECK_URL = os.environ.get(
     "UPDATE_CHECK_URL",
@@ -105,6 +110,8 @@ def _local_code_files() -> Dict[str, bytes]:
         dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
         for fn in filenames:
             full = os.path.join(dirpath, fn)
+            if os.path.islink(full):
+                continue  # GitHub tar.gz skips symlinks (isfile() == False for them)
             rel = os.path.relpath(full, APP_DIR).replace(os.sep, "/")
             if not _is_code_file(rel):
                 continue
@@ -124,7 +131,7 @@ def _remote_code_files() -> Dict[str, bytes]:
     import tarfile
 
     req = urllib.request.Request(UPDATE_CHECK_URL, headers={"User-Agent": XUI_UA})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=8) as resp:
         data = resp.read()
 
     result: Dict[str, bytes] = {}
@@ -554,6 +561,10 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                     result[k] = data[k]
             return result
 
+        def pick_ssh(prefix: str, auth_type_key: str, *extra: str):
+            keys = [f"{prefix}_{s}" for s in ("host", "port", "user", "password", "key")]
+            return pick(*(keys + [auth_type_key] + list(extra)))
+
         payload = {
             "common": pick("deploy_mode", "is_cascade"),
             "common": pick("deploy_mode", "is_cascade", "opt_change_ssh_port", "custom_ssh_port", "change_ssh_port", "new_ssh_port"),
@@ -564,33 +575,29 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                 "opt_update_sub_change_ssh_port", "custom_update_sub_ssh_port",
                 "change_ssh_port", "new_ssh_port"
             ),
-            "freedom_node": pick(
-                "freedom_host", "freedom_host_for_ssh", "freedom_port", "freedom_user", "freedom_password",
-                "freedom_key", "freedom_auth_type", "freedom_xui_username",
+            "freedom_node": pick_ssh(
+                "freedom", "freedom_auth_type",
+                "freedom_host_for_ssh", "freedom_xui_username",
                 "freedom_xui_password", "freedom_sub_secret", "freedom_client_name",
                 "freedom_xui_version", "freedom_decoy_template"
             ),
-            "proxy_node": pick(
-                "proxy_host", "proxy_host_for_ssh", "proxy_port", "proxy_user", "proxy_password", "proxy_key",
-                "proxy_auth_type", "proxy_xui_username", "proxy_xui_password",
+            "proxy_node": pick_ssh(
+                "proxy", "proxy_auth_type",
+                "proxy_host_for_ssh", "proxy_xui_username", "proxy_xui_password",
                 "proxy_sub_secret", "proxy_client_tcp_list", "proxy_client_xhttp_list",
                 "foreign_sub_url", "proxy_xui_version", "proxy_decoy_template"
             ),
-            "standard_node": pick("vps_host", "vps_port", "vps_user", "vps_password", "vps_key", "vps_auth_type"),
-            "sub_server": pick(
-                "sub_vps_host", "sub_vps_port", "sub_vps_user", "sub_vps_password",
-                "sub_vps_key", "sub_auth_type", "sub_domain", "sub_secret_path",
+            "standard_node": pick_ssh("vps", "vps_auth_type"),
+            "sub_server": pick_ssh(
+                "sub_vps", "sub_auth_type",
+                "sub_domain", "sub_secret_path",
                 "sub_russian_url", "sub_foreign_url", "sub_proxy_clients",
                 "sub_freedom_clients", "sub_admin_user", "sub_backup_name",
                 "rollback_sub_backup_file", "sub_decoy_template", "update_sub_decoy_template"
             ),
-            "backup_node": pick(
-                "backup_vps_host", "backup_vps_port", "backup_vps_user",
-                "backup_vps_password", "backup_vps_key", "backup_auth_type", "backup_name"
-            ),
-            "recovery_node": pick(
-                "recovery_vps_host", "recovery_vps_port", "recovery_vps_user",
-                "recovery_vps_password", "recovery_vps_key", "recovery_auth_type",
+            "backup_node": pick_ssh("backup_vps", "backup_auth_type", "backup_name"),
+            "recovery_node": pick_ssh(
+                "recovery_vps", "recovery_auth_type",
                 "recovery_backup_file", "recovery_xui_username"
             ),
             "panel_and_clients": pick(
@@ -598,9 +605,8 @@ def save_backup_config(data: Dict[str, Any]) -> bool:
                 "client_xhttp_list", "foreign_sub_url", "xui_version",
                 "decoy_template", "freedom_decoy_template", "proxy_decoy_template", "sub_decoy_template"
             ),
-            "update_node": pick(
-                "update_vps_host", "update_vps_port", "update_vps_user",
-                "update_vps_password", "update_vps_key", "update_auth_type",
+            "update_node": pick_ssh(
+                "update_vps", "update_auth_type",
                 "update_xui_version", "update_decoy_template"
             ),
             "ui_state": {k: data[k] for k in data if k.startswith("ui_")},
@@ -671,448 +677,16 @@ class WebUIHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        url_path = urllib.parse.urlparse(self.path).path
-
-        if url_path == "/api/config":
-            self.send_json(load_backup_config())
-            return
-
-        if url_path == "/api/xui_versions":
-            try:
-                self.send_json({"versions": fetch_xui_versions()})
-            except Exception as e:
-                self.send_json({"versions": ["latest"], "error": str(e)})
-            return
-
-        if url_path == "/api/decoys":
-            try:
-                self.send_json({"ok": True, "decoys": decoy_manager.get_decoy_catalog()})
-            except Exception as e:
-                self.send_json({"ok": False, "error": str(e), "decoys": []}, 500)
-            return
-
-        if url_path.startswith("/api/decoys/preview/"):
-            parts = url_path[len("/api/decoys/preview/"):].split("/", 1)
-            decoy_id = parts[0]
-            sub_file = parts[1] if len(parts) > 1 and parts[1] else "index.html"
-            try:
-                decoy_dir = decoy_manager.ensure_decoy_cached(decoy_id)
-                target_file = os.path.abspath(os.path.join(decoy_dir, sub_file))
-                if not (target_file == decoy_dir or target_file.startswith(decoy_dir + os.sep)) or not os.path.isfile(target_file):
-                    self.send_response(404)
-                    self.end_headers()
-                    self.wfile.write(b"404 Not Found")
-                    return
-                mime_type, _ = mimetypes.guess_type(target_file)
-                mime_type = mime_type or "application/octet-stream"
-                with open(target_file, "rb") as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", mime_type)
-                self.send_header("Content-Length", str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            except Exception as e:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(f"Preview error: {e}".encode("utf-8"))
-            return
-
-        if url_path == "/api/update_check":
-            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            force = "force" in params or "1" in params.get("force", [])
-            self.send_json(check_for_update(force=force))
-            return
-
-        if url_path == "/api/changelog":
-            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            force = "force" in params or "1" in params.get("force", [])
-            info = check_for_update(force=force)
-            self.send_json({"ok": True, "changelog": info.get("changelog", ""), "update_available": info.get("update_available", False)})
-            return
-
-        if url_path == "/api/happ_routing":
-            happ_file = os.path.join(APP_DIR, "panel", "templates", "3x-ui", "happ-routing.json")
-            if os.path.exists(happ_file):
-                try:
-                    with open(happ_file, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    self.send_json({"ok": True, "content": content})
-                except Exception as e:
-                    self.send_json({"ok": False, "error": str(e)}, 500)
-            else:
-                self.send_json({"ok": False, "error": "happ-routing.json not found"}, 404)
-            return
-
-        if url_path == "/api/backups":
-            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            folder = params.get("folder", ["backups_panel"])[0]
-            if folder == "backups_sub_server":
-                self.send_json(list_backup_files("backups_sub_server"))
-            else:
-                self.send_json(list_backup_files("backups_panel"))
-            return
-
-        if url_path == "/api/status":
-            with DEPLOY_LOCK:
-                status_payload = {
-                    "app": "3x-ui-bootstrup",
-                    "pid": os.getpid(),
-                    "app_dir": APP_DIR,
-                    "deploying": is_deploying,
-                    "status": deploy_status,
-                    "logs_count": len(active_logs),
-                    "result": dict(deploy_result)
-                }
-            self.send_json(status_payload)
-            return
-
-        if url_path == "/api/servers":
-            if not os.path.exists(SERVERS_FILE):
-                self.send_json([])
-                return
-            try:
-                with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                self.send_json(data)
-            except Exception:
-                self.send_json([])
-            return
-
-        if url_path == "/api/deploy/logs":
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/event-stream')
-            self.send_header('Cache-Control', 'no-cache')
-            self.send_header('Connection', 'keep-alive')
-            self.end_headers()
-
-            sent_index = 0
-            while True:
-                with LOG_CONDITION:
-                    while is_deploying and sent_index >= len(active_logs):
-                        LOG_CONDITION.wait(timeout=1.0)
-
-                    new_items = list(active_logs[sent_index:])
-                    still_deploying = is_deploying
-                    final_status = deploy_status
-
-                for item in new_items:
-                    event_data = f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-                    try:
-                        self.wfile.write(event_data.encode('utf-8'))
-                        self.wfile.flush()
-                        sent_index += 1
-                    except Exception:
-                        return
-
-                if not still_deploying and sent_index >= len(active_logs):
-                    done_item = {
-                        "message": "[DONE] Installation process completed.",
-                        "level": "success",
-                        "event": "done",
-                        "status": final_status
-                    }
-                    event_data = f"data: {json.dumps(done_item, ensure_ascii=False)}\n\n"
-                    try:
-                        self.wfile.write(event_data.encode('utf-8'))
-                        self.wfile.flush()
-                    except Exception:
-                        pass
-                    break
-            return
-
-        if url_path == "/":
-            url_path = "/index.html"
-
-        if url_path.startswith("/resources/"):
-            base_dir = os.path.join(APP_DIR, "resources")
-            target_file = os.path.abspath(os.path.join(base_dir, url_path[len("/resources/"):].lstrip("/")))
-        else:
-            base_dir = os.path.join(APP_DIR, "panel", "static")
-            target_file = os.path.abspath(os.path.join(base_dir, url_path.lstrip("/")))
-
-        if not (target_file == base_dir or target_file.startswith(base_dir + os.sep)) or not os.path.isfile(target_file):
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404 Not Found")
-            return
-
-        mime_type, _ = mimetypes.guess_type(target_file)
-        if not mime_type:
-            mime_type = "application/octet-stream"
-
-        try:
-            with open(target_file, "rb") as f:
-                content = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Length", str(len(content)))
-            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-            self.send_header("Pragma", "no-cache")
-            self.send_header("Expires", "0")
-            self.end_headers()
-            self.wfile.write(content)
-        except Exception as e:
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(str(e).encode('utf-8'))
+        import routing
+        routing.handle_get(self)
 
     def do_POST(self):
-        global is_deploying, active_logs, deploy_status, deploy_result, cancel_requested
-        url_path = urllib.parse.urlparse(self.path).path
-        content_len = int(self.headers.get('Content-Length', 0))
-        post_body = self.rfile.read(content_len)
-
-        try:
-            payload = json.loads(post_body.decode('utf-8')) if post_body else {}
-        except json.JSONDecodeError:
-            self.send_json({"error": "Invalid JSON"}, 400)
-            return
-
-        if url_path == "/api/servers":
-            try:
-                with open(SERVERS_FILE, "w", encoding="utf-8") as f:
-                    json.dump(payload, f, ensure_ascii=False, indent=2)
-                self.send_json({"ok": True})
-            except Exception as e:
-                self.send_json({"error": str(e)}, 500)
-            return
-
-        if url_path == "/api/config":
-            if save_backup_config(payload):
-                self.send_json({"ok": True})
-            else:
-                self.send_json({"ok": False, "error": "Failed to save setup_backup.yml"}, 500)
-            return
-
-        if url_path == "/api/decoys/download":
-            decoy_id = payload.get("id", "builtin")
-            custom_url = payload.get("custom_url", "")
-            try:
-                path = decoy_manager.ensure_decoy_cached(decoy_id, custom_url=custom_url, force=True)
-                self.send_json({"ok": True, "id": decoy_id, "cached": True, "path": path})
-            except Exception as e:
-                self.send_json({"ok": False, "error": str(e)}, 500)
-            return
-
-        if url_path == "/api/happ_routing":
-            happ_file = os.path.join(APP_DIR, "panel", "templates", "3x-ui", "happ-routing.json")
-            try:
-                content = payload.get("content", "")
-                if not content:
-                    self.send_json({"ok": False, "error": "Content is required"}, 400)
-                    return
-                parsed = json.loads(content)
-                formatted = json.dumps(parsed, indent=4, ensure_ascii=False)
-                os.makedirs(os.path.dirname(happ_file), exist_ok=True)
-                with open(happ_file, "w", encoding="utf-8") as f:
-                    f.write(formatted + "\n")
-                self.send_json({"ok": True, "content": formatted})
-            except json.JSONDecodeError as jde:
-                self.send_json({"ok": False, "error": f"Ошибка JSON: {str(jde)}"}, 400)
-            except Exception as e:
-                self.send_json({"ok": False, "error": str(e)}, 500)
-            return
-
-        if url_path == "/api/ssh/test":
-            host = (payload.get("vps_host") or payload.get("backup_vps_host") or payload.get("recovery_vps_host") or payload.get("update_vps_host") or payload.get("sub_vps_host") or "").strip()
-            port = int(payload.get("vps_port") or payload.get("backup_vps_port") or payload.get("recovery_vps_port") or payload.get("update_vps_port") or payload.get("sub_vps_port") or 22)
-            user = (payload.get("vps_user") or payload.get("backup_vps_user") or payload.get("recovery_vps_user") or payload.get("update_vps_user") or payload.get("sub_vps_user") or "root").strip()
-            password = payload.get("vps_password") if payload.get("vps_password") is not None else (payload.get("backup_vps_password") if payload.get("backup_vps_password") is not None else (payload.get("recovery_vps_password") if payload.get("recovery_vps_password") is not None else (payload.get("update_vps_password") if payload.get("update_vps_password") is not None else payload.get("sub_vps_password", ""))))
-            key_data = payload.get("vps_key") if payload.get("vps_key") is not None else (payload.get("backup_vps_key") if payload.get("backup_vps_key") is not None else (payload.get("recovery_vps_key") if payload.get("recovery_vps_key") is not None else (payload.get("update_vps_key") if payload.get("update_vps_key") is not None else payload.get("sub_vps_key", ""))))
-
-            if not host:
-                self.send_json({"ok": False, "message": "Host address is required"}, 400)
-                return
-            if not password and not key_data:
-                self.send_json({"ok": False, "message": "SSH password or private key is required"}, 400)
-                return
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            async def run_test():
-                async with SSHDeployer(host, port, user, password, key_data) as deployer:
-                    return await deployer.test_connection()
-
-            try:
-                ok, msg = loop.run_until_complete(run_test())
-                self.send_json({"ok": ok, "message": msg})
-            except Exception as e:
-                self.send_json({"ok": False, "message": f"Test exception: {str(e)}"})
-            finally:
-                loop.close()
-            return
-
-        if url_path == "/api/deploy/stop":
-            with DEPLOY_LOCK:
-                if is_deploying:
-                    cancel_requested = True
-                    deploy_status = "cancelled"
-                    already_running = True
-                else:
-                    already_running = False
-            if already_running:
-                log_event("[CANCEL] Отмена процесса затребована пользователем...", "warning")
-                self.send_json({"ok": True, "message": "Deployment cancellation requested"})
-            else:
-                self.send_json({"ok": False, "message": "No deployment currently running"}, 400)
-            return
-
-        if url_path == "/api/deploy":
-            valid, err_msg = validate_deployment_config(payload)
-            if not valid:
-                self.send_json({"ok": False, "message": err_msg}, 400)
-                return
-
-            with DEPLOY_LOCK:
-                if is_deploying:
-                    self.send_json({"ok": False, "message": "Deployment already in progress"}, 400)
-                    return
-
-                cancel_requested = False
-                active_logs.clear()
-                deploy_result = {}
-                is_deploying = True
-                deploy_status = "running"
-                LOG_CONDITION.notify_all()
-
-            save_backup_config(payload)
-
-            def start_deploy_bg(cfg):
-                global is_deploying, deploy_status, deploy_result, cancel_requested
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    success, res_data = loop.run_until_complete(run_deployment(cfg, log_event, cancel_check=is_cancel_requested))
-                    with LOG_CONDITION:
-                        if cancel_requested:
-                            deploy_status = "cancelled"
-                            deploy_result = {}
-                        else:
-                            deploy_status = "completed" if success else "failed"
-                            deploy_result = res_data if success else {}
-                except Exception as e:
-                    log_event(f"Unhandled deploy exception: {str(e)}", "error")
-                    with LOG_CONDITION:
-                        deploy_status = "failed"
-                finally:
-                    with LOG_CONDITION:
-                        is_deploying = False
-                        LOG_CONDITION.notify_all()
-                    loop.close()
-
-            t = threading.Thread(target=start_deploy_bg, args=(payload,), daemon=True)
-            t.start()
-
-            self.send_json({"ok": True, "message": "Deployment started"})
-            return
-
-        if url_path == "/api/update_sources":
-            with DEPLOY_LOCK:
-                if is_deploying:
-                    self.send_json({"ok": False, "message": "Нельзя обновлять исходники во время развертывания"}, 400)
-                    return
-
-            self.send_json({"ok": True, "message": "Запуск обновления исходников..."})
-
-            server_ref = self.server
-
-            def run_update_bg():
-                time.sleep(0.3)
-                try:
-                    server_ref.shutdown()
-                    server_ref.server_close()
-                except Exception:
-                    pass
-                time.sleep(0.2)
-                try:
-                    script_path = cli_script_path("update_sources")
-                    if script_path:
-                        launch_script(script_path)
-                except Exception as e:
-                    print(f"[ERROR] Failed to launch update script: {e}", file=sys.stderr)
-                os._exit(0)
-
-            t = threading.Thread(target=run_update_bg, daemon=False)
-            t.start()
-            return
-
-        if url_path == "/api/restart":
-            with DEPLOY_LOCK:
-                if is_deploying:
-                    self.send_json({"ok": False, "message": "Нельзя перезапустить сервер во время развертывания"}, 400)
-                    return
-
-            self.send_json({"ok": True, "message": "Перезапуск сервера..."})
-
-            server_ref = self.server
-
-            def run_restart_bg():
-                time.sleep(0.3)
-                try:
-                    server_ref.shutdown()
-                    server_ref.server_close()
-                except Exception:
-                    pass
-                time.sleep(0.2)
-                try:
-                    script_path = cli_script_path("start_3x_ui_deployment_manager")
-                    if script_path:
-                        launch_script(script_path)
-                    else:
-                        main_py_path = os.path.join(APP_DIR, "main.py")
-                        if sys.platform == "win32":
-                            flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-                            subprocess.Popen([sys.executable, main_py_path], cwd=APP_DIR, creationflags=flags)
-                        else:
-                            subprocess.Popen([sys.executable, main_py_path], cwd=APP_DIR, start_new_session=True)
-                except Exception as e:
-                    print(f"[ERROR] Failed to restart server: {e}", file=sys.stderr)
-                os._exit(0)
-
-            t = threading.Thread(target=run_restart_bg, daemon=False)
-            t.start()
-            return
-
-        if url_path == "/api/shutdown":
-            with DEPLOY_LOCK:
-                if is_deploying:
-                    self.send_json({"ok": False, "message": "Нельзя выключить сервер во время развертывания"}, 400)
-                    return
-
-            self.send_json({"ok": True, "message": "Выключение сервера..."})
-
-            server_ref = self.server
-
-            def run_shutdown_bg():
-                time.sleep(0.3)
-                try:
-                    server_ref.shutdown()
-                    server_ref.server_close()
-                except Exception:
-                    pass
-                time.sleep(0.2)
-                os._exit(0)
-
-            t = threading.Thread(target=run_shutdown_bg, daemon=False)
-            t.start()
-            return
-
-        self.send_json({"error": "Endpoint not found"}, 404)
+        import routing
+        routing.handle_post(self)
 
     def do_DELETE(self):
-        url_path = urllib.parse.urlparse(self.path).path
-        if url_path == "/api/servers/reset":
-            try:
-                if os.path.exists(SERVERS_FILE):
-                    os.remove(SERVERS_FILE)
-                self.send_json({"ok": True})
-            except Exception as e:
-                self.send_json({"error": str(e)}, 500)
-            return
-
-        self.send_json({"error": "Endpoint not found"}, 404)
+        import routing
+        routing.handle_delete(self)
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):

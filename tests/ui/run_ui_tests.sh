@@ -55,10 +55,27 @@ ensure_environment() {
     fi
 }
 
+for arg in "$@"; do
+    if [[ "$arg" == "--default-workers" ]]; then
+        exec "$PYTHON_BIN" "$UI_DIR/run_ui_parallel.py" --default-workers
+    fi
+done
+
 banner
 ensure_environment
 
-TARGET="${1:-all}"
+TARGET=""
+WORKER_ARGS=()
+
+for arg in "$@"; do
+    if [[ "$arg" == --ui-workers=* || "$arg" == --workers=* ]]; then
+        WORKER_ARGS+=("$arg")
+    elif [[ -z "$TARGET" ]]; then
+        TARGET="$arg"
+    fi
+done
+
+[ -z "$TARGET" ] && TARGET="all"
 declare -a TESTS_TO_RUN=()
 
 case "$TARGET" in
@@ -137,16 +154,22 @@ case "$TARGET" in
             "$UI_DIR/test_ui_sub_server_clients.py"
         )
         ;;
+    result_cards|cards|test_ui_result_cards.py)
+        TESTS_TO_RUN=("$UI_DIR/test_ui_result_cards.py")
+        ;;
+    topology|diagrams|topology_diagrams|test_ui_topology_diagrams.py)
+        TESTS_TO_RUN=("$UI_DIR/test_ui_topology_diagrams.py")
+        ;;
     sequential|seq)
         TESTS_TO_RUN=("$UI_DIR"/test_*.py)
         ;;
     all|--all|ui|ui_all|parallel|--parallel|-p)
-        "$PYTHON_BIN" "$UI_DIR/run_ui_parallel.py"
+        "$PYTHON_BIN" "$UI_DIR/run_ui_parallel.py" "${WORKER_ARGS[@]}"
         exit $?
         ;;
     *)
         echo -e "${RED}[ERROR] Unknown UI test target: '$TARGET'${NC}"
-        echo "Valid targets: all, servers, wizard, sub, pin, lock, autofill, reset, modes, stepper, session, validation, sse, stop, versions, sub_auth, sub_clients"
+        echo "Valid targets: all, servers, wizard, sub, pin, lock, autofill, reset, modes, stepper, session, validation, sse, stop, notifications, versions, freedom_client, panel_url, reorder, result_cards, topology, sub_auth, sub_clients, sequential"
         exit 1
         ;;
 esac

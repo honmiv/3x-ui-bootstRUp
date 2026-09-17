@@ -45,4 +45,16 @@ def _make_dind_override(proxy_container: str, freedom_container: str):
 
 def install_dind_overrides(proxy_container: str, freedom_container: str):
     """Monkey-patch ssh_deployer.resolve_sub_server_urls for DinD test networking."""
-    ssh_deployer.resolve_sub_server_urls = _make_dind_override(proxy_container, freedom_container)
+    override = _make_dind_override(proxy_container, freedom_container)
+    ssh_deployer.resolve_sub_server_urls = override
+    try:
+        import deployers.panel_deployer
+        deployers.panel_deployer.resolve_sub_server_urls = override
+    except ImportError:
+        pass
+    try:
+        import deployers.sub_deployer
+        deployers.sub_deployer.resolve_sub_server_urls = override
+    except ImportError:
+        pass
+

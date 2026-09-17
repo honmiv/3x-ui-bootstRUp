@@ -4,12 +4,13 @@
 # Runs deployment tests across isolated Docker VPS containers.
 #
 # Usage:
-#   ./tests/deploy/run_deploy_tests.sh              # Run all 5 deployment tests
+#   ./tests/deploy/run_deploy_tests.sh              # Run all deployment tests
 #   ./tests/deploy/run_deploy_tests.sh freedom      # Test Freedom Node deployment only
 #   ./tests/deploy/run_deploy_tests.sh proxy        # Test Proxy Node deployment only
 #   ./tests/deploy/run_deploy_tests.sh sub          # Test Sub-Server deployment only
 #   ./tests/deploy/run_deploy_tests.sh cascade      # Test 2-Stage Cascade (Freedom + Proxy)
 #   ./tests/deploy/run_deploy_tests.sh cascade_sub  # Test 3-Stage Cascade (Freedom + Proxy + Sub)
+#   ./tests/deploy/run_deploy_tests.sh freedom_sub  # Test 2-Stage Freedom + Sub
 #   ./tests/deploy/run_deploy_tests.sh --down       # Tear down and clean up test containers
 # ==============================================================================
 
@@ -67,6 +68,12 @@ cleanup_containers() {
     echo -e "${GREEN}[OK] Test containers stopped and removed.${NC}"
 }
 
+for arg in "$@"; do
+    if [[ "$arg" == "--default-workers" ]]; then
+        exec "$PYTHON_BIN" "$DEPLOY_DIR/run_deploy_parallel.py" --default-workers
+    fi
+done
+
 if [[ "${1:-}" == "--down" || "${1:-}" == "down" || "${1:-}" == "clean" || "${1:-}" == "--clean" ]]; then
     cleanup_containers
     exit 0
@@ -76,7 +83,18 @@ banner
 check_docker
 
 # Determine which test(s) to run
-TARGET="${1:-all}"
+TARGET=""
+WORKER_ARGS=()
+
+for arg in "$@"; do
+    if [[ "$arg" == --deploy-workers=* || "$arg" == --workers=* ]]; then
+        WORKER_ARGS+=("$arg")
+    elif [[ -z "$TARGET" ]]; then
+        TARGET="$arg"
+    fi
+done
+
+[ -z "$TARGET" ] && TARGET="all"
 declare -a TESTS_TO_RUN=()
 
 case "$TARGET" in
@@ -102,12 +120,12 @@ case "$TARGET" in
         TESTS_TO_RUN=("$DEPLOY_DIR"/test_*.py)
         ;;
     all|--all|deploy|deploy_all|parallel|--parallel|-p)
-        "$PYTHON_BIN" "$DEPLOY_DIR/run_deploy_parallel.py"
+        "$PYTHON_BIN" "$DEPLOY_DIR/run_deploy_parallel.py" "${WORKER_ARGS[@]}"
         exit $?
         ;;
     *)
         echo -e "${RED}[ERROR] Unknown test target: '$TARGET'${NC}"
-        echo "Valid options: all, freedom, proxy, sub, cascade, cascade_sub, --down"
+        echo "Valid options: all, freedom, proxy, sub, cascade, cascade_sub, freedom_sub, sequential, --down"
         exit 1
         ;;
 esac

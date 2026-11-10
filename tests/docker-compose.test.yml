@@ -11,8 +11,6 @@ services:
         aliases:
           - echo.test
           - ru.test
-    ports:
-      - "80:80"
     volumes:
       - ./vpn/echo_server.py:/app/echo_server.py:ro
     working_dir: /app

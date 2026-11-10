@@ -1432,6 +1432,45 @@ const btnUpdateSources = document.getElementById('btnUpdateSources');
 
     let latestUpdateInfo = null;
 
+    const getNotificationHash = (str) => {
+        const text = (str || '').trim();
+        if (!text) return '';
+        if (typeof md5 === 'function') {
+            try { return md5(text).slice(0, 16); } catch (_) {}
+        }
+        let hash = 5381;
+        for (let i = 0; i < text.length; i++) {
+            hash = ((hash << 5) + hash) + text.charCodeAt(i);
+        }
+        return (hash >>> 0).toString(16);
+    };
+
+    const isNotificationClosed = (hash) => {
+        if (!hash) return false;
+        const cookieName = `notif_${hash}`;
+        const decoded = decodeURIComponent(document.cookie || '');
+        const cookies = decoded.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const c = cookies[i].trim();
+            if (c.indexOf(cookieName + '=') === 0) {
+                const val = c.substring(cookieName.length + 1);
+                if (val === 'closed' || val === '1') return true;
+            }
+        }
+        try {
+            if (localStorage.getItem(`notif_${hash}`) === 'closed') return true;
+        } catch (_) {}
+        return false;
+    };
+
+    const closeNotificationForever = (hash) => {
+        if (!hash) return;
+        const maxAge = 31536000; // 1 year in seconds
+        document.cookie = `notif_${hash}=closed; max-age=${maxAge}; path=/; SameSite=Lax`;
+        try {
+            localStorage.setItem(`notif_${hash}`, 'closed');
+        } catch (_) {}
+    };
 
     const setupBannerActionDelegation = (containerId) => {
         const container = document.getElementById(containerId);
@@ -1442,6 +1481,12 @@ const btnUpdateSources = document.getElementById('btnUpdateSources');
             const action = btn.getAttribute('data-action');
             if (action === 'dismiss') {
                 container.classList.add('hidden');
+                if (containerId === 'announcementBanner') {
+                    const hash = container.getAttribute('data-notif-hash');
+                    if (hash) {
+                        closeNotificationForever(hash);
+                    }
+                }
             } else if (action === 'update') {
                 const btnUpdateSources = document.getElementById('btnUpdateSources');
                 if (btnUpdateSources) btnUpdateSources.click();
@@ -1488,9 +1533,12 @@ const btnUpdateSources = document.getElementById('btnUpdateSources');
         }
 
         // 2. Developer Announcement Banner: shown whenever notification.html contains content
+        // and has not been dismissed by the user in cookies
         if (annBanner) {
-            if (notifHtml) {
+            const notifHash = notifHtml ? getNotificationHash(notifHtml) : '';
+            if (notifHtml && !isNotificationClosed(notifHash)) {
                 annBanner.innerHTML = notifHtml;
+                annBanner.setAttribute('data-notif-hash', notifHash);
                 annBanner.classList.remove('hidden');
             } else {
                 annBanner.classList.add('hidden');

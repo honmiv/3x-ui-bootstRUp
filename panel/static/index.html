@@ -590,45 +590,43 @@
 
                     <!-- Reusable SSH connection fields (Phase F2): {{P}} = field prefix, {{A}} = auth base -->
                     <template id="tpl-ssh-fields">
-                        <div class="form-grid">
-                            <div class="form-group full-width domain-port-row">
-                                <div class="form-group domain-field">
-                                    <label for="{{P}}_host">{{HOST_LABEL}}</label>
-                                    <input type="text" id="{{P}}_host" placeholder="{{HOST_PLACEHOLDER}}"
-                                        class="ssh-input">
-                                </div>
-                                <div class="form-group port-field">
-                                    <label for="{{P}}_port">SSH Порт</label>
-                                    <input type="number" id="{{P}}_port" value="22" class="ssh-input">
-                                </div>
+                        <div class="form-group full-width domain-port-row">
+                            <div class="form-group domain-field">
+                                <label for="{{P}}_host">{{HOST_LABEL}}</label>
+                                <input type="text" id="{{P}}_host" placeholder="{{HOST_PLACEHOLDER}}"
+                                    class="ssh-input">
                             </div>
-                            <div class="form-group full-width">
-                                <label for="{{P}}_user">SSH Пользователь</label>
-                                <input type="text" id="{{P}}_user" value="root" placeholder="root" class="ssh-input">
+                            <div class="form-group port-field">
+                                <label for="{{P}}_port">SSH Порт</label>
+                                <input type="number" id="{{P}}_port" value="22" class="ssh-input">
                             </div>
-                            <div class="form-group full-width">
-                                <label>SSH Авторизация</label>
-                                <div class="auth-input-group">
-                                    <div class="auth-field-wrapper" id="{{A}}PassGroup">
-                                        <div class="input-password-wrapper">
-                                            <input type="password" id="{{P}}_password" placeholder="password"
-                                                class="ssh-input">
-                                            <button type="button" class="btn-toggle-eye"
-                                                data-target="{{P}}_password"
-                                                title="Показать/Скрыть пароль">👁️</button>
-                                        </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="{{P}}_user">SSH Пользователь</label>
+                            <input type="text" id="{{P}}_user" value="root" placeholder="root" class="ssh-input">
+                        </div>
+                        <div class="form-group full-width">
+                            <label>SSH Авторизация</label>
+                            <div class="auth-input-group">
+                                <div class="auth-field-wrapper" id="{{A}}PassGroup">
+                                    <div class="input-password-wrapper">
+                                        <input type="password" id="{{P}}_password" placeholder="password"
+                                            class="ssh-input">
+                                        <button type="button" class="btn-toggle-eye"
+                                            data-target="{{P}}_password"
+                                            title="Показать/Скрыть пароль">👁️</button>
                                     </div>
-                                    <div class="auth-field-wrapper hidden" id="{{A}}KeyGroup">
-                                        <textarea id="{{P}}_key" rows="1"
-                                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                                            class="ssh-input ssh-key-input"></textarea>
-                                    </div>
-                                    <select id="{{A}}_auth_type" class="ssh-input auth-type-select"
-                                        data-pass="{{A}}PassGroup" data-key="{{A}}KeyGroup">
-                                        <option value="password" selected>Пароль</option>
-                                        <option value="key">SSH Ключ</option>
-                                    </select>
                                 </div>
+                                <div class="auth-field-wrapper hidden" id="{{A}}KeyGroup">
+                                    <textarea id="{{P}}_key" rows="1"
+                                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                                        class="ssh-input ssh-key-input"></textarea>
+                                </div>
+                                <select id="{{A}}_auth_type" class="ssh-input auth-type-select"
+                                    data-pass="{{A}}PassGroup" data-key="{{A}}KeyGroup">
+                                    <option value="password" selected>Пароль</option>
+                                    <option value="key">SSH Ключ</option>
+                                </select>
                             </div>
                         </div>
                     </template>

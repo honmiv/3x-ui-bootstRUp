@@ -140,6 +140,83 @@ def ensure_caddy_l4_cached():
         subprocess.run(["docker", "save", "caddy:2", "-o", caddy2_tar], capture_output=True)
 
 
+def _container_on_testnet(container_name: str) -> bool:
+    res = subprocess.run(
+        ["docker", "inspect", "-f", "{{json .NetworkSettings.Networks}}", container_name],
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0:
+        return False
+    return '"testnet"' in res.stdout
+
+
+def ensure_echo_server_running(container_name: str = "echo-server"):
+    """
+    Ensure the shared echo-server is up AND attached to the testnet network.
+
+    A stale container may still be 'running' after the testnet network was
+    recreated, leaving it detached and making echo.test unresolvable from the
+    other containers (curl then fails with exit 52 — empty reply).
+    """
+    res = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", container_name],
+        capture_output=True,
+        text=True,
+    )
+    running = res.returncode == 0 and res.stdout.strip() == "true"
+
+    if running and _container_on_testnet(container_name):
+        log(f"Echo server {container_name} already running.", "success")
+        return True
+
+    if running:
+        log(f"Echo server {container_name} is detached from testnet — recreating...", "info")
+    else:
+        log(f"Starting echo server {container_name}...", "info")
+
+    cmd = [
+        "docker",
+        "compose",
+        "-f",
+        COMPOSE_FILE,
+        "up",
+        "-d",
+        "--force-recreate",
+        container_name,
+    ]
+    lock_file_path = "/tmp/3xui_test_compose_up.lock"
+    with open(lock_file_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            res = subprocess.run(
+                cmd,
+                cwd=os.path.dirname(COMPOSE_FILE),
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+    if res.returncode != 0:
+        log(f"Failed to start echo server: {res.stderr}", "error")
+        return False
+
+    for _ in range(15):
+        res = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", container_name],
+            capture_output=True,
+            text=True,
+        )
+        if res.stdout.strip() == "true" and _container_on_testnet(container_name):
+            log("Echo server started.", "success")
+            return True
+        time.sleep(1)
+
+    log("Echo server failed to start or is not attached to testnet!", "error")
+    return False
+
+
 def ensure_test_containers_running(*service_names: str):
     """
     Spins up only the requested test container services (e.g. 'vps-freedom', 'vps-proxy')

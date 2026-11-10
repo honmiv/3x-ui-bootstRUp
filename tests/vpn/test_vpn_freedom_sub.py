@@ -7,9 +7,7 @@ starts an XRay test client, and verifies end-to-end VPN tunneling to echo-server
 
 import asyncio
 import os
-import subprocess
 import sys
-import time
 import hashlib
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -21,6 +19,7 @@ from tests.helpers import (
     prepare_test_repo,
     decode_vless_subscription,
     ensure_test_containers_running,
+    ensure_echo_server_running,
     fetch_subscription_via_host_tls,
     get_container_ip,
     generate_xray_client_config,
@@ -43,38 +42,9 @@ SECRET_SUB_PATH = "subs"
 
 XRAY_CLIENT_CONTAINER = "vps-test-client-freedomsub"
 XRAY_SOCKS_PORT = 10808
-ECHO_SERVER_CONTAINER = "echo-server"
 ECHO_TEST_HOST = "echo.test"
 ECHO_TEST_URL = f"http://{ECHO_TEST_HOST}/ip"
 
-
-def ensure_echo_server_running():
-    """Ensure the shared echo-server Docker Compose service is up."""
-    res = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Running}}", ECHO_SERVER_CONTAINER],
-        capture_output=True, text=True,
-    )
-    if res.stdout.strip() == "true":
-        log(f"Echo server {ECHO_SERVER_CONTAINER} already running.", "success")
-        return
-
-    log(f"Starting echo server {ECHO_SERVER_CONTAINER}...", "info")
-    compose_file = os.path.join(REPO_ROOT, "tests", "docker-compose.test.yml")
-    subprocess.run(
-        ["docker", "compose", "-f", compose_file, "up", "-d", ECHO_SERVER_CONTAINER],
-        cwd=os.path.join(REPO_ROOT, "tests"),
-        capture_output=True, text=True,
-    )
-    for _ in range(15):
-        res = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", ECHO_SERVER_CONTAINER],
-            capture_output=True, text=True,
-        )
-        if res.stdout.strip() == "true":
-            log(f"Echo server started.", "success")
-            return
-        time.sleep(1)
-    log(f"Echo server failed to start!", "error")
 
 
 async def test_freedom_sub_vpn() -> bool:

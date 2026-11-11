@@ -13,6 +13,15 @@ $ArchiveUrl = "https://github.com/$Repo/archive/refs/heads/$Branch.zip"
 $TmpDir = Join-Path $env:TEMP ("3x-ui-update-" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $TmpDir | Out-Null
 
+function Stop-ManagerProcesses {
+    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.CommandLine -and $_.CommandLine -like '*main.py*'
+    })
+    foreach ($p in $procs) {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 try {
     if ((Test-Path (Join-Path $TargetDir ".git")) -and (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Host "[..] Detected Git repository. Updating via git fetch & reset..."
@@ -36,10 +45,12 @@ try {
             exit 1
         }
 
-        Write-Host "[..] Cleaning working directory at $TargetDir..."
-        Write-Host "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', and '.git' repository."
+        Stop-ManagerProcesses
 
-        $preserve = @('backups_panel', 'backups_sub_server', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', 'panel')
+        Write-Host "[..] Cleaning working directory at $TargetDir..."
+        Write-Host "[..] Preserving 'backups_panel'/'backups_sub_server' folders, 'setup_backup.yml' file, 'servers.json', '.python_env', and '.git' repository."
+
+        $preserve = @('backups_panel', 'backups_sub_server', 'backup', 'setup_backup.yml', 'setup_backup.yaml', 'servers.json', '.git', '.python_env', 'panel')
         Get-ChildItem -LiteralPath $TargetDir -Force | ForEach-Object {
             if ($preserve -contains $_.Name) {
                 Write-Host "[KEEP] $($_.Name)"
@@ -56,12 +67,7 @@ try {
 
     Write-Host "[OK] Project files updated successfully."
 
-    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.CommandLine -and $_.CommandLine -like '*main.py*'
-    })
-    foreach ($p in $procs) {
-        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ManagerProcesses
 
     $startScript = Join-Path $TargetDir "start_3x_ui_deployment_manager.ps1"
     if (Test-Path -LiteralPath $startScript) {

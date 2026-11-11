@@ -23,6 +23,7 @@ if exist "%ENV_DIR%\python.exe" (
             powershell -Command "Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%~dp0python.tar.gz'"
             powershell -Command "tar -xzf '%~dp0python.tar.gz' -C '%~dp0'"
             if exist "%~dp0python" (
+                if exist "%ENV_DIR%" rd /s /q "%ENV_DIR%"
                 move "%~dp0python" "%ENV_DIR%" >nul
             )
             del "%~dp0python.tar.gz" >nul 2>nul

@@ -93,10 +93,10 @@ else
     echo -e "       sudo usermod -aG docker \$USER && sudo service docker start"
 fi
 
-# 3. Install Python dependencies (Playwright)
-echo -e "${CYAN}[3/6] Checking/Installing Python dependencies (playwright)...${NC}"
-"$PYTHON_BIN" -m pip install playwright --break-system-packages 2>/dev/null || \
-"$PYTHON_BIN" -m pip install playwright || {
+# 3. Install Python dependencies (Playwright, PyYAML)
+echo -e "${CYAN}[3/6] Checking/Installing Python dependencies (playwright, pyyaml)...${NC}"
+"$PYTHON_BIN" -m pip install playwright pyyaml --break-system-packages 2>/dev/null || \
+"$PYTHON_BIN" -m pip install playwright pyyaml || {
     echo -e "${RED}[ERROR] Failed to install python dependencies via pip.${NC}"
     exit 1
 }
@@ -104,11 +104,17 @@ echo -e "${GREEN}[OK] Python packages installed.${NC}"
 
 # 4. Install Playwright browser binaries & system dependencies
 echo -e "${CYAN}[4/6] Installing Chromium browser and system dependencies for Playwright...${NC}"
+if command -v sudo >/dev/null 2>&1 && command -v dpkg >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    if ! dpkg -s libatomic1 >/dev/null 2>&1; then
+        echo -e "${YELLOW}[..] Installing libatomic1 required by Playwright driver...${NC}"
+        sudo apt-get update -y && sudo apt-get install -y libatomic1 || true
+    fi
+fi
 "$PYTHON_BIN" -m playwright install chromium
 if command -v sudo >/dev/null 2>&1; then
     echo -e "${YELLOW}[..] Installing OS-level shared libraries (libnspr4, nss, etc.)...${NC}"
     sudo "$PYTHON_BIN" -m playwright install-deps chromium 2>/dev/null || \
-    (sudo apt-get update -y && (sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 2>/dev/null || sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 2>/dev/null || true)) || true
+    (sudo apt-get update -y && (sudo apt-get install -y libatomic1 libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 2>/dev/null || sudo apt-get install -y libatomic1 libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 2>/dev/null || true)) || true
 fi
 echo -e "${GREEN}[OK] Chromium and system libraries installed.${NC}"
 

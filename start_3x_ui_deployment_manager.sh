@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_DIR="./.python_env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_DIR="$SCRIPT_DIR/.python_env"
 PORTABLE_PYTHON_RELEASE="20240224"
 PYTHON_VERSION="3.12.2"
 
@@ -54,4 +55,5 @@ fi
 
 echo "[OK] Starting local Web UI application..."
 export XUI_CLI_EXT=".sh"
+cd "$SCRIPT_DIR"
 exec "$PYTHON_BIN" main.py

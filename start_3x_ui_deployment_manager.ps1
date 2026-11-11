@@ -39,6 +39,9 @@ if (Test-Path (Join-Path $EnvDir "python.exe")) {
         tar -xzf $TarGz -C $ScriptDir
         $ExtractedPython = Join-Path $ScriptDir "python"
         if (Test-Path $ExtractedPython) {
+            if (Test-Path $EnvDir) {
+                Remove-Item -LiteralPath $EnvDir -Recurse -Force
+            }
             Move-Item -Path $ExtractedPython -Destination $EnvDir -Force
         }
         Remove-Item -Path $TarGz -ErrorAction SilentlyContinue

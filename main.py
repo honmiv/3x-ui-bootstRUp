@@ -95,6 +95,8 @@ def _is_code_file(rel: str) -> bool:
     parts = rel.split("/")
     if any(p in EXCLUDED_DIRS for p in parts):
         return False
+    if parts[-1] in (".DS_Store", "Thumbs.db", "desktop.ini"):
+        return False
     if rel in ("servers.json", "setup_backup.yml") or rel.endswith("happ-routing.json") or rel.endswith(".pyc"):
         return False
     return True
@@ -104,15 +106,20 @@ def _is_binary(data: bytes) -> bool:
     return b"\0" in data[:2048]
 
 
-def _local_code_files() -> Dict[str, bytes]:
+def _normalize_text_bytes(data: bytes) -> bytes:
+    return data.replace(b"\r\n", b"\n")
+
+
+def _local_code_files(base_dir: Optional[str] = None) -> Dict[str, bytes]:
+    root_dir = base_dir if base_dir is not None else APP_DIR
     result: Dict[str, bytes] = {}
-    for dirpath, dirnames, filenames in os.walk(APP_DIR):
+    for dirpath, dirnames, filenames in os.walk(root_dir):
         dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
         for fn in filenames:
             full = os.path.join(dirpath, fn)
             if os.path.islink(full):
                 continue  # GitHub tar.gz skips symlinks (isfile() == False for them)
-            rel = os.path.relpath(full, APP_DIR).replace(os.sep, "/")
+            rel = os.path.relpath(full, root_dir).replace(os.sep, "/")
             if not _is_code_file(rel):
                 continue
             try:
@@ -126,24 +133,25 @@ def _local_code_files() -> Dict[str, bytes]:
     return result
 
 
-def _remote_code_files() -> Dict[str, bytes]:
+def _parse_remote_tar(data: bytes) -> Tuple[Dict[str, bytes], Dict[str, str]]:
+    """Parse GitHub tar.gz bytes into regular code files and symlink targets."""
     import io
     import tarfile
 
-    req = urllib.request.Request(UPDATE_CHECK_URL, headers={"User-Agent": XUI_UA})
-    with urllib.request.urlopen(req, timeout=8) as resp:
-        data = resp.read()
-
-    result: Dict[str, bytes] = {}
+    files: Dict[str, bytes] = {}
+    symlinks: Dict[str, str] = {}
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for member in tf.getmembers():
-            if not member.isfile():
-                continue
             parts = member.name.split("/")
             if len(parts) < 2:
                 continue
             rel = "/".join(parts[1:])
-            if not _is_code_file(rel):
+            if not rel or not _is_code_file(rel):
+                continue
+            if member.issym():
+                symlinks[rel] = member.linkname
+                continue
+            if not member.isfile():
                 continue
             fobj = tf.extractfile(member)
             if fobj is None:
@@ -151,8 +159,43 @@ def _remote_code_files() -> Dict[str, bytes]:
             raw = fobj.read()
             if _is_binary(raw):
                 continue
-            result[rel] = raw
-    return result
+            files[rel] = raw
+    return files, symlinks
+
+
+def _extract_remote_archive() -> Tuple[Dict[str, bytes], Dict[str, str]]:
+    req = urllib.request.Request(UPDATE_CHECK_URL, headers={"User-Agent": XUI_UA})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        data = resp.read()
+    return _parse_remote_tar(data)
+
+
+def _remote_code_files() -> Dict[str, bytes]:
+    files, _ = _extract_remote_archive()
+    return files
+
+
+def _is_materialized_symlink(local_files: Dict[str, bytes], rel: str, linkname: str) -> bool:
+    """Return True if a local file is a Windows/ZIP-extracted stub or copy of an upstream symlink."""
+    import posixpath
+
+    if not linkname:
+        return False
+    raw = local_files.get(rel)
+    if raw is None:
+        return False
+    norm_raw = _normalize_text_bytes(raw).strip()
+    norm_link = linkname.strip().replace("\\", "/").encode("utf-8", "replace")
+    if norm_raw == norm_link:
+        return True
+    link_posix = linkname.replace("\\", "/")
+    if not posixpath.isabs(link_posix):
+        target_rel = posixpath.normpath(posixpath.join(posixpath.dirname(rel), link_posix))
+        if not target_rel.startswith(".."):
+            target_raw = local_files.get(target_rel)
+            if target_raw is not None and _normalize_text_bytes(raw) == _normalize_text_bytes(target_raw):
+                return True
+    return False
 
 
 def _fingerprint(files: Dict[str, bytes]) -> str:
@@ -162,7 +205,7 @@ def _fingerprint(files: Dict[str, bytes]) -> str:
     for rel in sorted(files):
         h.update(rel.encode("utf-8", "replace"))
         h.update(b"\0")
-        h.update(files[rel])
+        h.update(_normalize_text_bytes(files[rel]))
     return h.hexdigest()
 
 
@@ -218,7 +261,10 @@ def check_for_update(force: bool = False) -> Dict[str, Any]:
 
     try:
         local = _local_code_files()
-        remote = _remote_code_files()
+        remote, remote_symlinks = _extract_remote_archive()
+        for rel, linkname in remote_symlinks.items():
+            if _is_materialized_symlink(local, rel, linkname):
+                local.pop(rel, None)
         local_fp = _fingerprint(local)
         remote_fp = _fingerprint(remote)
         local_changelog = local.get("change.log", b"")
